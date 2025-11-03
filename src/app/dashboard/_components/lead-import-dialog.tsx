@@ -74,8 +74,6 @@ export function LeadImportDialog({ isOpen, onClose }: LeadImportDialogProps) {
         assignedCollaboratorId: null, // Unassigned initially
         aiProfile: result.profile,
         leadData: leadData,
-        score: result.score,
-        tier: result.tier,
       };
 
       const leadsColRef = collection(firestore, 'leads');
@@ -83,7 +81,7 @@ export function LeadImportDialog({ isOpen, onClose }: LeadImportDialogProps) {
 
       toast({
         title: 'Lead importé avec succès!',
-        description: `Le lead "${fileName}" a été analysé, noté ${result.score}/100 et ajouté.`,
+        description: `Le lead "${fileName}" a été analysé et ajouté.`,
       });
       handleClose();
     } catch (error) {
@@ -111,7 +109,7 @@ export function LeadImportDialog({ isOpen, onClose }: LeadImportDialogProps) {
           <DialogTitle>Importer un Lead</DialogTitle>
           <DialogDescription>
             Téléchargez un fichier .txt ou .csv contenant les informations du
-            lead. L'IA se chargera de générer un profil complet, un score et une catégorie.
+            lead. L'IA se chargera de générer un profil complet.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

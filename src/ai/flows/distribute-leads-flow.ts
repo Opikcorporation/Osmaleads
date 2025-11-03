@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview An AI agent that intelligently distributes unassigned leads based on scoring and group specialization.
+ * @fileOverview An AI agent that intelligently distributes unassigned leads.
  *
  * - distributeLeads - The main function to trigger the lead distribution.
  * - DistributeLeadsInput - The input type (currently empty).
@@ -45,46 +45,34 @@ const distributeLeadsFlow = ai.defineFlow(
     const unassignedLeadsSnap = await unassignedLeadsQuery.get();
     const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
     
-    // Sort leads by score, descending (Haut de gamme first)
-    unassignedLeads.sort((a, b) => (b.score || 0) - (a.score || 0));
-
     if (unassignedLeads.length === 0) {
       return { distributedCount: 0 };
     }
     
     const groupsSnap = await firestore.collection('groups').get();
     const groups = groupsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Group[];
+
+    const collaboratorsSnap = await firestore.collection('collaborators').get();
+    const collaborators = collaboratorsSnap.docs.map(c => ({...c.data(), id: c.id})) as Collaborator[];
     
     // We'll track assignments to help with round-robin within groups
     const assignmentsCount: { [collaboratorId: string]: number } = {};
+    collaborators.forEach(c => assignmentsCount[c.id] = 0);
 
-    // 2. Process each lead, starting from the highest score
+
+    // 2. Process each lead
     const assignments: { leadId: string, collaboratorId: string }[] = [];
 
     for (const lead of unassignedLeads) {
-      // Find groups eligible for this lead's tier
-      const eligibleGroups = groups.filter(g => 
-        g.collaboratorIds && g.collaboratorIds.length > 0 &&
-        g.acceptedTiers && g.acceptedTiers.includes(lead.tier)
-      );
-
-      if (eligibleGroups.length === 0) {
-        continue; // No group can handle this lead, skip for now.
-      }
-
-      // Simple strategy: find the collaborator with the fewest assignments among all eligible groups.
-      // This can be enhanced with AI suggestions later.
-      let bestCollaboratorId: string | null = null;
-      let minLeads = Infinity;
-
-      const allEligibleCollaborators = eligibleGroups.flatMap(g => g.collaboratorIds);
+      // Find eligible collaborators from all groups
+      const allEligibleCollaborators = groups.flatMap(g => g.collaboratorIds || []);
 
       if (allEligibleCollaborators.length === 0) {
-        continue;
+        continue; // No one to assign to, skip.
       }
       
-      // Basic round-robin among eligible collaborators
-      bestCollaboratorId = allEligibleCollaborators
+      // Basic round-robin: find the collaborator with the fewest assignments
+      const bestCollaboratorId = allEligibleCollaborators
         .map(id => ({ id, count: assignmentsCount[id] || 0 }))
         .sort((a, b) => a.count - b.count)[0].id;
 

@@ -20,14 +20,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, FirestoreNote } from '@/lib/types';
-import { Bot, CalendarIcon, Star } from 'lucide-react';
+import { Bot, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 
 export default function LeadDetailPage({ params }: { params: { id: string } }) {
   const firestore = useFirestore();
@@ -100,15 +99,6 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                 <div>
                     <CardTitle className="text-2xl">{lead.name}</CardTitle>
                     <CardDescription>{lead.company} - {lead.username}</CardDescription>
-                     <div className="mt-4 flex items-center gap-4">
-                        {lead.tier && <Badge variant={lead.tier === 'Haut de gamme' ? 'default' : lead.tier === 'Moyenne gamme' ? 'secondary' : 'outline'}>{lead.tier}</Badge>}
-                        {lead.score && (
-                            <div className="flex items-center gap-1 text-sm font-semibold text-amber-500">
-                                <Star className="h-4 w-4 fill-current" />
-                                {lead.score} / 100
-                            </div>
-                        )}
-                    </div>
                 </div>
                  {assignedUser && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">

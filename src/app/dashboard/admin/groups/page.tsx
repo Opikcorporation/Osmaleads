@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, Users, Trash2, Edit, CheckSquare, ShieldCheck } from "lucide-react";
+import { PlusCircle, Users, Trash2, Edit } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -18,7 +18,7 @@ import {
   deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc } from 'firebase/firestore';
-import type { Group, Collaborator, LeadTier } from '@/lib/types';
+import type { Group, Collaborator } from '@/lib/types';
 import { useState } from 'react';
 import { GroupFormDialog } from './_components/group-form-dialog';
 import {
@@ -33,7 +33,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from "@/components/ui/badge";
 
 export default function AdminGroupsPage() {
   const firestore = useFirestore();
@@ -79,7 +78,7 @@ export default function AdminGroupsPage() {
     setEditingGroup(null);
   };
 
-  const handleSaveGroup = (groupData: { name: string; collaboratorIds: string[], acceptedTiers: LeadTier[] }) => {
+  const handleSaveGroup = (groupData: { name: string; collaboratorIds: string[] }) => {
     if (editingGroup) {
       // Update existing group
       const groupRef = doc(firestore, 'groups', editingGroup.id);
@@ -152,10 +151,7 @@ export default function AdminGroupsPage() {
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
                 <div>
-                  <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
-                    <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                    Membres
-                  </h4>
+                  <h4 className="mb-2 text-sm font-semibold">Membres</h4>
                   {members.length > 0 ? (
                   <>
                       <div className="flex -space-x-2 overflow-hidden">
@@ -169,24 +165,9 @@ export default function AdminGroupsPage() {
                       </div>
                   </>
                   ) : (
-                      <p className="text-sm text-muted-foreground text-center py-2">Aucun membre.</p>
+                      <p className="text-sm text-muted-foreground">Aucun membre dans ce groupe.</p>
                   )}
                 </div>
-                 <div>
-                  <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                    Niveaux de Leads Acceptés
-                  </h4>
-                  {group.acceptedTiers && group.acceptedTiers.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {group.acceptedTiers.map(tier => (
-                        <Badge key={tier} variant="secondary">{tier}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                     <p className="text-sm text-muted-foreground text-center py-2">Tous les niveaux.</p>
-                  )}
-                 </div>
               </CardContent>
             </Card>
           )

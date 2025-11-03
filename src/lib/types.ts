@@ -18,7 +18,6 @@ export type Group = {
   id:string;
   name: string;
   collaboratorIds: string[];
-  acceptedTiers: LeadTier[]; // Nouveau champ
 };
 
 export type Note = {
@@ -51,8 +50,6 @@ export type Lead = {
   aiProfile: string; // AI generated profile
   leadData: string;
   username: string;
-  score: number; // Nouveau champ
-  tier: LeadTier; // Nouveau champ
 };
 
 export type FirestoreNote = {
