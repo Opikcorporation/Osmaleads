@@ -10,15 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  writeBatch,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import type { Lead, Collaborator, DistributionSetting, Group } from '@/lib/types';
 import { suggestRedistributionStrategy } from './suggest-redistribution-strategy';
@@ -49,22 +40,22 @@ const distributeLeadsFlow = ai.defineFlow(
     const { firestore } = getFirebaseAdmin();
     let distributedCount = 0;
 
-    // 1. Fetch all necessary data from Firestore
-    const unassignedLeadsQuery = query(collection(firestore, 'leads'), where('assignedCollaboratorId', '==', null));
-    const unassignedLeadsSnap = await getDocs(unassignedLeadsQuery);
+    // 1. Fetch all necessary data from Firestore using the Admin SDK
+    const unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '==', null);
+    const unassignedLeadsSnap = await unassignedLeadsQuery.get();
     const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
 
     if (unassignedLeads.length === 0) {
       return { distributedCount: 0 };
     }
     
-    const settingsSnap = await getDocs(collection(firestore, 'distributionSettings'));
+    const settingsSnap = await firestore.collection('distributionSettings').get();
     const settings = settingsSnap.docs.map(d => d.data()) as DistributionSetting[];
 
-    const groupsSnap = await getDocs(collection(firestore, 'groups'));
+    const groupsSnap = await firestore.collection('groups').get();
     const groups = groupsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Group[];
     
-    const collaboratorsSnap = await getDocs(collection(firestore, 'collaborators'));
+    const collaboratorsSnap = await firestore.collection('collaborators').get();
     const collaborators = collaboratorsSnap.docs.map(d => d.data()) as Collaborator[];
 
     // 2. Create a map for easy lookup
@@ -113,9 +104,9 @@ const distributeLeadsFlow = ai.defineFlow(
 
     // 4. Batch write assignments to Firestore
     if (assignments.length > 0) {
-      const batch = writeBatch(firestore);
+      const batch = firestore.batch();
       for (const { leadId, collaboratorId } of assignments) {
-        const leadRef = doc(firestore, 'leads', leadId);
+        const leadRef = firestore.collection('leads').doc(leadId);
         batch.update(leadRef, { assignedCollaboratorId: collaboratorId });
       }
       await batch.commit();
