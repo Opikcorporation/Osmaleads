@@ -14,6 +14,7 @@ import { type Collaborator } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { doc, setDoc } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardLayout({
   children,
@@ -24,6 +25,7 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isUserLoading) return;
@@ -33,13 +35,13 @@ export default function DashboardLayout({
     }
 
     const fetchCollaborator = async () => {
-      const userData = await getUserById(firestore, user.uid);
-      if (userData) {
-        setCollaborator(userData);
-      } else {
-        // User is authenticated but not in collaborators collection, let's create them!
-        console.warn("User not found in collaborators collection, creating profile...");
-        try {
+      try {
+        const userData = await getUserById(firestore, user.uid);
+        if (userData) {
+          setCollaborator(userData);
+        } else {
+          // User is authenticated but not in collaborators collection, let's create them!
+          console.warn("User not found in collaborators collection, creating profile...");
           const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
           const newCollaborator: Collaborator = {
             id: user.uid,
@@ -52,16 +54,21 @@ export default function DashboardLayout({
           
           await setDoc(doc(firestore, 'collaborators', user.uid), newCollaborator);
           setCollaborator(newCollaborator);
-          
-        } catch (error) {
-            console.error("Failed to create collaborator profile:", error);
-            router.push('/'); // Redirect if profile creation fails
         }
+      } catch (error) {
+        console.error("Failed to fetch or create collaborator profile:", error);
+        toast({
+          variant: "destructive",
+          title: "Erreur de chargement du profil",
+          description: "Impossible de charger ou de créer votre profil utilisateur. Veuillez contacter le support.",
+        });
+        // Log out user or redirect to an error page might be better
+        router.push('/'); 
       }
     };
 
     fetchCollaborator();
-  }, [user, isUserLoading, firestore, router]);
+  }, [user, isUserLoading, firestore, router, toast]);
 
 
   if (isUserLoading || !collaborator) {

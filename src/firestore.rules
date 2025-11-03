@@ -38,14 +38,12 @@ service cloud.firestore {
      * @path /collaborators/{collaboratorId}
      */
     match /collaborators/{collaboratorId} {
-      // A user can list collaborators if they are signed in.
       allow list: if isSignedIn();
-      // Any signed-in user can get a specific collaborator's document.
       allow get: if isSignedIn();
-      // A new user can create their OWN profile document if it doesn't exist yet.
-      allow create: if isSignedIn() && isOwner(collaboratorId) && !exists(/databases/$(database)/documents/collaborators/$(collaboratorId));
-      // An existing user can only update their own profile.
-      allow update: if isSignedIn() && isOwner(collaboratorId) && resource.data.id == request.resource.data.id;
+      // An admin can create a user. A new user can create their OWN profile document.
+      allow create: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());
+      // An existing user can only update their own profile. Admins can update any profile.
+      allow update: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());
       // Only an admin can delete a collaborator document.
       allow delete: if isAdmin();
     }
