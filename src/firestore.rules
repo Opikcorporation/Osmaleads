@@ -5,14 +5,14 @@
  * Data Structure:
  * - /collaborators/{collaboratorId}: Stores collaborator profiles.
  * - /groups/{groupId}: Stores group information.
- * - /leads/{leadId}: Stores lead data, with 'assignedCollaboratorId' for access control.
+ * - /leads/{leadId}: Stores lead data.
  * - /leads/{leadId}/notes/{noteId}: Stores notes for leads.
  * - /distributionSettings/{settingId}: Stores lead distribution rules.
  *
  * Key Security Decisions:
  * - Users can create and manage their own collaborator profile.
  * - Admins have broader access to manage users, groups, leads, and settings.
- * - Leads are readable by all signed-in users but writable only by admins or assigned collaborators.
+ * - Leads are readable by all signed-in users but writable only by admins.
  * - Notes are writable by their creator and readable by admins or the note's creator.
  */
 rules_version = '2';
@@ -20,7 +20,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper Functions
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -34,23 +33,17 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function isAssignedCollaborator(leadId) {
-      let lead = get(/databases/$(database)/documents/leads/$(leadId));
-      return lead.data.assignedCollaboratorId == request.auth.uid;
-    }
-
     // Collection Rules
-
     match /collaborators/{collaboratorId} {
-      // Any signed-in user can list/get collaborator profiles (e.g., for avatars, names).
+      // Any signed-in user can view collaborator profiles (for avatars, names etc).
       allow list, get: if isSignedIn();
 
-      // A user can create their own profile. An admin can create any profile.
+      // A user can create their own profile. An admin can also create users.
       allow create: if isOwner(collaboratorId) || isAdmin();
 
       // A user can update their own profile. An admin can update any profile.
       allow update: if isOwner(collaboratorId) || isAdmin();
-
+      
       // Only an admin can delete a collaborator document.
       allow delete: if isAdmin();
     }
@@ -65,19 +58,20 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
+      // Any signed-in user can view leads.
       allow list, get: if isSignedIn();
-
+      
       // Only admins can create new leads.
       allow create: if isAdmin();
 
       // Only admins or the assigned collaborator can update/delete a lead.
-      allow update, delete: if isAdmin() || isAssignedCollaborator(leadId);
+      allow update, delete: if isAdmin() || (exists(/databases/$(database)/documents/leads/$(leadId)) && resource.data.assignedCollaboratorId == request.auth.uid);
 
       match /notes/{noteId} {
         // The creator of the note or an admin can read/write it.
         allow get, list, update, delete: if isOwner(resource.data.collaboratorId) || isAdmin();
-
-        // A user can only create a note for themselves, and it must be linked to the correct lead.
+        
+        // A user can only create a note if they are the author, and it's for the correct lead.
         allow create: if isOwner(request.resource.data.collaboratorId)
                       && request.resource.data.leadId == leadId;
       }

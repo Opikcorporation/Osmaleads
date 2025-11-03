@@ -32,8 +32,8 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (isUserLoading) {
-        setIsLoading(true);
-        return;
+      setIsLoading(true);
+      return;
     }
     if (!user) {
       router.push('/');
@@ -47,6 +47,7 @@ export default function DashboardLayout({
         if (userData) {
           setCollaborator(userData);
         } else {
+          // Profile doesn't exist, so we create it.
           console.log("User profile not found in 'collaborators', creating one...");
           const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
           
@@ -55,29 +56,30 @@ export default function DashboardLayout({
             name: user.displayName || 'Nouveau Collaborateur',
             username: user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`,
             email: user.email,
-            role: 'collaborator',
+            role: 'collaborator', // Default role
             avatarUrl: defaultAvatar.imageUrl,
           };
           
           const docRef = doc(firestore, 'collaborators', user.uid);
           
-          try {
-            await setDoc(docRef, newCollaborator);
-            console.log("Successfully created collaborator profile.");
-            setCollaborator(newCollaborator);
-          } catch (firestoreError: any) {
-            if (firestoreError.code === 'permission-denied') {
-               console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
-               const permissionError = new FirestorePermissionError({
-                   path: docRef.path,
-                   operation: 'create',
-                   requestResourceData: newCollaborator,
-               });
-               errorEmitter.emit('permission-error', permissionError);
-            }
-            // Rethrow the error to be caught by the outer catch block.
-            throw firestoreError;
-          }
+          // Use a non-blocking setDoc with proper error handling
+          setDoc(docRef, newCollaborator)
+            .then(() => {
+              console.log("Successfully created collaborator profile.");
+              setCollaborator(newCollaborator);
+            })
+            .catch((firestoreError) => {
+              // This is where we create and emit the detailed error
+              console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
+              const permissionError = new FirestorePermissionError({
+                 path: docRef.path,
+                 operation: 'create',
+                 requestResourceData: newCollaborator,
+              });
+              errorEmitter.emit('permission-error', permissionError);
+              // We also re-throw it to be caught by the outer block
+              throw permissionError;
+            });
         }
       } catch (error) {
         console.error("Failed to fetch or create collaborator profile:", error);
@@ -93,6 +95,7 @@ export default function DashboardLayout({
         }
         router.push('/');
       } finally {
+        // This will only run after success or a handled error
         setIsLoading(false);
       }
     };
