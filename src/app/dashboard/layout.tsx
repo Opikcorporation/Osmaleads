@@ -7,7 +7,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore, errorEmitter, FirestorePermissionError, useAuth } from '@/firebase';
+import { useUser, useFirestore, useAuth } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { getUserById } from '@/lib/data';
 import { type Collaborator } from '@/lib/types';
@@ -26,85 +26,70 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const auth = useAuth();
   const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Local loading state for this layout
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    // 1. Do nothing until Firebase has determined the auth state.
+    // 1. Attendre que l'authentification soit terminée et que firestore soit prêt
     if (isUserLoading || !firestore) {
       setIsLoading(true);
       return;
     }
 
-    // 2. If auth state is determined and there's no user, redirect to login.
-    if (!isUserLoading && !user) {
+    // 2. Si pas d'utilisateur, rediriger vers la page de connexion
+    if (!user) {
       router.push('/');
-      return; // No need to set loading states, redirect will handle it.
+      return;
     }
     
-    // 3. If we have a user and firestore is ready, fetch or create the profile.
-    if (user && firestore) {
-      const fetchOrCreateProfile = async () => {
-        try {
-          const userData = await getUserById(firestore, user.uid);
+    // 3. Si on a un utilisateur, récupérer ou créer son profil
+    const fetchOrCreateProfile = async () => {
+      try {
+        const userData = await getUserById(firestore, user.uid);
+        
+        if (userData) {
+          setCollaborator(userData);
+        } else {
+          // Si le profil n'existe pas, on le crée (cas de secours)
+          console.log("Profil collaborateur non trouvé, création...");
+          const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+          const username = user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`;
+
+          const newCollaborator: Collaborator = {
+            id: user.uid,
+            name: user.displayName || 'Nouveau Collaborateur',
+            username: username,
+            email: user.email,
+            role: 'collaborator', // Rôle par défaut
+            avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
+          };
           
-          if (userData) {
-            setCollaborator(userData);
-          } else {
-            // Profile doesn't exist, let's create it.
-            // This is a fallback. The main creation should happen at registration.
-            console.log("Collaborator profile not found, creating one as a fallback...");
-            const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-            const username = user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`;
-
-            const newCollaborator: Collaborator = {
-              id: user.uid,
-              name: user.displayName || 'Nouveau Collaborateur',
-              username: username,
-              email: user.email,
-              role: 'collaborator', // Default role
-              avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
-            };
-            
-            const docRef = doc(firestore, 'collaborators', user.uid);
-            
-            await setDoc(docRef, newCollaborator);
-
-            console.log("Collaborator profile created successfully in layout.");
-            setCollaborator(newCollaborator);
-          }
-        } catch (error: any) {
-          // This block now specifically handles errors in fetching or creating the profile.
-          const permissionError = new FirestorePermissionError({
-            path: `collaborators/${user.uid}`,
-            operation: 'create', // Most likely failure point
-            requestResourceData: 'hidden', 
-          });
-          errorEmitter.emit('permission-error', permissionError);
-
-          toast({
-            variant: "destructive",
-            title: "Impossible de charger ou créer votre profil",
-            description: "Un problème de permission est survenu. Vous allez être déconnecté.",
-            duration: 9000,
-          });
-
-          // If we fail, something is wrong with the rules or connection. Log out the user.
-          await signOut(auth);
-          router.push('/');
-        } finally {
-          // No matter what, once we've tried, we're done loading.
-          setIsLoading(false);
+          const docRef = doc(firestore, 'collaborators', user.uid);
+          await setDoc(docRef, newCollaborator);
+          setCollaborator(newCollaborator);
+          console.log("Profil collaborateur créé avec succès.");
         }
-      };
+      } catch (error: any) {
+        console.error("Échec de la récupération ou création du profil :", error.message);
+        toast({
+          variant: "destructive",
+          title: "Impossible de charger ou créer votre profil",
+          description: "Un problème est survenu. Vous allez être déconnecté.",
+          duration: 9000,
+        });
 
-      fetchOrCreateProfile();
-    }
+        await signOut(auth);
+        router.push('/');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrCreateProfile();
   }, [user, isUserLoading, firestore, auth, router, toast]);
 
 
-  // Display a loading screen while checking auth and fetching profile.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -113,8 +98,6 @@ export default function DashboardLayout({
     );
   }
 
-  // If loading is finished but there's no collaborator profile, something went wrong
-  // and the user has been redirected. This prevents rendering the dashboard in a broken state.
   if (!collaborator) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -123,7 +106,6 @@ export default function DashboardLayout({
     )
   }
 
-  // Render the full dashboard layout
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
       <AppSidebar user={collaborator} />

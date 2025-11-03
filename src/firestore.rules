@@ -1,77 +1,10 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a robust owner-based access control.
- *
- * Key Security Principles:
- * - Users can only create a profile for themselves.
- * - Users can only read, update, or delete their own profile.
- * - Admins have wider, but still controlled, access.
- * - Leads and other resources have their own specific rules.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      // Check for admin role in the user's own profile document.
-      return isSignedIn() 
-             && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid))
-             && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // --- Collection Rules ---
-
-    match /collaborators/{collaboratorId} {
-      // CREATE: A user can only create their own profile document.
-      // This is the most critical rule for fixing the sign-up flow.
-      allow create: if isOwner(collaboratorId);
-
-      // READ (get, list): Any authenticated user can read collaborator profiles.
-      // This is necessary to display user information (like avatars, names) across the app.
-      allow get, list: if isSignedIn();
-
-      // UPDATE: A user can only update their own profile. Admins have override capabilities.
-      allow update: if isOwner(collaboratorId) || isAdmin();
-
-      // DELETE: Only an admin can delete a collaborator profile.
-      allow delete: if isAdmin();
-    }
-
-    match /groups/{groupId} {
-      allow list, get: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /distributionSettings/{settingId} {
-      allow list, get, create, update, delete: if isAdmin();
-    }
-
-    match /leads/{leadId} {
-      // Any signed-in user can view leads.
-      allow list, get: if isSignedIn();
-
-      // Only admins can create new leads.
-      allow create: if isAdmin();
-
-      // Only admins or the assigned collaborator can update/delete a lead.
-      allow update, delete: if isAdmin() || (resource.data.assignedCollaboratorId == request.auth.uid);
-
-      match /notes/{noteId} {
-        // The creator of the note or an admin can manage it.
-        allow get, list, update, delete: if isOwner(resource.data.collaboratorId) || isAdmin();
-        
-        // A user can create a note if they are the author and it's for the correct lead.
-        allow create: if isOwner(request.resource.data.collaboratorId) && request.resource.data.leadId == leadId;
-      }
+    // ATTENTION: Ces règles sont complètement ouvertes pour le développement.
+    // La sécurité devra être réimplémentée avant la mise en production.
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useAuth, useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
@@ -83,8 +83,6 @@ export default function RegisterPage() {
       // 3. Create collaborator document in Firestore
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
       
-      // This is now a blocking call within the registration flow.
-      // This ensures the profile is created before redirecting.
       await setDoc(docRef, newCollaborator);
         
       toast({
@@ -98,15 +96,6 @@ export default function RegisterPage() {
        
        if (error.code === 'auth/email-already-in-use') {
          errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
-       } else if (error.name === 'FirebaseError' && error.code === 'permission-denied') {
-          // This is a Firestore permission error
-          const permissionError = new FirestorePermissionError({
-                path: `collaborators/${username}`, // Path is illustrative
-                operation: 'create',
-                requestResourceData: 'hidden', // Don't log PII
-            });
-          errorEmitter.emit('permission-error', permissionError);
-          errorMessage = "Erreur de permission lors de la création du profil."
        }
       
       toast({

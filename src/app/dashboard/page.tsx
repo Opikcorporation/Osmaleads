@@ -6,7 +6,6 @@ import {
   CreditCard,
   DollarSign,
   Users,
-  FileUp,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -30,13 +29,10 @@ import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebas
 import type { Lead, Collaborator } from '@/lib/types';
 import { StatusBadge } from '@/components/status-badge';
 import { collection, query, where } from 'firebase/firestore';
-import { useState } from 'react';
-import { LeadImportDialog } from './_components/lead-import-dialog';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const [isImporting, setIsImporting] = useState(false);
 
   const leadsQuery = useMemoFirebase(() => collection(firestore, 'leads'), [firestore]);
   const usersQuery = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
@@ -76,11 +72,6 @@ export default function DashboardPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Dashboard</h1>
-        {currentUser.role === 'admin' && (
-            <Button onClick={() => setIsImporting(true)}>
-                <FileUp className="mr-2 h-4 w-4" /> Import Leads
-            </Button>
-        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
@@ -180,12 +171,6 @@ export default function DashboardPage() {
           </Table>
         </CardContent>
       </Card>
-      {currentUser.role === 'admin' && (
-        <LeadImportDialog
-          isOpen={isImporting}
-          onClose={() => setIsImporting(false)}
-        />
-      )}
     </>
   );
 }
