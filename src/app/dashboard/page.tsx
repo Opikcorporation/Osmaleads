@@ -198,6 +198,7 @@ export default function DashboardPage() {
           email: null,
           phone: null,
           username: null,
+          score: null,
         };
         batch.set(newLeadDocRef, newLead);
         newLeadIds.push(newLeadDocRef.id);
@@ -378,7 +379,7 @@ export default function DashboardPage() {
                         />
                     </TableHead>
                     <TableHead>Nom</TableHead>
-                    <TableHead className="hidden md:table-cell">Téléphone</TableHead>
+                    <TableHead className="hidden md:table-cell">Score</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
@@ -401,7 +402,7 @@ export default function DashboardPage() {
                                 />
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
-                            <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
+                            <TableCell className="hidden md:table-cell">{lead.score !== null ? lead.score : 'N/A'}</TableCell>
                             <TableCell>
                             <StatusBadge status={lead.status} />
                             </TableCell>

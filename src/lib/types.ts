@@ -46,6 +46,7 @@ export type Lead = {
   company: string | null;
   phone: string | null;
   username: string | null;
+  score: number | null;
   createdAt: FieldValue;
   assignedAt?: FieldValue;
   status: LeadStatus;

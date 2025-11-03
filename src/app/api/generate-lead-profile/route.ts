@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
         email: structuredProfile.email || null,
         phone: structuredProfile.phone || null,
         username: structuredProfile.username || null,
+        score: structuredProfile.score || null,
         status: 'New', // Set status to 'New' after analysis
     };
 
