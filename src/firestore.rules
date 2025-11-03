@@ -1,18 +1,18 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control (RBAC) model.
+ * @description This ruleset enforces a robust owner-based access control.
  *
- * Key Security Decisions:
- * - Users can create and manage their own collaborator profile.
- * - Admins have broader access to manage users, groups, leads, and settings.
- * - Leads are readable by all signed-in users but writable only by admins or assigned collaborators.
- * - Notes are writable by their creator and readable by admins or the note's creator.
+ * Key Security Principles:
+ * - Users can only create a profile for themselves.
+ * - Users can only read, update, or delete their own profile.
+ * - Admins have wider, but still controlled, access.
+ * - Leads and other resources have their own specific rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
@@ -22,22 +22,27 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid))
+      // Check for admin role in the user's own profile document.
+      return isSignedIn() 
+             && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid))
              && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Collection Rules
+    // --- Collection Rules ---
+
     match /collaborators/{collaboratorId} {
-      // Un utilisateur authentifié peut créer son propre profil. C'est la règle cruciale.
+      // CREATE: A user can only create their own profile document. This is critical for sign-up.
+      // The incoming document's ID must match the authenticated user's UID.
       allow create: if isOwner(collaboratorId);
 
-      // Tout utilisateur authentifié peut voir la liste des collaborateurs.
-      allow list, get: if isSignedIn();
+      // READ (get, list): Any authenticated user can read collaborator profiles.
+      // This is necessary to display user information (like avatars, names) across the app.
+      allow get, list: if isSignedIn();
 
-      // Un utilisateur peut modifier son propre profil. Un admin peut modifier n'importe quel profil.
+      // UPDATE: A user can only update their own profile. Admins have override capabilities.
       allow update: if isOwner(collaboratorId) || isAdmin();
 
-      // Seul un admin peut supprimer un profil.
+      // DELETE: Only an admin can delete a collaborator profile.
       allow delete: if isAdmin();
     }
 
@@ -51,22 +56,21 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
-      // Tout utilisateur authentifié peut voir les leads.
+      // Any signed-in user can view leads.
       allow list, get: if isSignedIn();
 
-      // Seuls les admins peuvent créer de nouveaux leads.
+      // Only admins can create new leads.
       allow create: if isAdmin();
 
-      // Seuls les admins ou le collaborateur assigné peuvent modifier/supprimer un lead.
-      allow update, delete: if isAdmin() || (exists(/databases/$(database)/documents/leads/$(leadId)) && resource.data.assignedCollaboratorId == request.auth.uid);
+      // Only admins or the assigned collaborator can update/delete a lead.
+      allow update, delete: if isAdmin() || (resource.data.assignedCollaboratorId == request.auth.uid);
 
       match /notes/{noteId} {
-        // Le créateur de la note ou un admin peut la gérer.
+        // The creator of the note or an admin can manage it.
         allow get, list, update, delete: if isOwner(resource.data.collaboratorId) || isAdmin();
         
-        // Un utilisateur ne peut créer une note que s'il en est l'auteur et qu'elle correspond au bon lead.
-        allow create: if isOwner(request.resource.data.collaboratorId)
-                      && request.resource.data.leadId == leadId;
+        // A user can create a note if they are the author and it's for the correct lead.
+        allow create: if isOwner(request.resource.data.collaboratorId) && request.resource.data.leadId == leadId;
       }
     }
   }

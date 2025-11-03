@@ -43,12 +43,15 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Collaborator entity."
+          "description": "Unique identifier for the Collaborator entity, matches Firebase Auth UID."
         },
-        "profilePicture": {
+        "name": {
           "type": "string",
-          "description": "URL to the collaborator's profile picture.",
-          "format": "uri"
+          "description": "The full name of the collaborator."
+        },
+        "username": {
+          "type": "string",
+          "description": "The unique username for the collaborator."
         },
         "email": {
           "type": "string",
@@ -62,13 +65,20 @@
             "admin",
             "collaborator"
           ]
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "URL to the collaborator's profile picture.",
+          "format": "uri"
         }
       },
       "required": [
         "id",
-        "profilePicture",
+        "name",
+        "username",
         "email",
-        "role"
+        "role",
+        "avatarUrl"
       ]
     },
     "Group": {
@@ -182,7 +192,7 @@
           "schema": {
             "$ref": "#/backend/entities/Collaborator"
           },
-          "description": "Stores collaborator profiles. A user can create their own profile upon signup and read/write to it. Admins have full access."
+          "description": "Stores collaborator profiles. A user can create their own profile upon signup and manage their own data. Admins have broader access."
         }
       },
       {
