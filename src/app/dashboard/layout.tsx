@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { Collaborator } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { collection, query, where } from 'firebase/firestore';
@@ -22,23 +22,29 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const router = useRouter();
 
-  // New, simplified logic to fetch the collaborator profile
+  // Simple, robust query to get the collaborator profile.
+  // This will only run when the user object is available.
   const collaboratorQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null),
     [user, firestore]
   );
+  
+  // The useCollection hook handles loading and error states for us.
   const { data: collaboratorData, isLoading: isProfileLoading } = useCollection<Collaborator>(collaboratorQuery);
   
   const collaborator = collaboratorData?.[0];
+  
+  // Overall loading state depends on auth and profile fetching.
   const isLoading = isAuthLoading || (user && isProfileLoading);
 
   useEffect(() => {
-    // If auth is done loading and there's no user, redirect to login.
+    // If auth has finished loading and there's still no user, redirect to login.
     if (!isAuthLoading && !user) {
       router.push('/');
     }
   }, [isAuthLoading, user, router]);
 
+  // While loading auth or the profile, show a clear loading message.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -47,8 +53,7 @@ export default function DashboardLayout({
     );
   }
   
-  // After loading, if there's an authenticated user but no profile document,
-  // it means something went wrong during registration.
+  // After all loading is done, if there's a user but no profile, it's a critical error.
   if (user && !collaborator) {
      return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background text-center">
@@ -64,7 +69,7 @@ export default function DashboardLayout({
     );
   }
 
-  // If there's no user and no loading, it means we are redirecting, show a blank screen.
+  // If there's no user and we're not loading, we're likely redirecting.
   if (!user || !collaborator) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -73,6 +78,7 @@ export default function DashboardLayout({
     );
   }
 
+  // If we get here, everything is loaded and valid.
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
       <AppSidebar user={collaborator} />

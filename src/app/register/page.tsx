@@ -71,8 +71,8 @@ export default function RegisterPage() {
       // 2. Prepare collaborator data
       const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
       const role = username === 'Admin01' ? 'admin' : 'collaborator';
-      const newCollaborator: Collaborator = {
-        id: firebaseUser.uid,
+      
+      const newCollaborator: Omit<Collaborator, 'id'> = {
         name: name,
         username: username,
         email: email,
@@ -81,15 +81,21 @@ export default function RegisterPage() {
       };
       
       // 3. Create collaborator document in Firestore
+      // The ID of the document MUST match the UID of the auth user
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
       
-      await setDoc(docRef, newCollaborator);
+      // We explicitly add the id to the document data as well for easier querying
+      await setDoc(docRef, {
+        ...newCollaborator,
+        id: firebaseUser.uid
+      });
         
       toast({
           title: 'Compte créé avec succès',
           description: "Vous allez être redirigé vers le tableau de bord.",
       });
-      router.push('/dashboard');
+      // The onAuthStateChanged listener and the layout will handle the redirect.
+      // No need to push here, to avoid race conditions.
 
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
