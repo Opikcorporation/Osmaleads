@@ -41,8 +41,9 @@ export default function DashboardLayout({
           setCollaborator(userData);
         } else {
           // User is authenticated but not in collaborators collection, let's create them!
-          console.warn("User not found in collaborators collection, creating profile...");
+          console.log("User profile not found in 'collaborators', creating one...");
           const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+          
           const newCollaborator: Collaborator = {
             id: user.uid,
             name: user.displayName || 'Nouveau Collaborateur',
@@ -52,7 +53,9 @@ export default function DashboardLayout({
             avatarUrl: defaultAvatar.imageUrl,
           };
           
+          // This setDoc is the critical operation that might fail due to security rules
           await setDoc(doc(firestore, 'collaborators', user.uid), newCollaborator);
+          console.log("Successfully created collaborator profile.");
           setCollaborator(newCollaborator);
         }
       } catch (error) {
@@ -61,6 +64,7 @@ export default function DashboardLayout({
           variant: "destructive",
           title: "Erreur de chargement du profil",
           description: "Impossible de charger ou de créer votre profil utilisateur. Veuillez contacter le support.",
+          duration: 5000,
         });
         // Log out user or redirect to an error page might be better
         router.push('/'); 

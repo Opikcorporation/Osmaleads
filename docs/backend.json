@@ -46,7 +46,6 @@
         "leadData",
         "aiProfile",
         "status",
-        "assignedCollaboratorId",
         "score",
         "tier"
       ]
@@ -70,12 +69,21 @@
           "type": "string",
           "description": "Collaborator's email address.",
           "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user, can be 'admin' or 'collaborator'.",
+          "enum": [
+            "admin",
+            "collaborator"
+          ]
         }
       },
       "required": [
         "id",
         "profilePicture",
-        "email"
+        "email",
+        "role"
       ]
     },
     "Group": {
@@ -202,13 +210,7 @@
           "schema": {
             "$ref": "#/backend/entities/Collaborator"
           },
-          "description": "Stores collaborator profiles. Only the collaborator can read/write their own document.",
-          "params": [
-            {
-              "name": "collaboratorId",
-              "description": "The unique identifier of the collaborator."
-            }
-          ]
+          "description": "Stores collaborator profiles. A user can create/read/write their own profile. Admins can manage all profiles."
         }
       },
       {
@@ -218,13 +220,7 @@
           "schema": {
             "$ref": "#/backend/entities/Group"
           },
-          "description": "Stores group information. Admins can create/modify groups.",
-          "params": [
-            {
-              "name": "groupId",
-              "description": "The unique identifier of the group."
-            }
-          ]
+          "description": "Stores group information. Admins can create/modify groups."
         }
       },
       {
@@ -234,13 +230,7 @@
           "schema": {
             "$ref": "#/backend/entities/Lead"
           },
-          "description": "Stores lead data. Each lead has an `assignedCollaboratorId`. Security rules allow the assigned collaborator or admins to read/write the lead.",
-          "params": [
-            {
-              "name": "leadId",
-              "description": "The unique identifier of the lead."
-            }
-          ]
+          "description": "Stores lead data. Only Admins can create leads. Assigned collaborators can update/delete."
         }
       },
       {
@@ -250,17 +240,7 @@
           "schema": {
             "$ref": "#/backend/entities/Note"
           },
-          "description": "Stores notes for each lead. Includes denormalized `assignedCollaboratorId` from the lead document for authorization independence. Security rules allow the assigned collaborator or admins to create/read/write notes for the assigned lead.",
-          "params": [
-            {
-              "name": "leadId",
-              "description": "The unique identifier of the lead."
-            },
-            {
-              "name": "noteId",
-              "description": "The unique identifier of the note."
-            }
-          ]
+          "description": "Stores notes for each lead. The assigned collaborator or admins can manage notes."
         }
       },
       {
@@ -270,16 +250,9 @@
           "schema": {
             "$ref": "#/backend/entities/DistributionSetting"
           },
-          "description": "Stores lead distribution settings for groups. Only admins can manage these settings.",
-          "params": [
-            {
-              "name": "settingId",
-              "description": "The unique identifier of the distribution setting."
-            }
-          ]
+          "description": "Stores lead distribution settings for groups. Only admins can manage these settings."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). It prioritizes path-based ownership for user-related data and membership maps for collaborative data. Denormalization is used extensively to avoid `get()` calls in security rules.\n\n*   `/collaborators/{collaboratorId}`: Stores collaborator profiles. Security rules will ensure only the collaborator can read/write their own document.\n*   `/groups/{groupId}`: Stores group information.  No specific ownership; could be managed by admins.  Security rules could restrict creation/modification to admin roles (enforced via existence checks in `/roles_admin/{uid}`).\n*   `/leads/{leadId}`: Stores lead data. Each lead has an `assignedCollaboratorId`.  Security rules will allow the assigned collaborator to read/write the lead. Admin can also read all leads.\n*   `/leads/{leadId}/notes/{noteId}`: Stores notes for each lead. Denormalizes `assignedCollaboratorId` from the lead document to ensure authorization independence.  Security rules allow the assigned collaborator (denormalized) or admins to create/read/write notes for the assigned lead.\n* `/distributionSettings/{settingId}`: Stores lead distribution rules. Only admins should be able to create, update, or delete these."
+    ]
   }
 }
