@@ -22,11 +22,11 @@ import {
   useMemoFirebase,
   useUser,
 } from '@/firebase';
-import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, writeBatch, doc } from 'firebase/firestore';
+import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
+import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus } from 'lucide-react';
+import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
@@ -34,24 +34,35 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { leadStatuses } from '@/lib/types';
 
 // Simple CSV parser
 const parseCSV = (content: string): { [key: string]: string }[] => {
   const rows = content.trim().split('\n');
   if (rows.length < 2) return [];
-  const headers = rows[0].split(',').map(h => h.trim());
+  // Handles both comma and semicolon delimiters
+  const delimiter = rows[0].includes(';') ? ';' : ',';
+  const headers = rows[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
   return rows.slice(1).map(row => {
-    const values = row.split(',').map(v => v.trim());
+    const values = row.split(delimiter).map(v => v.trim().replace(/"/g, ''));
     return headers.reduce((obj, header, index) => {
       obj[header] = values[index];
       return obj;
@@ -78,11 +89,22 @@ export default function DashboardPage() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('All');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const leadsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(firestore, 'leads'));
-  }, [user, firestore]);
+    let q = query(collection(firestore, 'leads'));
+    if (statusFilter !== 'All') {
+      q = query(q, where('status', '==', statusFilter));
+    }
+    if (assigneeFilter !== 'All') {
+      const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
+      q = query(q, where('assignedCollaboratorId', '==', assigneeId));
+    }
+    return q;
+  }, [user, firestore, statusFilter, assigneeFilter]);
 
   const collaboratorsQuery = useMemoFirebase(
     () => collection(firestore, 'collaborators'),
@@ -92,10 +114,19 @@ export default function DashboardPage() {
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaborators, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
+  
+  const filteredLeads = useMemo(() => {
+    if (!leads) return [];
+    if (!searchTerm) return leads;
+    return leads.filter(lead => 
+      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [leads, searchTerm]);
 
   const isLoading = leadsLoading || collaboratorsLoading;
   
-  const leadIds = useMemo(() => leads?.map(l => l.id) || [], [leads]);
+  const leadIds = useMemo(() => filteredLeads?.map(l => l.id) || [], [filteredLeads]);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true) {
@@ -155,14 +186,10 @@ export default function DashboardPage() {
 
       for (const row of parsedLeads) {
         const newLeadDocRef = doc(leadsColRef);
-        const sensibleName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || "Lead importé";
+        const sensibleName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || `Lead importé`;
 
-        const newLead: Omit<Lead, 'id'> = {
+        const newLead: Partial<Lead> = {
           name: sensibleName,
-          email: null,
-          company: null,
-          phone: null,
-          username: null,
           status: 'New',
           assignedCollaboratorId: null,
           leadData: JSON.stringify(row),
@@ -178,7 +205,6 @@ export default function DashboardPage() {
         description: `${parsedLeads.length} lead(s) ont été créés. L'analyse IA commence en arrière-plan.`,
       });
 
-      // Trigger background analysis for each new lead
       newLeadIds.forEach(leadId => triggerAiAnalysis(leadId));
 
     } catch (error) {
@@ -267,6 +293,41 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher par nom ou email..."
+                className="pl-8 sm:w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filtrer par statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">Tous les statuts</SelectItem>
+                {leadStatuses.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filtrer par assigné" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">Toutes les personnes</SelectItem>
+                <SelectItem value="Unassigned">Non assigné</SelectItem>
+                {collaborators?.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {selectedLeads.length > 0 && (
              <div className="mb-4 flex items-center justify-between rounded-lg border bg-muted/50 p-3">
                  <p className="text-sm font-medium">{selectedLeads.length} lead(s) sélectionné(s)</p>
@@ -305,7 +366,7 @@ export default function DashboardPage() {
                     <TableRow>
                     <TableHead padding="checkbox" className="w-12">
                         <Checkbox
-                        checked={selectedLeads.length > 0 && selectedLeads.length === leadIds.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
+                        checked={leadIds.length > 0 && selectedLeads.length === leadIds.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
                         onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                         aria-label="Select all"
                         />
@@ -320,8 +381,8 @@ export default function DashboardPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {leads && leads.length > 0 ? (
-                    leads.map((lead) => {
+                    {filteredLeads && filteredLeads.length > 0 ? (
+                    filteredLeads.map((lead) => {
                         const assignee = getAssignee(lead.assignedCollaboratorId);
                         const isSelected = selectedLeads.includes(lead.id);
                         return (
@@ -362,7 +423,7 @@ export default function DashboardPage() {
                     ) : (
                     <TableRow>
                         <TableCell colSpan={6} className="text-center h-24">
-                        Aucun lead à afficher. Importez votre premier lead pour commencer.
+                        Aucun lead ne correspond aux filtres actuels.
                         </TableCell>
                     </TableRow>
                     )}
@@ -389,3 +450,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
