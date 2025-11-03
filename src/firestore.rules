@@ -38,8 +38,10 @@ service cloud.firestore {
      * @path /collaborators/{collaboratorId}
      */
     match /collaborators/{collaboratorId} {
-      // Any signed-in user can read the list of collaborators or get a specific one.
-      allow get, list: if isSignedIn();
+      // Allow reading the list if signed in, OR if it's the very first user registering (collection is empty).
+      allow list: if isSignedIn() || size(get(/databases/$(database)/documents/collaborators)) == 0;
+      // Any signed-in user can get a specific collaborator's document.
+      allow get: if isSignedIn();
       // A new user can create their own profile document, but only if it doesn't exist yet.
       allow create: if isSignedIn() && request.auth.uid == collaboratorId && !exists(/databases/$(database)/documents/collaborators/$(collaboratorId));
       // An existing user can only update their own profile.
