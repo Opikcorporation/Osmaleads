@@ -23,16 +23,16 @@ import {
   useUser,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
-import { collection, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
-import Link from 'next/link';
+import { FileUp, Trash2, UserPlus, Search, CircleHelp } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
+import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [viewingLeadId, setViewingLeadId] = useState<string | null>(null);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -171,9 +172,6 @@ export default function DashboardPage() {
           status: 'New',
           assignedCollaboratorId: null,
           leadData: JSON.stringify(row),
-          createdAt: serverTimestamp(),
-          score: null,
-          username: null,
         };
         batch.set(newLeadDocRef, newLead);
       }
@@ -350,6 +348,7 @@ export default function DashboardPage() {
                         />
                     </TableHead>
                     <TableHead>Nom</TableHead>
+                    <TableHead>Score</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -373,6 +372,13 @@ export default function DashboardPage() {
                                 />
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
+                            <TableCell>
+                                {lead.score !== null ? (
+                                    <span className="font-mono text-sm">{lead.score}</span>
+                                ) : (
+                                    <span className="text-muted-foreground text-sm">N/A</span>
+                                )}
+                            </TableCell>
                             <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
                             <TableCell>
                             <StatusBadge status={lead.status} />
@@ -391,8 +397,8 @@ export default function DashboardPage() {
                             )}
                             </TableCell>
                             <TableCell className="text-right">
-                            <Button asChild variant="outline" size="sm">
-                                <Link href={`/dashboard/leads/${lead.id}`}>Voir</Link>
+                            <Button onClick={() => setViewingLeadId(lead.id)} variant="outline" size="sm">
+                                Voir
                             </Button>
                             </TableCell>
                         </TableRow>
@@ -401,7 +407,7 @@ export default function DashboardPage() {
                     ) : (
                     <TableRow>
                         <TableCell colSpan={7} className="text-center h-24">
-                        Aucun lead ne correspond aux filtres actuels.
+                          {leads?.length === 0 ? "Aucun lead. Commencez par en importer !" : "Aucun lead ne correspond à vos filtres."}
                         </TableCell>
                     </TableRow>
                     )}
@@ -425,6 +431,14 @@ export default function DashboardPage() {
         collaborators={collaborators || []}
         isProcessing={isProcessing}
       />
+
+      {viewingLeadId && (
+        <LeadDetailDialog 
+          leadId={viewingLeadId}
+          isOpen={!!viewingLeadId}
+          onClose={() => setViewingLeadId(null)}
+        />
+      )}
     </>
   );
 }
