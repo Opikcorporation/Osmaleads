@@ -375,6 +375,7 @@ export default function DashboardPage() {
                         />
                     </TableHead>
                     <TableHead>Nom</TableHead>
+                    <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     <TableHead className="hidden md:table-cell">Score</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -398,6 +399,7 @@ export default function DashboardPage() {
                                 />
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
+                            <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
                             <TableCell className="hidden md:table-cell">{lead.score !== null ? lead.score : 'N/A'}</TableCell>
                             <TableCell>
                             <StatusBadge status={lead.status} />
@@ -425,7 +427,7 @@ export default function DashboardPage() {
                     })
                     ) : (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
+                        <TableCell colSpan={7} className="text-center h-24">
                         Aucun lead ne correspond aux filtres actuels.
                         </TableCell>
                     </TableRow>
