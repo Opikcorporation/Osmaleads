@@ -1,18 +1,11 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control (RBAC) model with owner-only and shared access patterns.
- *
- * Data Structure:
- * - /collaborators/{collaboratorId}: Stores collaborator profiles.
- * - /groups/{groupId}: Stores group information.
- * - /leads/{leadId}: Stores lead data.
- * - /leads/{leadId}/notes/{noteId}: Stores notes for leads.
- * - /distributionSettings/{settingId}: Stores lead distribution rules.
+ * @description This ruleset enforces a role-based access control (RBAC) model.
  *
  * Key Security Decisions:
  * - Users can create and manage their own collaborator profile.
  * - Admins have broader access to manage users, groups, leads, and settings.
- * - Leads are readable by all signed-in users but writable only by admins.
+ * - Leads are readable by all signed-in users but writable only by admins or assigned collaborators.
  * - Notes are writable by their creator and readable by admins or the note's creator.
  */
 rules_version = '2';
@@ -29,21 +22,23 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // Check for the existence of the user's document in /collaborators and verify their role.
+      // This is a safe way to check for admin privileges.
       return isSignedIn() && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid))
              && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Collection Rules
     match /collaborators/{collaboratorId} {
+      // A user can create their OWN profile document upon signing up.
+      allow create: if isOwner(collaboratorId);
+
       // Any signed-in user can view collaborator profiles (for avatars, names etc).
       allow list, get: if isSignedIn();
 
-      // A user can create their own profile. An admin can also create users.
-      allow create: if isOwner(collaboratorId) || isAdmin();
-
       // A user can update their own profile. An admin can update any profile.
       allow update: if isOwner(collaboratorId) || isAdmin();
-      
+
       // Only an admin can delete a collaborator document.
       allow delete: if isAdmin();
     }
@@ -60,7 +55,7 @@ service cloud.firestore {
     match /leads/{leadId} {
       // Any signed-in user can view leads.
       allow list, get: if isSignedIn();
-      
+
       // Only admins can create new leads.
       allow create: if isAdmin();
 

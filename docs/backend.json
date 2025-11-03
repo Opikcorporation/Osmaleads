@@ -182,7 +182,7 @@
           "schema": {
             "$ref": "#/backend/entities/Collaborator"
           },
-          "description": "Stores collaborator profiles. A user can create/read/write their own profile. Admins can manage all profiles."
+          "description": "Stores collaborator profiles. A user can create their own profile upon signup and read/write to it. Admins have full access."
         }
       },
       {
