@@ -76,5 +76,3 @@ export type DistributionSetting = {
   dailyQuota: number;
   leadTier: LeadTier | 'Tous';
 };
-
-    

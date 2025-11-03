@@ -31,22 +31,20 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 
 // Simple CSV parser
-const parseCSV = (content: string) => {
-    const rows = content.trim().split('\n');
-    const headers = rows[0].split(',').map(h => h.trim());
-    const data = rows.slice(1).map(row => {
-        const values = row.split(',').map(v => v.trim());
-        const obj: {[key: string]: string} = {};
-        headers.forEach((header, index) => {
-            obj[header] = values[index];
-        });
-        return obj;
-    });
-    return data;
-}
+const parseCSV = (content: string): { [key: string]: string }[] => {
+  const rows = content.trim().split('\n');
+  if (rows.length < 2) return [];
+  const headers = rows[0].split(',').map(h => h.trim());
+  return rows.slice(1).map(row => {
+    const values = row.split(',').map(v => v.trim());
+    return headers.reduce((obj, header, index) => {
+      obj[header] = values[index];
+      return obj;
+    }, {} as { [key: string]: string });
+  });
+};
 
 // Function to find a key in a case-insensitive way
 const findKey = (obj: any, keys: string[]): string | null => {
@@ -65,7 +63,6 @@ export default function DashboardPage() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Determine the query based on the user's role
   const leadsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(firestore, 'leads'));
@@ -85,18 +82,29 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
+  const triggerAiAnalysis = async (leadId: string) => {
+    try {
+      await fetch('/api/generate-lead-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId }),
+      });
+      // No need to show a toast for each one, as it happens in the background.
+    } catch (error) {
+      console.error(`Failed to trigger analysis for lead ${leadId}`, error);
+    }
+  };
+
   const handleSaveLead = async ({ leadData, fileName }: { leadData: string, fileName: string }) => {
     if (!firestore) return;
-    setIsImportDialogOpen(false); // Close dialog immediately
+    setIsImportDialogOpen(false);
     toast({
       title: "Importation en cours...",
       description: "Traitement du fichier CSV.",
     });
 
     try {
-      // 1. Parse the CSV data
       const parsedLeads = parseCSV(leadData);
-      
       if (!parsedLeads || parsedLeads.length === 0) {
         toast({
           variant: "destructive",
@@ -106,37 +114,40 @@ export default function DashboardPage() {
         return;
       }
       
-      // 2. Use a batch write to save all leads in one go.
       const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
+      const newLeadIds: string[] = [];
 
       for (const row of parsedLeads) {
-        const newLeadDocRef = doc(leadsColRef); // Create a new doc with a random ID
-        
-        // Try to find a sensible name for the lead
-        const leadName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || `Lead importé`;
+        const newLeadDocRef = doc(leadsColRef);
+        const sensibleName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || "Lead importé";
 
         const newLead: Omit<Lead, 'id'> = {
-          name: leadName,
-          email: findKey(row, ['email', 'mail', 'courriel']),
-          company: findKey(row, ['company', 'societe', 'entreprise']),
-          phone: findKey(row, ['phone', 'telephone']),
-          username: findKey(row, ['username', 'user']),
+          name: sensibleName,
+          email: null,
+          company: null,
+          phone: null,
+          username: null,
           createdAt: serverTimestamp(),
           status: 'New',
           assignedCollaboratorId: null,
-          leadData: JSON.stringify(row), // Store the full row data
+          leadData: JSON.stringify(row),
         };
         batch.set(newLeadDocRef, newLead);
+        newLeadIds.push(newLeadDocRef.id);
       }
 
-      // 3. Commit the batch
       await batch.commit();
 
       toast({
         title: "Importation réussie !",
-        description: `${parsedLeads.length} lead(s) ont été créés avec succès.`,
+        description: `${parsedLeads.length} lead(s) ont été créés. L'analyse IA commence en arrière-plan.`,
       });
+
+      // Trigger background analysis for each new lead
+      for (const leadId of newLeadIds) {
+        triggerAiAnalysis(leadId);
+      }
 
     } catch (error) {
       console.error("Failed to parse or save leads:", error);
@@ -147,7 +158,6 @@ export default function DashboardPage() {
       });
     }
   };
-
 
   const isLoading = leadsLoading || collaboratorsLoading;
 
