@@ -31,7 +31,7 @@ export default function DashboardLayout({
   const { toast } = useToast();
 
   useEffect(() => {
-    // 1. Ne rien faire tant que l'état d'authentification ou firestore est en cours de chargement.
+    // 1. Si le chargement est en cours, ne rien faire.
     if (isUserLoading || !firestore) {
       setIsLoading(true);
       return;
@@ -40,19 +40,20 @@ export default function DashboardLayout({
     // 2. Si le chargement est terminé et qu'il n'y a pas d'utilisateur, rediriger.
     if (!user) {
       router.push('/');
+      setIsLoading(false); // Le chargement est terminé, il n'y a pas d'utilisateur.
       return;
     }
     
-    // 3. Si l'utilisateur est authentifié et que Firestore est prêt, on peut agir.
+    // 3. L'utilisateur est authentifié et Firestore est prêt.
     const fetchCollaborator = async () => {
-      setIsLoading(true);
       try {
         const userData = await getUserById(firestore, user.uid);
         if (userData) {
           setCollaborator(userData);
+          setIsLoading(false); // Profil trouvé, chargement terminé.
         } else {
-          // Le profil n'existe pas, on le crée.
-          console.log("Profil collaborateur non trouvé, création en cours...");
+          // Le profil n'existe pas, on tente de le créer.
+          console.log("Profil collaborateur non trouvé, tentative de création...");
           const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
           
           const newCollaborator: Collaborator = {
@@ -66,29 +67,23 @@ export default function DashboardLayout({
           
           const docRef = doc(firestore, 'collaborators', user.uid);
           
-          // Utiliser setDoc pour créer le profil.
-          // Gérer l'erreur de permission de manière contextuelle.
-          await setDoc(docRef, newCollaborator).catch((error) => {
-            if (error.code === 'permission-denied') {
-              const permissionError = new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'create',
-                requestResourceData: newCollaborator,
-              });
-              errorEmitter.emit('permission-error', permissionError);
-            }
-            // Re-lancer l'erreur pour qu'elle soit attrapée par le bloc catch externe.
-            throw error;
-          });
-          
+          // Tenter de créer le document.
+          await setDoc(docRef, newCollaborator);
+
           console.log("Profil collaborateur créé avec succès.");
           setCollaborator(newCollaborator);
         }
       } catch (error: any) {
-        // Gérer les erreurs, notamment les permissions.
-        if (error.code !== 'permission-denied') {
-            console.error("Échec de la récupération ou création du profil :", error);
-        }
+        // En cas d'erreur (y compris de permission sur le setDoc)
+        console.error("Échec de la récupération ou création du profil :", error);
+        
+        // On émet l'erreur contextuelle pour le débogage.
+        const permissionError = new FirestorePermissionError({
+          path: `collaborators/${user.uid}`,
+          operation: 'create',
+          requestResourceData: 'hidden', // On ne log plus les données ici pour éviter la redondance
+        });
+        errorEmitter.emit('permission-error', permissionError);
 
         toast({
           variant: "destructive",
@@ -97,15 +92,13 @@ export default function DashboardLayout({
           duration: 9000,
         });
 
-        // Déconnecter et rediriger pour éviter les boucles.
+        // Déconnexion et redirection en cas d'échec.
         if (auth) {
           await signOut(auth);
         }
         router.push('/');
-        return;
       } finally {
-        // Mettre fin au chargement uniquement quand tout est terminé.
-        setIsLoading(false);
+        setIsLoading(false); // Le chargement est terminé quoi qu'il arrive.
       }
     };
 
@@ -121,13 +114,12 @@ export default function DashboardLayout({
     );
   }
 
-  // Si le chargement est terminé mais qu'il n'y a toujours pas de collaborateur,
-  // C'est qu'il y a eu un problème et que la redirection va avoir lieu.
-  // Afficher un état de chargement évite un flash de l'interface.
+  // Si le chargement est terminé mais qu'on a pas de collaborateur,
+  // C'est qu'il y a eu un problème et que la redirection a déjà eu lieu ou va avoir lieu.
   if (!collaborator) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
-            <p>Finalisation de la session...</p>
+            <p>Redirection en cours...</p>
         </div>
     )
   }
