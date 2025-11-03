@@ -37,6 +37,16 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    if (!firestore || !auth) {
+        toast({
+            variant: "destructive",
+            title: "Erreur d'initialisation",
+            description: "Les services Firebase ne sont pas disponibles. Veuillez réessayer.",
+        });
+        setIsLoading(false);
+        return;
+    }
+
     if (password.length < 6) {
         toast({
             variant: "destructive",
@@ -47,7 +57,7 @@ export default function RegisterPage() {
         return;
     }
     
-    const email = `${username}@example.com`; // Transform username to email for Firebase
+    const email = `${username}@example.com`;
 
     try {
       const userCredential = await createUserWithEmailAndPassword(
@@ -59,7 +69,6 @@ export default function RegisterPage() {
       
       const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
       
-      // Hardcode the role assignment for the admin user for initial setup.
       const role = username === 'Admin01' ? 'admin' : 'collaborator';
 
       const newCollaborator: Collaborator = {
@@ -84,24 +93,33 @@ export default function RegisterPage() {
             router.push('/dashboard');
         })
         .catch((firestoreError) => {
-            console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
+            // This is the critical part for creating the contextual error.
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'create',
                 requestResourceData: newCollaborator,
             });
+            // Emit the error for the global listener to catch and display.
             errorEmitter.emit('permission-error', permissionError);
-            throw permissionError; // Re-throw to be caught by the outer catch
+            
+            // We still inform the user via toast, but we don't log to console.
+            toast({
+                variant: 'destructive',
+                title: "Erreur de permission",
+                description: "Impossible de créer votre profil. Vérifiez les règles de sécurité.",
+                duration: 9000,
+            });
+
+            // We can re-throw the original error if we want other catch blocks
+            // to be aware of a failure, but the primary debugging mechanism
+            // is the emitted event.
+            // throw firestoreError;
         });
 
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
-      } else if (error.code === 'auth/weak-password') {
-          errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (error.name === 'FirebaseError') { // Catch the re-thrown permission error
-          errorMessage = "Vous n'avez pas la permission de créer un profil utilisateur. Les règles de sécurité ont bloqué la requête.";
       }
       
       toast({
@@ -110,8 +128,11 @@ export default function RegisterPage() {
         description: errorMessage,
       });
 
-      setIsLoading(false);
-    } 
+    } finally {
+        // We don't set loading to false here on success because the redirect will happen.
+        // But we do on failure.
+        setIsLoading(false);
+    }
   };
   
     if (isUserLoading || user) {
