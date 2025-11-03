@@ -7,13 +7,14 @@
  * - /groups/{groupId}: Stores group information.
  * - /leads/{leadId}: Stores lead data, with 'assignedCollaboratorId' for access control.
  * - /leads/{leadId}/notes/{noteId}: Stores notes for leads, with denormalized 'assignedCollaboratorId'.
+ * - /distributionSettings/{settingId}: Stores lead distribution rules.
  *
  * Key Security Decisions:
  * - Collaborators can only access their own profile data.
  * - Admins can be configured via a separate `/roles_admin/{uid}` document (not implemented in this prototype but required for Group management).
  * - Leads are accessible to their assigned collaborator.
  * - Notes inherit access control from their parent lead, enforced via the denormalized `assignedCollaboratorId`.
- * - List operations are generally allowed for owners of user-scoped subcollections.
+ * - Distribution settings are only manageable by admins.
  *
  * Denormalization for Authorization:
  * - The `Note` entity denormalizes `assignedCollaboratorId` from the parent `Lead` document. This allows the security rules for notes to be independent of the lead document and avoids costly `get()` calls.
@@ -30,25 +31,45 @@ service cloud.firestore {
      * @principle Enforces document ownership for collaborator profiles.
      */
     match /collaborators/{collaboratorId} {
-      allow get: if isSignedIn() && isOwner(collaboratorId);
-      allow list: if false;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isOwner(collaboratorId) && request.resource.data.id == request.auth.uid;
       allow update: if isSignedIn() && isOwner(collaboratorId) && resource.data.id == request.resource.data.id;
       allow delete: if isSignedIn() && isExistingOwner(collaboratorId);
     }
+    
+    /**
+     * @description Helper function to check if the user has the 'admin' role.
+     * It checks for the existence of a document in `/collaborators/{uid}` where the role is 'admin'.
+     * @return {boolean} True if the user is an admin, false otherwise.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/collaborators/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
+    }
+
 
     /**
-     * @description Allows admins to manage groups. (Admin check is a placeholder)
+     * @description Allows admins to manage groups.
      * @path /groups/{groupId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if false // TODO: Implement admin check once roles are defined.
-     * @deny (create, update, delete) if true
+     * @allow (get, list) if isSignedIn()
+     * @allow (create, update, delete) if isAdmin()
      * @principle Restricts group management to admins.
      */
     match /groups/{groupId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin check once roles are defined.
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
     }
+    
+    /**
+     * @description Allows admins to manage distribution settings.
+     * @path /distributionSettings/{settingId}
+     * @allow (get, list, create, update, delete) if isAdmin()
+     * @principle Restricts distribution settings management to admins.
+     */
+    match /distributionSettings/{settingId} {
+        allow get, list, create, update, delete: if isSignedIn() && isAdmin();
+    }
+
 
     /**
      * @description Allows the assigned collaborator to read/write leads.
@@ -60,10 +81,10 @@ service cloud.firestore {
      * @principle Enforces ownership via assignedCollaboratorId.
      */
     match /leads/{leadId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.assignedCollaboratorId == request.auth.uid;
-      allow update: if isSignedIn() && isExistingAssignedCollaborator(resource.data.assignedCollaboratorId);
-      allow delete: if isSignedIn() && isExistingAssignedCollaborator(resource.data.assignedCollaboratorId);
+      allow update: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
+      allow delete: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
 
       /**
        * @description Allows the assigned collaborator to create/read/write notes for assigned leads.
@@ -75,10 +96,10 @@ service cloud.firestore {
        * @principle Inherits ownership from the lead's assignedCollaboratorId and enforces it on notes.
        */
       match /notes/{noteId} {
-        allow get, list: if isSignedIn() && resource.data.collaboratorId == request.auth.uid;
+        allow get, list: if isSignedIn() && (resource.data.collaboratorId == request.auth.uid || isAdmin());
         allow create: if isSignedIn() && request.resource.data.collaboratorId == request.auth.uid && request.resource.data.leadId == leadId;
-        allow update: if isSignedIn() && isExistingNoteCollaborator(resource.data.collaboratorId);
-        allow delete: if isSignedIn() && isExistingNoteCollaborator(resource.data.collaboratorId);
+        allow update: if isSignedIn() && (isExistingNoteCollaborator(resource.data.collaboratorId) || isAdmin());
+        allow delete: if isSignedIn() && (isExistingNoteCollaborator(resource.data.collaboratorId) || isAdmin());
       }
     }
 

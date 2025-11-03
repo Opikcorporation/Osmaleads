@@ -126,6 +126,37 @@
         "timestamp",
         "content"
       ]
+    },
+    "DistributionSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DistributionSetting",
+      "type": "object",
+      "description": "Stores distribution settings for a group.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DistributionSetting entity."
+        },
+        "groupId": {
+          "type": "string",
+          "description": "Reference to the Group this setting applies to."
+        },
+        "leadsPerDay": {
+          "type": "number",
+          "description": "Number of leads to distribute per day to this group."
+        },
+        "distributionTime": {
+          "type": "string",
+          "description": "Time of day to distribute leads (e.g., '17:00').",
+          "format": "time"
+        }
+      },
+      "required": [
+        "id",
+        "groupId",
+        "leadsPerDay",
+        "distributionTime"
+      ]
     }
   },
   "auth": {
@@ -203,8 +234,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/distributionSettings/{settingId}",
+        "definition": {
+          "entityName": "DistributionSetting",
+          "schema": {
+            "$ref": "#/backend/entities/DistributionSetting"
+          },
+          "description": "Stores lead distribution settings for groups. Only admins can manage these settings.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "The unique identifier of the distribution setting."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). It prioritizes path-based ownership for user-related data and membership maps for collaborative data. Denormalization is used extensively to avoid `get()` calls in security rules.\n\n*   `/collaborators/{collaboratorId}`: Stores collaborator profiles. Security rules will ensure only the collaborator can read/write their own document.\n*   `/groups/{groupId}`: Stores group information.  No specific ownership; could be managed by admins.  Security rules could restrict creation/modification to admin roles (enforced via existence checks in `/roles_admin/{uid}`).\n*   `/leads/{leadId}`: Stores lead data. Each lead has an `assignedCollaboratorId`.  Security rules will allow the assigned collaborator to read/write the lead. Admin can also read all leads.\n*   `/leads/{leadId}/notes/{noteId}`: Stores notes for each lead. Denormalizes `assignedCollaboratorId` from the lead document to ensure authorization independence.  Security rules allow the assigned collaborator (denormalized) or admins to create/read/write notes for the assigned lead."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). It prioritizes path-based ownership for user-related data and membership maps for collaborative data. Denormalization is used extensively to avoid `get()` calls in security rules.\n\n*   `/collaborators/{collaboratorId}`: Stores collaborator profiles. Security rules will ensure only the collaborator can read/write their own document.\n*   `/groups/{groupId}`: Stores group information.  No specific ownership; could be managed by admins.  Security rules could restrict creation/modification to admin roles (enforced via existence checks in `/roles_admin/{uid}`).\n*   `/leads/{leadId}`: Stores lead data. Each lead has an `assignedCollaboratorId`.  Security rules will allow the assigned collaborator to read/write the lead. Admin can also read all leads.\n*   `/leads/{leadId}/notes/{noteId}`: Stores notes for each lead. Denormalizes `assignedCollaboratorId` from the lead document to ensure authorization independence.  Security rules allow the assigned collaborator (denormalized) or admins to create/read/write notes for the assigned lead.\n* `/distributionSettings/{settingId}`: Stores lead distribution rules. Only admins should be able to create, update, or delete these."
   }
 }

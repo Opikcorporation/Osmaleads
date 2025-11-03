@@ -61,3 +61,10 @@ export type Collaborator = {
   avatarUrl: string;
   groupId?: string;
 };
+
+export type DistributionSetting = {
+  id: string;
+  groupId: string;
+  leadsPerDay: number;
+  distributionTime: string; // e.g., "17:00"
+};
