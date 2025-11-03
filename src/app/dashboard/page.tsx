@@ -164,11 +164,7 @@ export default function DashboardPage() {
   const handleSaveLead = async ({ leadData, fileName }: { leadData: string, fileName: string }) => {
     if (!firestore) return;
     setIsImportDialogOpen(false);
-    toast({
-      title: "Importation en cours...",
-      description: "Traitement du fichier et création des leads.",
-    });
-
+    
     try {
       const parsedLeads = parseCSV(leadData);
       if (!parsedLeads || parsedLeads.length === 0) {
@@ -190,7 +186,7 @@ export default function DashboardPage() {
 
         const newLead: Omit<Lead, 'id'> = {
           name: sensibleName,
-          status: 'Analyzing', // Set initial status to Analyzing
+          status: 'New', // Set initial status to New
           assignedCollaboratorId: null,
           leadData: JSON.stringify(row),
           createdAt: serverTimestamp(),

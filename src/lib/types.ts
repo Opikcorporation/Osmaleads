@@ -29,7 +29,6 @@ export type Note = {
 
 export const leadStatuses = [
   'New',
-  'Analyzing',
   'Qualified',
   'Not Qualified',
   'No Answer',
@@ -50,7 +49,6 @@ export type Lead = {
   createdAt: FieldValue;
   assignedAt?: FieldValue;
   status: LeadStatus;
-  assignedCollaboratorId: string | null;
   leadData: string; // Raw CSV row data as JSON
 };
 
