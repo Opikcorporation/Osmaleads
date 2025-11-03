@@ -7,88 +7,37 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore, useAuth } from '@/firebase';
+import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
 import { useEffect, useState } from 'react';
-import { getUserById } from '@/lib/data';
-import { type Collaborator } from '@/lib/types';
+import type { Collaborator } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc } from 'firebase/firestore';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useToast } from '@/hooks/use-toast';
-import { signOut } from 'firebase/auth';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
-  const auth = useAuth();
-  const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { toast } = useToast();
+
+  // New, simplified logic to fetch the collaborator profile
+  const collaboratorQuery = useMemoFirebase(
+    () => (user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null),
+    [user, firestore]
+  );
+  const { data: collaboratorData, isLoading: isProfileLoading } = useCollection<Collaborator>(collaboratorQuery);
+  
+  const collaborator = collaboratorData?.[0];
+  const isLoading = isAuthLoading || (user && isProfileLoading);
 
   useEffect(() => {
-    // 1. Attendre que l'authentification soit terminée et que firestore soit prêt
-    if (isUserLoading || !firestore) {
-      setIsLoading(true);
-      return;
-    }
-
-    // 2. Si pas d'utilisateur, rediriger vers la page de connexion
-    if (!user) {
+    // If auth is done loading and there's no user, redirect to login.
+    if (!isAuthLoading && !user) {
       router.push('/');
-      return;
     }
-    
-    // 3. Si on a un utilisateur, récupérer ou créer son profil
-    const fetchOrCreateProfile = async () => {
-      try {
-        const userData = await getUserById(firestore, user.uid);
-        
-        if (userData) {
-          setCollaborator(userData);
-        } else {
-          // Si le profil n'existe pas, on le crée (cas de secours)
-          console.log("Profil collaborateur non trouvé, création...");
-          const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-          const username = user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`;
-
-          const newCollaborator: Collaborator = {
-            id: user.uid,
-            name: user.displayName || 'Nouveau Collaborateur',
-            username: username,
-            email: user.email,
-            role: 'collaborator', // Rôle par défaut
-            avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
-          };
-          
-          const docRef = doc(firestore, 'collaborators', user.uid);
-          await setDoc(docRef, newCollaborator);
-          setCollaborator(newCollaborator);
-          console.log("Profil collaborateur créé avec succès.");
-        }
-      } catch (error: any) {
-        console.error("Échec de la récupération ou création du profil :", error.message);
-        toast({
-          variant: "destructive",
-          title: "Impossible de charger ou créer votre profil",
-          description: "Un problème est survenu. Vous allez être déconnecté.",
-          duration: 9000,
-        });
-
-        await signOut(auth);
-        router.push('/');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOrCreateProfile();
-  }, [user, isUserLoading, firestore, auth, router, toast]);
-
+  }, [isAuthLoading, user, router]);
 
   if (isLoading) {
     return (
@@ -97,13 +46,31 @@ export default function DashboardLayout({
       </div>
     );
   }
+  
+  // After loading, if there's an authenticated user but no profile document,
+  // it means something went wrong during registration.
+  if (user && !collaborator) {
+     return (
+        <div className="flex min-h-screen w-full items-center justify-center bg-background text-center">
+            <div>
+                <h2 className="text-xl font-semibold text-destructive">Erreur de Profil</h2>
+                <p className="text-muted-foreground mt-2">
+                    Impossible de charger le profil collaborateur associé à votre compte. <br />
+                    Cela peut se produire si la création du profil a échoué lors de l'inscription.
+                </p>
+                <Button onClick={() => router.push('/')} className="mt-4">Retour à la connexion</Button>
+            </div>
+        </div>
+    );
+  }
 
-  if (!collaborator) {
+  // If there's no user and no loading, it means we are redirecting, show a blank screen.
+  if (!user || !collaborator) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
             <p>Redirection en cours...</p>
         </div>
-    )
+    );
   }
 
   return (
