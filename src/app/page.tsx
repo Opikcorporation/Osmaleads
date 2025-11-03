@@ -44,44 +44,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background">
-      <div className="w-full max-w-md p-4">
-        <Card className="rounded-xl border-2 border-primary/20 shadow-xl">
-          <CardHeader className="space-y-4 text-center">
+    <div className="flex min-h-screen w-full items-center justify-center bg-zinc-100 dark:bg-zinc-950">
+      <div className="w-full max-w-sm p-4">
+        <div className="text-center mb-8">
             <div className="inline-block">
-              <Logo className="mx-auto h-12 w-12" />
+              <Logo className="mx-auto h-14 w-14 text-black dark:text-white" />
             </div>
-            <CardTitle className="text-3xl font-bold tracking-tight text-primary">LeadFlowAI</CardTitle>
-            <CardDescription className="text-lg">
+            <h1 className="text-4xl font-bold tracking-tight mt-2 text-black dark:text-white">LeadFlowAI</h1>
+            <p className="text-muted-foreground mt-2">
               Sign in to access your dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <Link href="#" className="ml-auto inline-block text-sm underline">
-                    Forgot your password?
-                  </Link>
-                </div>
-                <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
-              </div>
-              <Button type="submit" className="w-full text-lg font-semibold">
-                Login
-              </Button>
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/register">
-                  Sign up
-                </Link>
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            </p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} className="bg-white dark:bg-zinc-900"/>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <Label htmlFor="password">Password</Label>
+              <Link href="#" className="ml-auto inline-block text-sm underline">
+                Forgot your password?
+              </Link>
+            </div>
+            <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="bg-white dark:bg-zinc-900" />
+          </div>
+          <Button type="submit" className="w-full text-base font-semibold">
+            Login
+          </Button>
+          <Button variant="secondary" className="w-full" asChild>
+            <Link href="/register">
+              Sign up
+            </Link>
+          </Button>
+        </form>
       </div>
     </div>
   );

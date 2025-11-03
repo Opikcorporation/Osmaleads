@@ -13,9 +13,9 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
       {...props}
     >
       <title>LeadFlowAI Logo</title>
-      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="hsl(var(--primary))" />
-      <path d="M2 17l10 5 10-5" stroke="hsl(var(--accent))" />
-      <path d="M2 12l10 5 10-5" stroke="hsl(var(--accent))" strokeOpacity="0.6" />
+      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.9"/>
+      <path d="M2 17l10 5 10-5" stroke="currentColor" />
+      <path d="M2 12l10 5 10-5" stroke="currentColor" opacity="0.5" />
     </svg>
   );
 }

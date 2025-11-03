@@ -1,3 +1,5 @@
+'use client';
+
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { LeadStatus } from '@/lib/types';
@@ -5,40 +7,30 @@ import { CheckCircle2, XCircle, PhoneMissed, Hand, FileText, Sparkles, CircleDot
 
 const statusConfig: Record<
   LeadStatus,
-  { label: string; icon: React.ElementType; color: string }
+  { label: string; icon: React.ElementType; className: string }
 > = {
-  New: { label: 'New', icon: Sparkles, color: 'bg-blue-500' },
-  Qualified: { label: 'Qualified', icon: CheckCircle2, color: 'bg-green-500' },
-  'Not Qualified': { label: 'Not Qualified', icon: XCircle, color: 'bg-red-500' },
-  'No Answer': { label: 'No Answer', icon: PhoneMissed, color: 'bg-yellow-500' },
-  'Not Interested': { label: 'Not Interested', icon: Hand, color: 'bg-orange-500' },
-  Signed: { label: 'Signed', icon: FileText, color: 'bg-purple-500' },
+  New: { label: 'New', icon: Sparkles, className: 'bg-sky-500 text-white' },
+  Qualified: { label: 'Qualified', icon: CheckCircle2, className: 'bg-green-500 text-white' },
+  'Not Qualified': { label: 'Not Qualified', icon: XCircle, className: 'bg-red-500 text-white' },
+  'No Answer': { label: 'No Answer', icon: PhoneMissed, className: 'bg-yellow-500 text-black' },
+  'Not Interested': { label: 'Not Interested', icon: Hand, className: 'bg-orange-500 text-white' },
+  Signed: { label: 'Signed', icon: FileText, className: 'bg-purple-600 text-white' },
 };
 
+
 export function StatusBadge({ status }: { status: LeadStatus }) {
-  const config = statusConfig[status] || { label: 'Unknown', icon: CircleDot, color: 'bg-gray-400' };
-  const { label, icon: Icon, color } = config;
+  const config = statusConfig[status] || { label: 'Unknown', icon: CircleDot, className: 'bg-gray-500 text-white' };
+  const { label, icon: Icon, className } = config;
 
   return (
     <Badge
-      variant="outline"
-      className="flex items-center gap-2 border-none text-white font-medium px-3 py-1 rounded-full"
-      style={{ backgroundColor: `hsl(var(--${statusToColor(status)}))` }}
+      className={cn(
+        "flex items-center gap-1.5 border-transparent font-medium px-2.5 py-1 rounded-full text-xs",
+        className
+      )}
     >
       <Icon className="h-3.5 w-3.5" />
       <span>{label}</span>
     </Badge>
   );
-}
-
-function statusToColor(status: LeadStatus): string {
-    switch (status) {
-        case 'New': return 'primary';
-        case 'Qualified': return 'chart-2';
-        case 'Not Qualified': return 'destructive';
-        case 'No Answer': return 'chart-4';
-        case 'Not Interested': return 'chart-5';
-        case 'Signed': return 'accent';
-        default: return 'muted';
-    }
 }
