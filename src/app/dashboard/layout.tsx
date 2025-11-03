@@ -26,34 +26,34 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const auth = useAuth();
   const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Local loading state for this layout
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    // 1. Ne rien faire tant que l'état d'authentification ou Firestore n'est pas prêt.
-    if (isUserLoading || !firestore || !auth) {
+    // 1. Do nothing until Firebase has determined the auth state.
+    if (isUserLoading || !firestore) {
       setIsLoading(true);
       return;
     }
 
-    // 2. Si le chargement est terminé et qu'il n'y a pas d'utilisateur, rediriger.
+    // 2. If auth state is determined and there's no user, redirect to login.
     if (!isUserLoading && !user) {
       router.push('/');
-      setIsLoading(false);
-      return;
+      return; // No need to set loading states, redirect will handle it.
     }
     
-    // 3. L'utilisateur est authentifié et Firestore est prêt.
+    // 3. If we have a user and firestore is ready, fetch or create the profile.
     if (user && firestore) {
-      const fetchCollaborator = async () => {
+      const fetchOrCreateProfile = async () => {
         try {
           const userData = await getUserById(firestore, user.uid);
+          
           if (userData) {
             setCollaborator(userData);
           } else {
-            // Le profil n'existe pas, on tente de le créer.
-            console.log("Profil collaborateur non trouvé, tentative de création...");
+            // Profile doesn't exist, let's create it.
+            console.log("Collaborator profile not found, creating one...");
             const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
             const username = user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`;
 
@@ -62,48 +62,49 @@ export default function DashboardLayout({
               name: user.displayName || 'Nouveau Collaborateur',
               username: username,
               email: user.email,
-              role: 'collaborator',
+              role: 'collaborator', // Default role
               avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
             };
             
             const docRef = doc(firestore, 'collaborators', user.uid);
             
-            // On utilise une promesse pour gérer la création du document.
+            // This is a crucial operation. If it fails, we need to handle it.
             await setDoc(docRef, newCollaborator);
 
-            console.log("Profil collaborateur créé avec succès.");
+            console.log("Collaborator profile created successfully.");
             setCollaborator(newCollaborator);
           }
         } catch (error: any) {
-          
-          // On émet l'erreur contextuelle pour le débogage.
+          // This block now specifically handles errors in fetching or creating the profile.
           const permissionError = new FirestorePermissionError({
             path: `collaborators/${user.uid}`,
-            operation: 'create',
-            requestResourceData: 'hidden', // On ne log plus les données ici pour éviter la redondance
+            operation: 'create', // Most likely failure point
+            requestResourceData: 'hidden', 
           });
           errorEmitter.emit('permission-error', permissionError);
 
           toast({
             variant: "destructive",
             title: "Impossible de charger ou créer votre profil",
-            description: "Vérifiez vos permissions de base de données. Vous allez être déconnecté.",
+            description: "Un problème de permission est survenu. Vous allez être déconnecté.",
             duration: 9000,
           });
 
-          // Déconnexion et redirection en cas d'échec.
+          // If we fail, something is wrong with the rules or connection. Log out the user.
           await signOut(auth);
           router.push('/');
         } finally {
+          // No matter what, once we've tried, we're done loading.
           setIsLoading(false);
         }
       };
 
-      fetchCollaborator();
+      fetchOrCreateProfile();
     }
   }, [user, isUserLoading, firestore, auth, router, toast]);
 
 
+  // Display a loading screen while checking auth and fetching profile.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -112,8 +113,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Si le chargement est terminé mais qu'on a pas de collaborateur,
-  // c'est qu'une erreur est survenue et la redirection a déjà eu lieu.
+  // If loading is finished but there's no collaborator profile, something went wrong
+  // and the user has been redirected. This prevents rendering the dashboard in a broken state.
   if (!collaborator) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -122,6 +123,7 @@ export default function DashboardLayout({
     )
   }
 
+  // Render the full dashboard layout
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
       <AppSidebar user={collaborator} />

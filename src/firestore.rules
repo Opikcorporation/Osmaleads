@@ -31,8 +31,8 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /collaborators/{collaboratorId} {
-      // CREATE: A user can only create their own profile document. This is critical for sign-up.
-      // The incoming document's ID must match the authenticated user's UID.
+      // CREATE: A user can only create their own profile document.
+      // This is the most critical rule for fixing the sign-up flow.
       allow create: if isOwner(collaboratorId);
 
       // READ (get, list): Any authenticated user can read collaborator profiles.
