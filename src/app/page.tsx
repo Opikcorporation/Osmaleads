@@ -3,12 +3,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useAuth, useUser } from '@/firebase';
-import { initiateEmailSignIn } from '@/firebase/non-blocking-login';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +18,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('password');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (user && !isUserLoading) {
@@ -26,13 +26,30 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    initiateEmailSignIn(auth, email, password);
-    toast({
-      title: "Tentative de connexion...",
-      description: "Veuillez patienter.",
-    });
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: "Connexion réussie",
+        description: "Bienvenue !",
+      });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      let errorMessage = "Une erreur est survenue lors de la connexion.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = "Email ou mot de passe incorrect.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Erreur de connexion",
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isUserLoading || user) {
@@ -44,38 +61,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-zinc-100 dark:bg-zinc-950">
+    <div className="flex min-h-screen w-full items-center justify-center bg-background dark:bg-background">
       <div className="w-full max-w-sm p-4">
         <div className="text-center mb-8">
             <div className="inline-block">
-              <Logo className="mx-auto h-14 w-14 text-black dark:text-white" />
+              <Logo className="mx-auto h-12 w-12 text-foreground dark:text-foreground" />
             </div>
-            <h1 className="text-4xl font-bold tracking-tight mt-2 text-black dark:text-white">LeadFlowAI</h1>
+            <h1 className="text-3xl font-bold tracking-tight mt-4 text-foreground dark:text-foreground">LeadFlowAI</h1>
             <p className="text-muted-foreground mt-2">
-              Sign in to access your dashboard
+              Connectez-vous à votre tableau de bord
             </p>
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} className="bg-white dark:bg-zinc-900"/>
+            <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link href="#" className="ml-auto inline-block text-sm underline">
-                Forgot your password?
-              </Link>
-            </div>
-            <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="bg-white dark:bg-zinc-900" />
+            <Label htmlFor="password">Mot de passe</Label>
+            <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <Button type="submit" className="w-full text-base font-semibold">
-            Login
+          <Button type="submit" className="w-full text-base font-semibold" disabled={isLoading}>
+            {isLoading ? 'Connexion en cours...' : 'Se connecter'}
           </Button>
           <Button variant="secondary" className="w-full" asChild>
             <Link href="/register">
-              Sign up
+              Créer un compte
             </Link>
           </Button>
         </form>

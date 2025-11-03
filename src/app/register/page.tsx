@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
@@ -12,6 +11,7 @@ import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/fireba
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function RegisterPage() {
   const auth = useAuth();
@@ -22,9 +22,8 @@ export default function RegisterPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (user && !isUserLoading) {
@@ -34,25 +33,18 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profilePicture) {
-        toast({
-            variant: "destructive",
-            title: "Erreur",
-            description: "Veuillez sélectionner une photo de profil.",
-        });
-        return;
-    }
+    setIsLoading(true);
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      // For now, we will use a placeholder for the avatar URL
-      const avatarUrl = "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIwNzc3MTJ8MA&ixlib=rb-4.1.0&q=80&w=1080";
+      const defaultAvatar = PlaceHolderImages.find(p => p.id === 'user6') || PlaceHolderImages[0];
+      const avatarUrl = defaultAvatar.imageUrl;
 
       const newCollaborator = {
         id: firebaseUser.uid,
-        name: `${firstName} ${lastName}`,
+        name: name,
         email: firebaseUser.email,
         role: 'collaborator', // Default role
         avatarUrl: avatarUrl,
@@ -69,11 +61,20 @@ export default function RegisterPage() {
 
     } catch (error: any) {
       console.error("Erreur d'inscription:", error);
+      let errorMessage = "Impossible de créer le compte.";
+      if (error.code === 'auth/email-already-in-use') {
+          errorMessage = "Cette adresse email est déjà utilisée.";
+      } else if (error.code === 'auth/weak-password') {
+          errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Erreur d'inscription",
-        description: error.message || "Impossible de créer le compte.",
+        description: errorMessage,
       });
+    } finally {
+        setIsLoading(false);
     }
   };
   
@@ -87,55 +88,40 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">
-      <div className="w-full max-w-md p-4">
-        <Card className="rounded-xl border-2 border-primary/20 shadow-xl">
-          <CardHeader className="space-y-4 text-center">
-             <div className="inline-block">
-              <Logo className="mx-auto h-12 w-12" />
+       <div className="w-full max-w-sm p-4">
+        <div className="text-center mb-8">
+            <div className="inline-block">
+              <Logo className="mx-auto h-12 w-12 text-foreground dark:text-foreground" />
             </div>
-            <CardTitle className="text-3xl font-bold tracking-tight text-primary">Create an Account</CardTitle>
-            <CardDescription className="text-lg">
-              Join LeadFlowAI and start managing your leads.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first-name">First name</Label>
-                  <Input id="first-name" placeholder="Lee" required value={firstName} onChange={e => setFirstName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last-name">Last name</Label>
-                  <Input id="last-name" placeholder="Robinson" required value={lastName} onChange={e => setLastName(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="lee@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="profile-picture">Profile Picture</Label>
-                <Input id="profile-picture" type="file" required className="file:text-primary file:font-semibold" onChange={e => setProfilePicture(e.target.files ? e.target.files[0] : null)} />
-                 <p className="text-xs text-muted-foreground">A profile picture is required.</p>
-              </div>
-              <Button type="submit" className="w-full text-lg font-semibold">
-                Create account
-              </Button>
-              <div className="mt-4 text-center text-sm">
-                Already have an account?{' '}
-                <Link href="/" className="underline">
-                  Sign in
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            <h1 className="text-3xl font-bold tracking-tight mt-4 text-foreground dark:text-foreground">Créer un compte</h1>
+            <p className="text-muted-foreground mt-2">
+              Rejoignez LeadFlowAI dès maintenant.
+            </p>
+        </div>
+        <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="full-name">Nom complet</Label>
+                <Input id="full-name" placeholder="Jean Dupont" required value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="email@exemple.com" required value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="password">Mot de passe</Label>
+            <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
+            <Button type="submit" className="w-full text-base font-semibold" disabled={isLoading}>
+                {isLoading ? 'Création en cours...' : 'Créer mon compte'}
+            </Button>
+            <div className="mt-4 text-center text-sm">
+            Vous avez déjà un compte?{' '}
+            <Link href="/" className="underline font-semibold">
+                Se connecter
+            </Link>
+            </div>
+        </form>
+       </div>
     </div>
   );
 }
