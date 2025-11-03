@@ -7,12 +7,13 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { getUserById } from '@/lib/data';
 import { type Collaborator } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-
+import { doc, setDoc } from 'firebase/firestore';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function DashboardLayout({
   children,
@@ -36,9 +37,26 @@ export default function DashboardLayout({
       if (userData) {
         setCollaborator(userData);
       } else {
-        // Handle case where user is authenticated but not in collaborators collection
-        console.error("User not found in collaborators collection");
-        router.push('/');
+        // User is authenticated but not in collaborators collection, let's create them!
+        console.warn("User not found in collaborators collection, creating profile...");
+        try {
+          const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+          const newCollaborator: Collaborator = {
+            id: user.uid,
+            name: user.displayName || 'Nouveau Collaborateur',
+            username: user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`,
+            email: user.email,
+            role: 'collaborator', // All auto-created users are collaborators
+            avatarUrl: defaultAvatar.imageUrl,
+          };
+          
+          await setDoc(doc(firestore, 'collaborators', user.uid), newCollaborator);
+          setCollaborator(newCollaborator);
+          
+        } catch (error) {
+            console.error("Failed to create collaborator profile:", error);
+            router.push('/'); // Redirect if profile creation fails
+        }
       }
     };
 
