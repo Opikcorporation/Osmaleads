@@ -40,66 +40,76 @@ export default function DashboardLayout({
       return;
     }
 
-    setIsLoading(true);
-    const fetchCollaborator = async () => {
-      try {
-        const userData = await getUserById(firestore, user.uid);
-        if (userData) {
-          setCollaborator(userData);
-          setIsLoading(false); // User profile found, proceed
-        } else {
-          // Profile doesn't exist, so we create it.
-          console.log("User profile not found in 'collaborators', creating one...");
-          const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-          
-          const newCollaborator: Collaborator = {
-            id: user.uid,
-            name: user.displayName || 'Nouveau Collaborateur',
-            username: user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`,
-            email: user.email,
-            role: 'collaborator', // Default role
-            avatarUrl: defaultAvatar.imageUrl,
-          };
-          
-          const docRef = doc(firestore, 'collaborators', user.uid);
-          
-          // Use setDoc with proper error handling
-          await setDoc(docRef, newCollaborator);
-          
-          console.log("Successfully created collaborator profile.");
-          setCollaborator(newCollaborator);
-          setIsLoading(false); // Profile created, proceed
-        }
-      } catch (error: any) {
-        // This is the critical part for handling the permission error
-        if (error.code === 'permission-denied' || error.name === 'FirebaseError') {
-          const permissionError = new FirestorePermissionError({
-             path: `collaborators/${user.uid}`,
-             operation: 'create', // Assume create is the most likely failure point
-             requestResourceData: { userId: user.uid, email: user.email }, // Example data
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        } else {
-          console.error("Failed to fetch or create collaborator profile:", error);
-        }
-
-        toast({
-          variant: "destructive",
-          title: "Erreur de chargement du profil",
-          description: "Impossible de charger ou de créer votre profil. Vous allez être déconnecté.",
-          duration: 9000,
-        });
-
-        // Log out user and redirect to login page to prevent loops
-        if (auth) {
-          await signOut(auth);
-        }
-        router.push('/');
-        // Do not set isLoading to false here, as we are navigating away.
-      }
-    };
-
+    // This is the critical part: ensure both user and firestore are available.
     if (user && firestore) {
+      setIsLoading(true);
+      const fetchCollaborator = async () => {
+        try {
+          const userData = await getUserById(firestore, user.uid);
+          if (userData) {
+            setCollaborator(userData);
+          } else {
+            // Profile doesn't exist, so we create it.
+            console.log("User profile not found in 'collaborators', creating one...");
+            const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+            
+            const newCollaborator: Collaborator = {
+              id: user.uid,
+              name: user.displayName || 'Nouveau Collaborateur',
+              username: user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`,
+              email: user.email,
+              role: 'collaborator', // Default role
+              avatarUrl: defaultAvatar.imageUrl,
+            };
+            
+            const docRef = doc(firestore, 'collaborators', user.uid);
+            
+            // Use setDoc with proper error handling
+            await setDoc(docRef, newCollaborator);
+            
+            console.log("Successfully created collaborator profile.");
+            setCollaborator(newCollaborator);
+          }
+        } catch (error: any) {
+          // Handle permission errors by emitting a contextual error
+          if (error.code === 'permission-denied' || error.name === 'FirebaseError') {
+            
+            const newCollaboratorPayload = { // Create a valid payload for the error
+                id: user.uid,
+                name: user.displayName || 'Nouveau Collaborateur',
+                username: user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`,
+                email: user.email,
+                role: 'collaborator',
+                avatarUrl: 'placeholder.jpg',
+            };
+
+            const permissionError = new FirestorePermissionError({
+               path: `collaborators/${user.uid}`,
+               operation: 'create',
+               requestResourceData: newCollaboratorPayload, // Use the correct payload
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          } else {
+            console.error("Failed to fetch or create collaborator profile:", error);
+          }
+
+          toast({
+            variant: "destructive",
+            title: "Erreur de chargement du profil",
+            description: "Impossible de charger ou de créer votre profil. Vous allez être déconnecté.",
+            duration: 9000,
+          });
+
+          // Log out user and redirect to login page to prevent loops
+          if (auth) {
+            await signOut(auth);
+          }
+          router.push('/');
+          return; // Stop execution to prevent setting loading state
+        }
+        setIsLoading(false); // Set loading to false only on success
+      };
+
       fetchCollaborator();
     }
   }, [user, isUserLoading, firestore, router, toast, auth]);
