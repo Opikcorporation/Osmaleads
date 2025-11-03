@@ -44,7 +44,7 @@ export type Lead = {
   email: string;
   company: string;
   phone: string;
-  createdAt: FieldValue | string; // ISO date string or serverTimestamp
+  createdAt: FieldValue;
   status: LeadStatus;
   assignedCollaboratorId: string | null;
   aiProfile: string; // AI generated profile

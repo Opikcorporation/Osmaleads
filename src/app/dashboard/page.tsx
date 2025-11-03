@@ -21,19 +21,27 @@ import {
   useFirestore,
   useMemoFirebase,
   useUser,
+  addDocumentNonBlocking
 } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, serverTimestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { LeadImportDialog } from './_components/lead-import-dialog';
+import { useToast } from '@/hooks/use-toast';
+import { generateLeadProfile } from '@/ai/flows/generate-lead-profile';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
 
   // Determine the query based on the user's role
   const leadsQuery = useMemoFirebase(() => {
@@ -55,11 +63,53 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
-  const handleImportClick = () => {
-    // For now, this will just be a placeholder.
-    // We will re-implement the dialog logic in the next step.
-    alert("La fonctionnalité d'importation sera bientôt réactivée !");
-  }
+  const handleSaveLead = async ({ leadData, fileName }: { leadData: string, fileName: string }) => {
+    if (!firestore) return;
+    toast({
+      title: "Analyse IA en cours...",
+      description: "Le profil du lead est en cours de génération.",
+    });
+
+    try {
+      // 1. Generate AI Profile
+      const { profile } = await generateLeadProfile({ leadData });
+
+      // 2. Create lead object
+      // We'll use the file name as a placeholder for the lead name
+      const newLead: Omit<Lead, 'id'> = {
+        name: fileName.replace(/\.[^/.]+$/, ""), // Remove file extension
+        email: "non fourni",
+        company: "non fourni",
+        phone: "non fourni",
+        username: "non fourni",
+        createdAt: serverTimestamp(),
+        status: 'New',
+        assignedCollaboratorId: null,
+        aiProfile: profile,
+        leadData: leadData,
+      };
+
+      // 3. Save to Firestore
+      const leadsColRef = collection(firestore, 'leads');
+      addDocumentNonBlocking(leadsColRef, newLead);
+
+      toast({
+        title: "Lead créé avec succès !",
+        description: `${newLead.name} a été ajouté à la liste.`,
+      });
+
+    } catch (error) {
+      console.error("Failed to generate profile or save lead:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur lors de la création du lead",
+        description: "L'analyse IA ou la sauvegarde a échoué.",
+      });
+    }
+
+    setIsImportDialogOpen(false);
+  };
+
 
   const isLoading = leadsLoading || collaboratorsLoading;
 
@@ -67,7 +117,7 @@ export default function DashboardPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord des Leads</h1>
-        <Button onClick={handleImportClick}>
+         <Button onClick={() => setIsImportDialogOpen(true)}>
           <FileUp className="mr-2 h-4 w-4" /> Importer des Leads
         </Button>
       </div>
@@ -130,7 +180,7 @@ export default function DashboardPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center">
-                      Aucun lead à afficher.
+                      Aucun lead à afficher. Importez votre premier lead pour commencer.
                     </TableCell>
                   </TableRow>
                 )}
@@ -139,6 +189,12 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      
+      <LeadImportDialog
+        isOpen={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
+        onSave={handleSaveLead}
+      />
     </>
   );
 }
