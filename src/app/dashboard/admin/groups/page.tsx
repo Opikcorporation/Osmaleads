@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, Users, Trash2, Edit } from "lucide-react";
+import { PlusCircle, Users, Trash2, Edit, CheckSquare, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -18,7 +18,7 @@ import {
   deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc } from 'firebase/firestore';
-import type { Group, Collaborator } from '@/lib/types';
+import type { Group, Collaborator, LeadTier } from '@/lib/types';
 import { useState } from 'react';
 import { GroupFormDialog } from './_components/group-form-dialog';
 import {
@@ -33,6 +33,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from "@/components/ui/badge";
 
 export default function AdminGroupsPage() {
   const firestore = useFirestore();
@@ -78,7 +79,7 @@ export default function AdminGroupsPage() {
     setEditingGroup(null);
   };
 
-  const handleSaveGroup = (groupData: { name: string; collaboratorIds: string[] }) => {
+  const handleSaveGroup = (groupData: { name: string; collaboratorIds: string[], acceptedTiers: LeadTier[] }) => {
     if (editingGroup) {
       // Update existing group
       const groupRef = doc(firestore, 'groups', editingGroup.id);
@@ -113,7 +114,7 @@ export default function AdminGroupsPage() {
         {groups?.map((group) => {
           const members = getGroupMembers(group.id);
           return (
-            <Card key={group.id}>
+            <Card key={group.id} className="flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -149,33 +150,43 @@ export default function AdminGroupsPage() {
                 </div>
                 <CardDescription>{members.length} membre(s)</CardDescription>
               </CardHeader>
-              <CardContent>
-                {members.length > 0 ? (
-                <>
-                    <div className="flex -space-x-2 overflow-hidden">
-                    {members.slice(0, 5).map(member => (
-                        <Avatar key={member.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-card">
-                        <AvatarImage src={member.avatarUrl} alt={member.name} />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                    ))}
-                     {members.length > 5 && <Avatar className="inline-block h-10 w-10 rounded-full ring-2 ring-card"><AvatarFallback>+{members.length-5}</AvatarFallback></Avatar>}
+              <CardContent className="flex-grow space-y-4">
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                    Membres
+                  </h4>
+                  {members.length > 0 ? (
+                  <>
+                      <div className="flex -space-x-2 overflow-hidden">
+                      {members.slice(0, 5).map(member => (
+                          <Avatar key={member.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-card">
+                          <AvatarImage src={member.avatarUrl} alt={member.name} />
+                          <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                      ))}
+                      {members.length > 5 && <Avatar className="inline-block h-10 w-10 rounded-full ring-2 ring-card"><AvatarFallback>+{members.length-5}</AvatarFallback></Avatar>}
+                      </div>
+                  </>
+                  ) : (
+                      <p className="text-sm text-muted-foreground text-center py-2">Aucun membre.</p>
+                  )}
+                </div>
+                 <div>
+                  <h4 className="mb-2 text-sm font-semibold flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                    Niveaux de Leads Acceptés
+                  </h4>
+                  {group.acceptedTiers && group.acceptedTiers.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {group.acceptedTiers.map(tier => (
+                        <Badge key={tier} variant="secondary">{tier}</Badge>
+                      ))}
                     </div>
-                    <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                    {members.map(member => (
-                        <li key={member.id} className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6 text-xs">
-                                <AvatarImage src={member.avatarUrl} alt={member.name} />
-                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <span>{member.name}</span>
-                        </li>
-                    ))}
-                    </ul>
-                </>
-                ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Aucun membre dans ce groupe.</p>
-                )}
+                  ) : (
+                     <p className="text-sm text-muted-foreground text-center py-2">Tous les niveaux.</p>
+                  )}
+                 </div>
               </CardContent>
             </Card>
           )

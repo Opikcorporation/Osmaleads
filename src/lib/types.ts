@@ -11,10 +11,14 @@ export type User = {
   groupId?: string;
 };
 
+export const leadTiers = ['Bas de gamme', 'Moyenne gamme', 'Haut de gamme'] as const;
+export type LeadTier = (typeof leadTiers)[number];
+
 export type Group = {
   id:string;
   name: string;
   collaboratorIds: string[];
+  acceptedTiers: LeadTier[]; // Nouveau champ
 };
 
 export type Note = {
@@ -47,6 +51,8 @@ export type Lead = {
   aiProfile: string; // AI generated profile
   leadData: string;
   username: string;
+  score: number; // Nouveau champ
+  tier: LeadTier; // Nouveau champ
 };
 
 export type FirestoreNote = {

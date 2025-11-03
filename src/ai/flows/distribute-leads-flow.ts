@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview An AI agent that intelligently distributes unassigned leads.
+ * @fileOverview An AI agent that intelligently distributes unassigned leads based on scoring and group specialization.
  *
  * - distributeLeads - The main function to trigger the lead distribution.
  * - DistributeLeadsInput - The input type (currently empty).
@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import type { Lead, Collaborator, DistributionSetting, Group } from '@/lib/types';
+import type { Lead, Collaborator, Group } from '@/lib/types';
 import { suggestRedistributionStrategy } from './suggest-redistribution-strategy';
 
 // Define the input schema for the main flow
@@ -44,70 +44,64 @@ const distributeLeadsFlow = ai.defineFlow(
     const unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '==', null);
     const unassignedLeadsSnap = await unassignedLeadsQuery.get();
     const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
+    
+    // Sort leads by score, descending (Haut de gamme first)
+    unassignedLeads.sort((a, b) => (b.score || 0) - (a.score || 0));
 
     if (unassignedLeads.length === 0) {
       return { distributedCount: 0 };
     }
     
-    const settingsSnap = await firestore.collection('distributionSettings').get();
-    const settings = settingsSnap.docs.map(d => d.data()) as DistributionSetting[];
-
     const groupsSnap = await firestore.collection('groups').get();
     const groups = groupsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Group[];
     
-    const collaboratorsSnap = await firestore.collection('collaborators').get();
-    const collaborators = collaboratorsSnap.docs.map(d => d.data()) as Collaborator[];
+    // We'll track assignments to help with round-robin within groups
+    const assignmentsCount: { [collaboratorId: string]: number } = {};
 
-    // 2. Create a map for easy lookup
-    const collaboratorMap = new Map(collaborators.map(c => [c.id, c]));
-    const groupMap = new Map(groups.map(g => [g.id, g]));
-
-    // 3. Process each lead to find the best collaborator
+    // 2. Process each lead, starting from the highest score
     const assignments: { leadId: string, collaboratorId: string }[] = [];
 
     for (const lead of unassignedLeads) {
-      // Simulate creating performance data string - this could be more sophisticated
-      const groupPerformanceData = "All groups are performing equally at this time.";
+      // Find groups eligible for this lead's tier
+      const eligibleGroups = groups.filter(g => 
+        g.collaboratorIds && g.collaboratorIds.length > 0 &&
+        g.acceptedTiers && g.acceptedTiers.includes(lead.tier)
+      );
 
-      const suggestion = await suggestRedistributionStrategy({
-        leadProfile: lead.aiProfile,
-        groupPerformanceData,
-        currentTime: new Date().toISOString(),
-      });
+      if (eligibleGroups.length === 0) {
+        continue; // No group can handle this lead, skip for now.
+      }
+
+      // Simple strategy: find the collaborator with the fewest assignments among all eligible groups.
+      // This can be enhanced with AI suggestions later.
+      let bestCollaboratorId: string | null = null;
+      let minLeads = Infinity;
+
+      const allEligibleCollaborators = eligibleGroups.flatMap(g => g.collaboratorIds);
+
+      if (allEligibleCollaborators.length === 0) {
+        continue;
+      }
       
-      // A simple strategy to find a collaborator from the suggested group.
-      // This part can be made more robust. For now, it finds the first group mentioned.
-      let assignedCollaboratorId: string | null = null;
-      for (const group of groups) {
-          if (suggestion.suggestedStrategy.toLowerCase().includes(group.name.toLowerCase())) {
-              const collaboratorsInGroup = group.collaboratorIds;
-              if (collaboratorsInGroup.length > 0) {
-                  // Simple round-robin or random choice within the suggested group
-                  assignedCollaboratorId = collaboratorsInGroup[Math.floor(Math.random() * collaboratorsInGroup.length)];
-                  break; 
-              }
-          }
-      }
+      // Basic round-robin among eligible collaborators
+      bestCollaboratorId = allEligibleCollaborators
+        .map(id => ({ id, count: assignmentsCount[id] || 0 }))
+        .sort((a, b) => a.count - b.count)[0].id;
 
-      // Fallback: If AI fails or suggestion is unclear, use simple round-robin on all users.
-      if (!assignedCollaboratorId) {
-          const allCollaboratorIds = collaborators.map(c => c.id);
-          if (allCollaboratorIds.length > 0) {
-              assignedCollaboratorId = allCollaboratorIds[assignments.length % allCollaboratorIds.length];
-          }
-      }
 
-      if (assignedCollaboratorId) {
-          assignments.push({ leadId: lead.id, collaboratorId: assignedCollaboratorId });
+      if (bestCollaboratorId) {
+          assignments.push({ leadId: lead.id, collaboratorId: bestCollaboratorId });
+          // Update assignment count for the chosen collaborator
+          assignmentsCount[bestCollaboratorId] = (assignmentsCount[bestCollaboratorId] || 0) + 1;
       }
     }
 
-    // 4. Batch write assignments to Firestore
+    // 3. Batch write assignments to Firestore
     if (assignments.length > 0) {
       const batch = firestore.batch();
       for (const { leadId, collaboratorId } of assignments) {
         const leadRef = firestore.collection('leads').doc(leadId);
-        batch.update(leadRef, { assignedCollaboratorId: collaboratorId });
+        batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New' });
       }
       await batch.commit();
       distributedCount = assignments.length;

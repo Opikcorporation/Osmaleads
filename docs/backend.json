@@ -26,6 +26,19 @@
         "assignedCollaboratorId": {
           "type": "string",
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
+        },
+        "score": {
+          "type": "number",
+          "description": "AI-generated score for the lead (1-100)."
+        },
+        "tier": {
+          "type": "string",
+          "description": "AI-generated tier for the lead.",
+          "enum": [
+            "Bas de gamme",
+            "Moyenne gamme",
+            "Haut de gamme"
+          ]
         }
       },
       "required": [
@@ -33,7 +46,9 @@
         "leadData",
         "aiProfile",
         "status",
-        "assignedCollaboratorId"
+        "assignedCollaboratorId",
+        "score",
+        "tier"
       ]
     },
     "Collaborator": {
@@ -83,12 +98,25 @@
           "items": {
             "type": "string"
           }
+        },
+        "acceptedTiers": {
+          "type": "array",
+          "description": "The lead tiers this group is allowed to handle.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Bas de gamme",
+              "Moyenne gamme",
+              "Haut de gamme"
+            ]
+          }
         }
       },
       "required": [
         "id",
         "name",
-        "collaboratorIds"
+        "collaboratorIds",
+        "acceptedTiers"
       ]
     },
     "Note": {
