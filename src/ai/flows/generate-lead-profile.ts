@@ -58,10 +58,8 @@ const generateLeadProfileFlow = ai.defineFlow(
   }
 );
 
-export function getTierFromScore(score: number): LeadTier {
+export async function getTierFromScore(score: number): Promise<LeadTier> {
   if (score >= 80) return 'Haut de gamme';
   if (score >= 50) return 'Moyenne gamme';
   return 'Bas de gamme';
 }
-
-    
