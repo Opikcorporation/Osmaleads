@@ -193,14 +193,12 @@ export default function DashboardPage() {
           title: "Analyse IA en cours...",
           description: "L'IA analyse vos nouveaux leads pour leur attribuer un score."
         });
-        for (const leadId of newLeadIds) {
-            // No need to await, let it run in the background
-            fetch('/api/score-lead', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ leadId }),
-            });
-        }
+        // No need to await, let it run in the background
+        fetch('/api/score-lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadIds: newLeadIds }), // Send all IDs at once
+        });
       }
 
     } catch (error) {
