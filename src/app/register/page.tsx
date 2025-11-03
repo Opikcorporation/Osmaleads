@@ -69,12 +69,11 @@ export default function RegisterPage() {
         id: firebaseUser.uid,
         name: name,
         username: username,
-        email: null, // We no longer store the email
+        email: null,
         role: role,
         avatarUrl: defaultAvatar.imageUrl,
       };
 
-      // Use the corrected setDoc
       await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
 
       toast({
@@ -88,6 +87,8 @@ export default function RegisterPage() {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
+      } else if (error.code === 'auth/weak-password') {
+          errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
       }
       toast({
         variant: 'destructive',
