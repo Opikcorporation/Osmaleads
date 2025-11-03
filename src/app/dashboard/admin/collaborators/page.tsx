@@ -69,12 +69,13 @@ export default function AdminCollaboratorsPage() {
       // We are only focusing on creation for now.
       toast({ title: 'Fonctionnalité non implémentée' });
     } else {
+      const email = `${data.username}@example.com`; // Transform username to email
       try {
         // Can't create user in Auth and Firestore in one transaction,
         // so we create the auth user first.
         const userCredential = await createUserWithEmailAndPassword(
           auth,
-          data.email,
+          email,
           data.password
         );
         const firebaseUser = userCredential.user;
@@ -83,7 +84,8 @@ export default function AdminCollaboratorsPage() {
         const newCollaborator: Collaborator = {
           id: firebaseUser.uid,
           name: data.name,
-          email: data.email,
+          username: data.username,
+          email: null,
           role: data.role,
           avatarUrl: defaultAvatar.imageUrl,
         };
@@ -99,7 +101,7 @@ export default function AdminCollaboratorsPage() {
         console.error('Error creating collaborator:', error);
         let errorMessage = "Impossible de créer le collaborateur.";
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage = "Cette adresse email est déjà utilisée.";
+            errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
         } else if (error.code === 'auth/weak-password') {
             errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
         }
@@ -158,7 +160,7 @@ export default function AdminCollaboratorsPage() {
                   </Avatar>
                   <div>
                     <p className="font-semibold">{c.name}</p>
-                    <p className="text-sm text-muted-foreground">{c.email}</p>
+                    <p className="text-sm text-muted-foreground">@{c.username}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

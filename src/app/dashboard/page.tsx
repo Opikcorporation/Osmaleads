@@ -143,7 +143,7 @@ export default function DashboardPage() {
                   <TableRow key={lead.id}>
                     <TableCell>
                       <div className="font-medium">{lead.name}</div>
-                      <div className="text-sm text-muted-foreground">{lead.email}</div>
+                      <div className="text-sm text-muted-foreground">{lead.username}</div>
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={lead.status} />

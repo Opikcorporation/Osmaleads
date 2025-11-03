@@ -3,7 +3,8 @@ import { type } from "os";
 export type User = {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email: string | null;
   role: 'admin' | 'collaborator';
   avatarUrl: string;
   groupId?: string;
@@ -57,6 +58,7 @@ export type FirestoreNote = {
 export type Collaborator = {
   id: string;
   name: string;
+  username: string;
   email: string | null;
   role: 'admin' | 'collaborator';
   avatarUrl: string;

@@ -16,7 +16,7 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('admin@example.com');
+  const [username, setUsername] = useState('Admin01');
   const [password, setPassword] = useState('12345678a');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,6 +29,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const email = `${username}@example.com`; // Transform username to email for Firebase
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
@@ -40,7 +41,7 @@ export default function LoginPage() {
       console.error("Login Error:", error);
       let errorMessage = "Une erreur est survenue lors de la connexion.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Email ou mot de passe incorrect.";
+        errorMessage = "Nom d'utilisateur ou mot de passe incorrect.";
       }
       toast({
         variant: "destructive",
@@ -75,8 +76,8 @@ export default function LoginPage() {
         
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="nom@exemple.com" required value={email} onChange={e => setEmail(e.target.value)} />
+            <Label htmlFor="username">Nom d'utilisateur</Label>
+            <Input id="username" type="text" placeholder="Admin01" required value={username} onChange={e => setUsername(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>

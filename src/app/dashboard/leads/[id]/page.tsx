@@ -98,7 +98,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             <div className="flex items-center justify-between">
                 <div>
                     <CardTitle className="text-2xl">{lead.name}</CardTitle>
-                    <CardDescription>{lead.company} - {lead.email}</CardDescription>
+                    <CardDescription>{lead.company} - {lead.username}</CardDescription>
                 </div>
                  {assignedUser && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">

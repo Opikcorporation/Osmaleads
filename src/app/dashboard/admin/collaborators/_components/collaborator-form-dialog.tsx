@@ -35,7 +35,7 @@ export function CollaboratorFormDialog({
   collaborator,
 }: CollaboratorFormDialogProps) {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
   const { toast } = useToast();
@@ -46,13 +46,13 @@ export function CollaboratorFormDialog({
     if (isOpen) {
       if (collaborator) {
         setName(collaborator.name);
-        setEmail(collaborator.email || '');
+        setUsername(collaborator.username || '');
         setRole(collaborator.role);
         setPassword(''); // Don't show password on edit
       } else {
         // Reset form for creation
         setName('');
-        setEmail('');
+        setUsername('');
         setPassword('');
         setRole('collaborator');
       }
@@ -61,7 +61,7 @@ export function CollaboratorFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || (!isEditMode && !password)) {
+    if (!name || !username || (!isEditMode && !password)) {
         toast({
             variant: "destructive",
             title: "Champs manquants",
@@ -78,7 +78,7 @@ export function CollaboratorFormDialog({
         return;
     }
 
-    onSave({ name, email, password, role });
+    onSave({ name, username, password, role });
   };
 
   return (
@@ -109,14 +109,14 @@ export function CollaboratorFormDialog({
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
+              <Label htmlFor="username" className="text-right">
+                Nom d'utilisateur
               </Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="col-span-3"
                 required
                 disabled={isEditMode}

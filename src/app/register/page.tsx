@@ -23,7 +23,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
   
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -46,6 +46,8 @@ export default function RegisterPage() {
         setIsLoading(false);
         return;
     }
+    
+    const email = `${username}@example.com`; // Transform username to email for Firebase
 
     try {
       // Check if any user exists to determine role
@@ -66,7 +68,8 @@ export default function RegisterPage() {
       const newCollaborator: Collaborator = {
         id: firebaseUser.uid,
         name: name,
-        email: email,
+        username: username,
+        email: null, // We no longer store the email
         role: role,
         avatarUrl: defaultAvatar.imageUrl,
       };
@@ -84,7 +87,7 @@ export default function RegisterPage() {
       console.error('Registration Error:', error);
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "Cette adresse email est déjà utilisée.";
+        errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
       }
       toast({
         variant: 'destructive',
@@ -123,8 +126,8 @@ export default function RegisterPage() {
             <Input id="name" type="text" placeholder="John Doe" required value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="nom@exemple.com" required value={email} onChange={e => setEmail(e.target.value)} />
+            <Label htmlFor="username">Nom d'utilisateur</Label>
+            <Input id="username" type="text" placeholder="johndoe" required value={username} onChange={e => setUsername(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>
