@@ -118,6 +118,11 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-cols-1 md:grid-cols-3 gap-6">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Fiche de {lead?.name || 'Lead'}</DialogTitle>
+          <DialogDescription>Détails complets et historique des interactions pour ce lead.</DialogDescription>
+        </DialogHeader>
+
         {isLoading ? (
           <div className="md:col-span-3 text-center p-8">Chargement de la fiche lead...</div>
         ) : !lead ? (
