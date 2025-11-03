@@ -24,7 +24,7 @@ export type Note = {
   id: string;
   content: string;
   createdAt: string; // ISO date string
-  author: Pick<User, 'id' | 'name' | 'avatarUrl'>;
+  author: Pick<User, 'id' | 'name', 'avatarUrl'>;
 };
 
 export const leadStatuses = [
@@ -50,6 +50,7 @@ export type Lead = {
   assignedAt?: FieldValue;
   status: LeadStatus;
   leadData: string; // Raw CSV row data as JSON
+  assignedCollaboratorId: string | null;
 };
 
 export type FirestoreNote = {

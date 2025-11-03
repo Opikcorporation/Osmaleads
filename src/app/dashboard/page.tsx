@@ -54,15 +54,16 @@ import {
 } from '@/components/ui/select';
 import { leadStatuses } from '@/lib/types';
 
+
 // Simple CSV parser
 const parseCSV = (content: string): { [key: string]: string }[] => {
-  const rows = content.trim().split('\n');
+  const rows = content.trim().split('\n').map(row => row.trim()).filter(Boolean);
   if (rows.length < 2) return [];
   // Handles both comma and semicolon delimiters
   const delimiter = rows[0].includes(';') ? ';' : ',';
   const headers = rows[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
-  return rows.slice(1).map(row => {
-    const values = row.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+  return rows.slice(1).map(rowStr => {
+    const values = rowStr.split(delimiter).map(v => v.trim().replace(/"/g, ''));
     return headers.reduce((obj, header, index) => {
       obj[header] = values[index];
       return obj;
@@ -70,16 +71,6 @@ const parseCSV = (content: string): { [key: string]: string }[] => {
   });
 };
 
-// Function to find a key in a case-insensitive way
-const findKey = (obj: any, keys: string[]): string | null => {
-    const lowerCaseKeys = keys.map(k => k.toLowerCase());
-    for (const key in obj) {
-        if (lowerCaseKeys.includes(key.toLowerCase())) {
-            return obj[key];
-        }
-    }
-    return null;
-}
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -149,66 +140,50 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
-  const triggerAiAnalysis = async (leadId: string) => {
-    try {
-      await fetch('/api/generate-lead-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId }),
-      });
-    } catch (error) {
-      console.error(`Failed to trigger analysis for lead ${leadId}`, error);
-    }
-  };
-
-  const handleSaveLead = async ({ leadData, fileName }: { leadData: string, fileName: string }) => {
+  const handleSaveLead = async ({ fileContent, mapping }: { fileContent: string; mapping: { [key: string]: string } }) => {
     if (!firestore) return;
-    setIsImportDialogOpen(false);
     
     try {
-      const parsedLeads = parseCSV(leadData);
-      if (!parsedLeads || parsedLeads.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "Fichier vide ou invalide",
-          description: "Le fichier CSV ne contient aucune donnée à importer.",
-        });
+      const parsedData = parseCSV(fileContent);
+      if (parsedData.length === 0) {
+        toast({ variant: 'destructive', title: 'Fichier vide', description: 'Aucune donnée à importer.' });
         return;
       }
       
       const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
-      const newLeadIds: string[] = [];
+      
+      const invertedMapping: { [key: string]: string } = {};
+      for (const key in mapping) {
+          if (mapping[key] !== 'ignore') {
+             invertedMapping[mapping[key]] = key;
+          }
+      }
 
-      for (const row of parsedLeads) {
+      for (const row of parsedData) {
         const newLeadDocRef = doc(leadsColRef);
-        const sensibleName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || `Lead importé`;
-
+        
         const newLead: Omit<Lead, 'id'> = {
-          name: sensibleName,
-          status: 'New', // Set initial status to New
+          name: row[invertedMapping['name']] || "Lead sans nom",
+          phone: row[invertedMapping['phone']] || null,
+          email: row[invertedMapping['email']] || null,
+          company: row[invertedMapping['company']] || null,
+          status: 'New',
           assignedCollaboratorId: null,
           leadData: JSON.stringify(row),
           createdAt: serverTimestamp(),
-          company: null,
-          email: null,
-          phone: null,
-          username: null,
           score: null,
+          username: null,
         };
         batch.set(newLeadDocRef, newLead);
-        newLeadIds.push(newLeadDocRef.id);
       }
 
       await batch.commit();
 
       toast({
         title: "Importation réussie !",
-        description: `${parsedLeads.length} lead(s) ont été créés. L'analyse IA commence en arrière-plan.`,
+        description: `${parsedData.length} lead(s) ont été créés.`,
       });
-
-      // Trigger AI analysis for each new lead
-      newLeadIds.forEach(leadId => triggerAiAnalysis(leadId));
 
     } catch (error) {
       console.error("Failed to parse or save leads:", error);
@@ -376,7 +351,6 @@ export default function DashboardPage() {
                     </TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
-                    <TableHead className="hidden md:table-cell">Score</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
@@ -400,7 +374,6 @@ export default function DashboardPage() {
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
-                            <TableCell className="hidden md:table-cell">{lead.score !== null ? lead.score : 'N/A'}</TableCell>
                             <TableCell>
                             <StatusBadge status={lead.status} />
                             </TableCell>

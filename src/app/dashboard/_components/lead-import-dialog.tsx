@@ -9,16 +9,31 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { readFileAsText } from '@/lib/file-utils';
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, ArrowRight, ArrowLeft } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
+
+const parseCSVHeaders = (content: string): string[] => {
+  const firstLine = content.split('\n')[0];
+  if (!firstLine) return [];
+  const delimiter = firstLine.includes(';') ? ';' : ',';
+  return firstLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+};
+
 
 interface LeadImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { leadData: string; fileName: string }) => void;
+  onSave: (data: { fileContent: string; mapping: { [key: string]: string } }) => void;
 }
 
 export function LeadImportDialog({
@@ -26,9 +41,23 @@ export function LeadImportDialog({
   onClose,
   onSave,
 }: LeadImportDialogProps) {
+  const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<{ [key: string]: string }>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+
+  const resetState = () => {
+    setStep(1);
+    setFile(null);
+    setFileContent('');
+    setHeaders([]);
+    setMapping({});
+    setIsProcessing(false);
+    onClose();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -47,79 +76,120 @@ export function LeadImportDialog({
       e.dataTransfer.clearData();
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  
+  const handleNextStep = async () => {
     if (!file) {
-      toast({
-        variant: 'destructive',
-        title: 'Aucun fichier sélectionné',
-        description: 'Veuillez sélectionner un fichier à importer.',
-      });
+      toast({ variant: 'destructive', title: 'Aucun fichier sélectionné' });
       return;
     }
     setIsProcessing(true);
     try {
-      const leadData = await readFileAsText(file);
-      onSave({ leadData, fileName: file.name });
+      const content = await readFileAsText(file);
+      const parsedHeaders = parseCSVHeaders(content);
+      if (parsedHeaders.length === 0) {
+        toast({ variant: 'destructive', title: 'Fichier invalide', description: 'Impossible de détecter les colonnes dans ce fichier.' });
+        setIsProcessing(false);
+        return;
+      }
+      setFileContent(content);
+      setHeaders(parsedHeaders);
+      setStep(2);
     } catch (error) {
-      console.error('File read error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur de lecture du fichier',
-        description: 'Impossible de lire le contenu du fichier sélectionné.',
-      });
+      toast({ variant: 'destructive', title: 'Erreur de lecture', description: 'Impossible de lire le fichier.' });
     } finally {
       setIsProcessing(false);
     }
   };
   
-  const resetState = () => {
-    setFile(null);
-    setIsProcessing(false);
-    onClose();
-  }
+  const handleMappingChange = (header: string, field: string) => {
+    setMapping(prev => ({ ...prev, [header]: field }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+     if (Object.values(mapping).filter(v => v === 'name').length === 0) {
+      toast({ variant: 'destructive', title: 'Mappage incomplet', description: 'Veuillez mapper une colonne pour le champ "Nom".' });
+      return;
+    }
+    onSave({ fileContent, mapping });
+    resetState();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={resetState}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Importer un Lead</DialogTitle>
+            <DialogTitle>Importer des Leads</DialogTitle>
             <DialogDescription>
-              Téléversez un fichier (CSV, TXT) contenant les informations du lead. L'IA générera un profil détaillé.
+              {step === 1 ? 'Téléversez un fichier CSV contenant vos leads.' : 'Mappez les colonnes de votre fichier aux champs de destination.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-6">
-            <div 
-              className="relative flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary"
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onClick={() => document.getElementById('file-upload')?.click()}
-            >
-              <UploadCloud className="w-12 h-12 text-muted-foreground" />
-              <p className="mt-4 text-sm font-semibold text-center">
-                {file ? file.name : 'Glissez-déposez ou cliquez pour téléverser'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Fichiers texte (CSV, TXT, etc.)
-              </p>
-              <Input
-                id="file-upload"
-                type="file"
-                className="hidden"
-                onChange={handleFileChange}
-                accept=".csv,.txt,text/plain"
-              />
+
+          {step === 1 && (
+            <div className="py-6">
+              <div 
+                className="relative flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('file-upload')?.click()}
+              >
+                <UploadCloud className="w-12 h-12 text-muted-foreground" />
+                <p className="mt-4 text-sm font-semibold text-center">
+                  {file ? file.name : 'Glissez-déposez ou cliquez pour téléverser'}
+                </p>
+                <p className="text-xs text-muted-foreground">Fichiers CSV</p>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  accept=".csv"
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {step === 2 && (
+             <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+                <p className="text-sm text-muted-foreground">Indiquez quelle colonne de votre fichier correspond au Nom et au Téléphone.</p>
+                {headers.map(header => (
+                    <div key={header} className="grid grid-cols-2 items-center gap-4">
+                        <Label htmlFor={`header-${header}`} className="text-right font-medium truncate">{header}</Label>
+                        <Select onValueChange={value => handleMappingChange(header, value)}>
+                            <SelectTrigger id={`header-${header}`}>
+                                <SelectValue placeholder="Ignorer cette colonne" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ignore">Ignorer</SelectItem>
+                                <SelectItem value="name">Nom</SelectItem>
+                                <SelectItem value="phone">Téléphone</SelectItem>
+                                <SelectItem value="email">Email</SelectItem>
+                                <SelectItem value="company">Entreprise</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                ))}
+             </div>
+          )}
+          
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={resetState} disabled={isProcessing}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={!file || isProcessing}>
-              {isProcessing ? 'Analyse en cours...' : 'Générer le Profil & Enregistrer'}
-            </Button>
+            {step === 1 && (
+              <>
+                <Button type="button" variant="ghost" onClick={resetState}>Annuler</Button>
+                <Button type="button" onClick={handleNextStep} disabled={!file || isProcessing}>
+                    {isProcessing ? 'Analyse...' : 'Suivant'} <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </>
+            )}
+             {step === 2 && (
+              <>
+                <Button type="button" variant="ghost" onClick={() => setStep(1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
+                </Button>
+                <Button type="submit">Importer les Leads</Button>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
