@@ -43,14 +43,8 @@ export default function AppSidebar({ user }: AppSidebarProps) {
     },
     {
       href: '/dashboard/admin/groups',
-      label: 'Groupes',
+      label: 'Groupes & Distribution',
       icon: Users,
-      roles: ['admin'],
-    },
-    {
-      href: '/dashboard/admin/settings',
-      label: 'Distribution',
-      icon: Settings,
       roles: ['admin'],
     },
   ]

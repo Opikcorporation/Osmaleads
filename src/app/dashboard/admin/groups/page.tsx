@@ -17,7 +17,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import type { Group, Collaborator, DistributionSetting } from '@/lib/types';
 import { useState } from 'react';
 import { GroupFormDialog } from './_components/group-form-dialog';
@@ -78,6 +78,10 @@ export default function AdminGroupsPage() {
     return collaborators.filter((c) => memberIds.includes(c.id));
   };
   
+  const getGroupSetting = (groupId: string) => {
+    return settings?.find(s => s.groupId === groupId);
+  }
+
   const handleOpenDialog = (group: Group | null = null) => {
     setEditingGroup(group);
     setIsDialogOpen(true);
@@ -88,25 +92,55 @@ export default function AdminGroupsPage() {
     setEditingGroup(null);
   };
 
-  const handleSaveGroup = (groupData: { name: string; collaboratorIds: string[] }) => {
+  const handleSaveGroup = async (data: any) => {
+    const { groupData, settingData } = data;
+    const groupName = groupData.name;
+    const batch = writeBatch(firestore);
+
     if (editingGroup) {
       // Update existing group
       const groupRef = doc(firestore, 'groups', editingGroup.id);
-      updateDocumentNonBlocking(groupRef, groupData);
-       toast({ title: 'Groupe mis à jour', description: `Le groupe "${groupData.name}" a été modifié.` });
+      batch.update(groupRef, groupData);
+
+      const existingSetting = getGroupSetting(editingGroup.id);
+      if (existingSetting) {
+        const settingRef = doc(firestore, 'distributionSettings', existingSetting.id);
+        batch.update(settingRef, { ...settingData, groupId: editingGroup.id });
+      } else {
+        const newSettingRef = doc(collection(firestore, 'distributionSettings'));
+        batch.set(newSettingRef, { ...settingData, groupId: editingGroup.id });
+      }
+      
+      toast({ title: 'Groupe mis à jour', description: `Le groupe "${groupName}" a été modifié.` });
     } else {
-      // Create new group
-      const groupsColRef = collection(firestore, 'groups');
-      addDocumentNonBlocking(groupsColRef, groupData);
-       toast({ title: 'Groupe créé', description: `Le groupe "${groupData.name}" a été ajouté.` });
+      // Create new group and setting
+      const newGroupRef = doc(collection(firestore, 'groups'));
+      batch.set(newGroupRef, groupData);
+
+      const newSettingRef = doc(collection(firestore, 'distributionSettings'));
+      batch.set(newSettingRef, { ...settingData, groupId: newGroupRef.id });
+
+      toast({ title: 'Groupe créé', description: `Le groupe "${groupName}" a été ajouté.` });
     }
+    
+    await batch.commit();
     handleCloseDialog();
   };
 
-  const handleDeleteGroup = (groupId: string) => {
+  const handleDeleteGroup = async (groupId: string) => {
+    const batch = writeBatch(firestore);
+    
     const groupRef = doc(firestore, 'groups', groupId);
-    deleteDocumentNonBlocking(groupRef);
-    toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe a été supprimé avec succès.' });
+    batch.delete(groupRef);
+
+    const setting = getGroupSetting(groupId);
+    if (setting) {
+        const settingRef = doc(firestore, 'distributionSettings', setting.id);
+        batch.delete(settingRef);
+    }
+    
+    await batch.commit();
+    toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe et ses règles ont été supprimés.' });
   };
   
   const handleDistribute = async (group: Group) => {
@@ -128,21 +162,19 @@ export default function AdminGroupsPage() {
     }
   }
   
-  const getGroupSetting = (groupId: string) => {
-    return settings?.find(s => s.groupId === groupId);
-  }
-
-
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Groupes</h1>
+        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Groupes & la Distribution</h1>
         <Button onClick={() => handleOpenDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" /> Créer un Groupe
         </Button>
       </div>
+      <p className="text-muted-foreground">
+        Créez des équipes, assignez des collaborateurs et définissez leurs règles de distribution de leads.
+      </p>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {groups?.map((group) => {
           const members = getGroupMembers(group.id);
           const groupSetting = getGroupSetting(group.id);
@@ -172,7 +204,7 @@ export default function AdminGroupsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Cette action est irréversible. Le groupe "{group.name}" sera définitivement supprimé.
+                            Cette action est irréversible. Le groupe "{group.name}" et ses règles de distribution seront supprimés.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -228,10 +260,9 @@ export default function AdminGroupsPage() {
         onClose={handleCloseDialog}
         onSave={handleSaveGroup}
         group={editingGroup}
+        setting={editingGroup ? getGroupSetting(editingGroup.id) : null}
         allCollaborators={collaborators}
        />
     </>
   );
 }
-
-    
