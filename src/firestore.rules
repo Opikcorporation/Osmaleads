@@ -69,12 +69,13 @@ service cloud.firestore {
 
 
     /**
-     * @description Allows the assigned collaborator to read/write leads.
+     * @description Allows the assigned collaborator to read/write leads. Admins can create unassigned leads.
      * @path /leads/{leadId}
      */
     match /leads/{leadId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.assignedCollaboratorId == request.auth.uid;
+      // An admin can create any lead. A user can create a lead if they assign it to themselves.
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.assignedCollaboratorId == request.auth.uid);
       allow update: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
       allow delete: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
 
