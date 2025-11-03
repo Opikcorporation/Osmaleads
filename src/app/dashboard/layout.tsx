@@ -75,8 +75,6 @@ export default function DashboardLayout({
             setCollaborator(newCollaborator);
           }
         } catch (error: any) {
-          console.error("Échec de la récupération ou création du profil :", error.message);
-          
           // On émet l'erreur contextuelle pour le débogage.
           const permissionError = new FirestorePermissionError({
             path: `collaborators/${user.uid}`,
