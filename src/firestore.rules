@@ -15,9 +15,6 @@
  * - Leads are accessible to their assigned collaborator.
  * - Notes inherit access control from their parent lead, enforced via the denormalized `assignedCollaboratorId`.
  * - Distribution settings are only manageable by admins.
- *
- * Denormalization for Authorization:
- * - The `Note` entity denormalizes `assignedCollaboratorId` from the parent `Lead` document. This allows the security rules for notes to be independent of the lead document and avoids costly `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -40,7 +37,7 @@ service cloud.firestore {
     match /collaborators/{collaboratorId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn();
-      // An admin can create a user. A new user can create their OWN profile document.
+      // A new user can create their OWN profile document. An admin can create any user profile.
       allow create: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());
       // An existing user can only update their own profile. Admins can update any profile.
       allow update: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());

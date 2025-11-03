@@ -7,7 +7,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError, useAuth } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { getUserById } from '@/lib/data';
 import { type Collaborator } from '@/lib/types';
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { doc, setDoc } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
+import { signOut } from 'firebase/auth';
 
 export default function DashboardLayout({
   children,
@@ -23,17 +24,23 @@ export default function DashboardLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
   const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isUserLoading) return;
+    if (isUserLoading) {
+        setIsLoading(true);
+        return;
+    }
     if (!user) {
       router.push('/');
       return;
     }
 
+    setIsLoading(true);
     const fetchCollaborator = async () => {
       try {
         const userData = await getUserById(firestore, user.uid);
@@ -55,43 +62,47 @@ export default function DashboardLayout({
           
           const docRef = doc(firestore, 'collaborators', user.uid);
           
-          // Use a try-catch for the setDoc operation to implement contextual error handling.
-          try {
-             await setDoc(docRef, newCollaborator);
-             console.log("Successfully created collaborator profile.");
-             setCollaborator(newCollaborator);
-          } catch(firestoreError: any) {
-             if (firestoreError.code === 'permission-denied') {
-                const permissionError = new FirestorePermissionError({
-                    path: docRef.path,
-                    operation: 'create',
-                    requestResourceData: newCollaborator,
-                });
-                // Emit the contextual error to be caught by the FirebaseErrorListener
-                errorEmitter.emit('permission-error', permissionError);
-             }
-             // Rethrow to be caught by the outer catch block
-             throw firestoreError;
-          }
+          await setDoc(docRef, newCollaborator)
+            .then(() => {
+              console.log("Successfully created collaborator profile.");
+              setCollaborator(newCollaborator);
+            })
+            .catch((firestoreError: any) => {
+              // This catch block is specifically for setDoc failure.
+              if (firestoreError.code === 'permission-denied') {
+                 const permissionError = new FirestorePermissionError({
+                     path: docRef.path,
+                     operation: 'create',
+                     requestResourceData: newCollaborator,
+                 });
+                 // Emit the contextual error to be caught by the FirebaseErrorListener
+                 errorEmitter.emit('permission-error', permissionError);
+              }
+              // Rethrow the error to be caught by the outer catch block.
+              throw firestoreError;
+            });
         }
       } catch (error) {
         console.error("Failed to fetch or create collaborator profile:", error);
         toast({
           variant: "destructive",
           title: "Erreur de chargement du profil",
-          description: "Impossible de charger ou de créer votre profil utilisateur. Veuillez contacter le support.",
+          description: "Impossible de charger ou de créer votre profil. Veuillez contacter le support.",
           duration: 9000,
         });
-        // Log out user or redirect to an error page might be better
-        router.push('/'); 
+        // Log out user and redirect to login page to prevent loops
+        await signOut(auth);
+        router.push('/');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchCollaborator();
-  }, [user, isUserLoading, firestore, router, toast]);
+  }, [user, isUserLoading, firestore, router, toast, auth]);
 
 
-  if (isUserLoading || !collaborator) {
+  if (isLoading || !collaborator) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <p>Chargement du tableau de bord...</p>
