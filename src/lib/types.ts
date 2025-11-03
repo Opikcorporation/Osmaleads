@@ -42,13 +42,11 @@ export type Lead = {
   id: string;
   name: string;
   email: string | null;
-  company: string | null;
   phone: string | null;
+  company: string | null;
   username: string | null;
-  score: number | null;
-  createdAt: FieldValue;
-  assignedAt?: FieldValue;
   status: LeadStatus;
+  score: number | null;
   leadData: string; // Raw CSV row data as JSON
   assignedCollaboratorId: string | null;
 };

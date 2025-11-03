@@ -153,6 +153,7 @@ export default function DashboardPage() {
       
       const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
+      const newLeadIds: string[] = [];
       
       const invertedMapping: { [key: string]: string } = {};
       for (const key in mapping) {
@@ -169,11 +170,14 @@ export default function DashboardPage() {
           phone: row[invertedMapping['phone']] || null,
           email: row[invertedMapping['email']] || null,
           company: row[invertedMapping['company']] || null,
+          username: null,
           status: 'New',
-          assignedCollaboratorId: null,
+          score: null, // AI will populate this
           leadData: JSON.stringify(row),
+          assignedCollaboratorId: null,
         };
         batch.set(newLeadDocRef, newLead);
+        newLeadIds.push(newLeadDocRef.id);
       }
 
       await batch.commit();
@@ -182,6 +186,22 @@ export default function DashboardPage() {
         title: "Importation réussie !",
         description: `${parsedData.length} lead(s) ont été créés.`,
       });
+
+      // Trigger background AI scoring
+      if (newLeadIds.length > 0) {
+        toast({
+          title: "Analyse IA en cours...",
+          description: "L'IA analyse vos nouveaux leads pour leur attribuer un score."
+        });
+        for (const leadId of newLeadIds) {
+            // No need to await, let it run in the background
+            fetch('/api/score-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId }),
+            });
+        }
+      }
 
     } catch (error) {
       console.error("Failed to parse or save leads:", error);
@@ -376,7 +396,7 @@ export default function DashboardPage() {
                                 {lead.score !== null ? (
                                     <span className="font-mono text-sm">{lead.score}</span>
                                 ) : (
-                                    <span className="text-muted-foreground text-sm">N/A</span>
+                                    <span className="text-muted-foreground text-sm">...</span>
                                 )}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>

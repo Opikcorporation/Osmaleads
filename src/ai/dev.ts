@@ -2,5 +2,5 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/generate-lead-profile.ts';
+import '@/ai/flows/score-lead-flow.ts';
 import '@/ai/flows/distribute-leads-flow.ts';
