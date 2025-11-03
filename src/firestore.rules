@@ -6,147 +6,81 @@
  * - /collaborators/{collaboratorId}: Stores collaborator profiles.
  * - /groups/{groupId}: Stores group information.
  * - /leads/{leadId}: Stores lead data, with 'assignedCollaboratorId' for access control.
- * - /leads/{leadId}/notes/{noteId}: Stores notes for leads, with denormalized 'assignedCollaboratorId'.
+ * - /leads/{leadId}/notes/{noteId}: Stores notes for leads.
  * - /distributionSettings/{settingId}: Stores lead distribution rules.
  *
  * Key Security Decisions:
- * - Collaborators can only access their own profile data.
- * - Admins can create new collaborator accounts.
- * - Leads are accessible to their assigned collaborator.
- * - Notes inherit access control from their parent lead, enforced via the denormalized `assignedCollaboratorId`.
- * - Distribution settings are only manageable by admins.
+ * - Users can create and manage their own collaborator profile.
+ * - Admins have broader access to manage users, groups, leads, and settings.
+ * - Leads are readable by all signed-in users but writable only by admins or assigned collaborators.
+ * - Notes are writable by their creator and readable by admins or the note's creator.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Helper function to check if the user has the 'admin' role.
-     * It checks for the existence of a document in `/collaborators/{uid}` where the role is 'admin'.
-     * @return {boolean} True if the user is an admin, false otherwise.
-     */
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
-    }
+    // Helper Functions
 
-    /**
-     * @description Allows a collaborator to read/write their own profile. Admins can read any profile and create new ones.
-     * @path /collaborators/{collaboratorId}
-     */
-    match /collaborators/{collaboratorId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
-      // A new user can create their OWN profile document. An admin can create any user profile.
-      allow create: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());
-      // An existing user can only update their own profile. Admins can update any profile.
-      allow update: if isSignedIn() && (isOwner(collaboratorId) || isAdmin());
-      // Only an admin can delete a collaborator document.
-      allow delete: if isAdmin();
-    }
-    
-    /**
-     * @description Allows admins to manage groups.
-     * @path /groups/{groupId}
-     */
-    match /groups/{groupId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-    
-    /**
-     * @description Allows admins to manage distribution settings.
-     * @path /distributionSettings/{settingId}
-     */
-    match /distributionSettings/{settingId} {
-        allow get, list, create, update, delete: if isSignedIn() && isAdmin();
-    }
-
-
-    /**
-     * @description Allows the assigned collaborator to read/write leads. Admins can create unassigned leads.
-     * @path /leads/{leadId}
-     */
-    match /leads/{leadId} {
-      allow get, list: if isSignedIn();
-      // An admin can create any lead.
-      allow create: if isSignedIn() && isAdmin();
-      // An admin or the currently assigned collaborator can update a lead.
-      allow update: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
-      // An admin or the currently assigned collaborator can delete a lead.
-      allow delete: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
-
-      /**
-       * @description Allows the assigned collaborator to create/read/write notes for assigned leads.
-       * @path /leads/{leadId}/notes/{noteId}
-       */
-      match /notes/{noteId} {
-        allow get, list: if isSignedIn() && (resource.data.collaboratorId == request.auth.uid || isAdmin());
-        allow create: if isSignedIn() && request.resource.data.collaboratorId == request.auth.uid && request.resource.data.leadId == leadId;
-        allow update: if isSignedIn() && (isExistingNoteCollaborator(resource.data.collaboratorId) || isAdmin());
-        allow delete: if isSignedIn() && (isExistingNoteCollaborator(resource.data.collaboratorId) || isAdmin());
-      }
-    }
-
-    /**
-     * @description Helper function to check if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Helper function to check if the user is the owner of the document based on the provided userId.
-     * @param {string} userId The user ID to compare with the request's auth UID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @description Helper function to check if the user is the owner of the existing document based on the provided userId.
-     * @param {string} userId The user ID to compare with the request's auth UID.
-     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/collaborators/$(request.auth.uid))
+             && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
 
-    /**
-     * @description Helper function to check if the user is the assigned collaborator of the lead based on the assignedCollaboratorId.
-     * @param {string} assignedCollaboratorId The collaborator ID assigned to the lead.
-     * @return {boolean} True if the user is the assigned collaborator, false otherwise.
-     */
-    function isAssignedCollaborator(assignedCollaboratorId) {
-      return request.auth.uid == assignedCollaboratorId;
+    function isAssignedCollaborator(leadId) {
+      let lead = get(/databases/$(database)/documents/leads/$(leadId));
+      return lead.data.assignedCollaboratorId == request.auth.uid;
     }
 
-    /**
-     * @description Helper function to check if the user is the assigned collaborator of the EXISTING lead.
-     * @param {string} assignedCollaboratorId The collaborator ID assigned to the lead.
-     * @return {boolean} True if the user is the assigned collaborator, false otherwise.
-     */
-    function isExistingAssignedCollaborator(assignedCollaboratorId) {
-        return isAssignedCollaborator(assignedCollaboratorId) && resource != null;
-    }
-    /**
-     * @description Helper function to check if the user is the collaborator who created the note based on the collaboratorId.
-     * @param {string} collaboratorId The collaborator ID who created the note.
-     * @return {boolean} True if the user is the note creator, false otherwise.
-     */
-    function isNoteCollaborator(collaboratorId) {
-      return request.auth.uid == collaboratorId;
+    // Collection Rules
+
+    match /collaborators/{collaboratorId} {
+      // Any signed-in user can list/get collaborator profiles (e.g., for avatars, names).
+      allow list, get: if isSignedIn();
+
+      // A user can create their own profile. An admin can create any profile.
+      allow create: if isOwner(collaboratorId) || isAdmin();
+
+      // A user can update their own profile. An admin can update any profile.
+      allow update: if isOwner(collaboratorId) || isAdmin();
+
+      // Only an admin can delete a collaborator document.
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Helper function to check if the user is the collaborator of the EXISTING note.
-     * @param {string} collaboratorId The collaborator ID who created the note.
-     * @return {boolean} True if the user is the collaborator and the resource exists, false otherwise.
-     */
-    function isExistingNoteCollaborator(collaboratorId) {
-        return isNoteCollaborator(collaboratorId) && resource != null;
+    match /groups/{groupId} {
+      allow list, get: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /distributionSettings/{settingId} {
+      allow list, get, create, update, delete: if isAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow list, get: if isSignedIn();
+
+      // Only admins can create new leads.
+      allow create: if isAdmin();
+
+      // Only admins or the assigned collaborator can update/delete a lead.
+      allow update, delete: if isAdmin() || isAssignedCollaborator(leadId);
+
+      match /notes/{noteId} {
+        // The creator of the note or an admin can read/write it.
+        allow get, list, update, delete: if isOwner(resource.data.collaboratorId) || isAdmin();
+
+        // A user can only create a note for themselves, and it must be linked to the correct lead.
+        allow create: if isOwner(request.resource.data.collaboratorId)
+                      && request.resource.data.leadId == leadId;
+      }
     }
   }
 }

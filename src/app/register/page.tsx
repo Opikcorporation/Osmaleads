@@ -50,9 +50,6 @@ export default function RegisterPage() {
     const email = `${username}@example.com`; // Transform username to email for Firebase
 
     try {
-      // Hardcode the role assignment for the admin user.
-      const role = username === 'Alessio_opik' ? 'admin' : 'collaborator';
-
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -61,24 +58,26 @@ export default function RegisterPage() {
       const firebaseUser = userCredential.user;
       
       const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+      
+      // Hardcode the role assignment for the admin user for initial setup.
+      const role = username === 'Admin01' ? 'admin' : 'collaborator';
 
       const newCollaborator: Collaborator = {
         id: firebaseUser.uid,
         name: name,
         username: username,
-        email: null,
+        email: email,
         role: role,
         avatarUrl: defaultAvatar.imageUrl,
       };
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      // Use a try-catch block specifically for the Firestore operation
       try {
         await setDoc(docRef, newCollaborator);
       } catch (firestoreError: any) {
-        // If the error is a permission error, emit a detailed contextual error.
         if (firestoreError.code === 'permission-denied') {
+            console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'create',
@@ -86,8 +85,7 @@ export default function RegisterPage() {
             });
             errorEmitter.emit('permission-error', permissionError);
         }
-        // Rethrow the error to be caught by the outer catch block for user notification
-        throw firestoreError;
+        throw firestoreError; // Rethrow to be caught by outer catch block
       }
 
 
@@ -101,11 +99,11 @@ export default function RegisterPage() {
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
+        errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
       } else if (error.code === 'permission-denied') {
-          errorMessage = "Vous n'avez pas la permission de créer un compte.";
+          errorMessage = "Vous n'avez pas la permission de créer un profil utilisateur.";
       }
       
       toast({
