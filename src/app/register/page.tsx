@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Collaborator } from '@/lib/types';
@@ -52,7 +52,16 @@ export default function RegisterPage() {
     try {
       // Check if any user exists to determine role
       const usersCollection = collection(firestore, 'collaborators');
-      const existingUsersSnap = await getDocs(usersCollection);
+      const existingUsersSnap = await getDocs(usersCollection).catch((serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: usersCollection.path,
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          // Throw a new error to be caught by the outer try-catch block
+          throw new Error('Permission denied when checking existing users.');
+      });
+
       const isFirstUser = existingUsersSnap.empty;
       const role = isFirstUser ? 'admin' : 'collaborator';
 
@@ -73,30 +82,55 @@ export default function RegisterPage() {
         role: role,
         avatarUrl: defaultAvatar.imageUrl,
       };
+      
+      const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
+      // We do not await this, we catch the error to emit a detailed error
+      setDoc(docRef, newCollaborator).catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'create',
+            requestResourceData: newCollaborator
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
 
+      // Since setDoc is non-blocking, we optimistically show a success toast
+      // and redirect. If it fails, the error listener will catch it.
       toast({
         title: 'Compte créé avec succès',
         description: "Vous allez être redirigé vers le tableau de bord.",
       });
 
       router.push('/dashboard');
+
     } catch (error: any) {
-      console.error('Registration Error:', error);
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
+      } else if (error.message.includes('Permission denied')) {
+        // This is our custom thrown error, no need to show a toast as the
+        // global error handler will display the overlay.
+        setIsLoading(false);
+        return;
       }
+      
       toast({
         variant: 'destructive',
         title: "Erreur d'inscription",
         description: errorMessage,
       });
     } finally {
-      setIsLoading(false);
+      // Don't set isLoading to false here if we want the user to see the
+      // full-screen error overlay. Only set it to false on a toast-able error.
+      if (
+        error.code === 'auth/email-already-in-use' ||
+        error.code === 'auth/weak-password'
+      ) {
+        setIsLoading(false);
+      }
     }
   };
   
