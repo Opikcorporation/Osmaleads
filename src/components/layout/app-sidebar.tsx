@@ -26,6 +26,16 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       roles: ['admin', 'collaborator'],
     },
     {
+        href: '/dashboard/admin',
+        label: 'Admin',
+        icon: Settings,
+        roles: ['admin'],
+    },
+  ];
+
+  // We derive the admin specific links from the main admin page link
+  const adminNavItems = [
+     {
         href: '/dashboard/admin/collaborators',
         label: 'Collaborateurs',
         icon: UserPlus,
@@ -43,7 +53,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       icon: Settings,
       roles: ['admin'],
     },
-  ];
+  ]
 
   return (
     <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
@@ -55,20 +65,37 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       </div>
       <nav className="flex-1 space-y-2 p-4">
         {navItems
-          .filter((item) => (user.role && item.roles.includes(user.role)) || user.username === 'Admin01' ) // Allow admin user to see all
+          .filter((item) => user?.role && item.roles.includes(user.role))
           .map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                pathname.startsWith(item.href) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />
               {item.label}
             </Link>
           ))}
+        {user?.role === 'admin' && pathname.startsWith('/dashboard/admin') && (
+          <div className="ml-7 border-l pl-4 space-y-2 py-2">
+            {adminNavItems.map((item) => (
+               <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  pathname.startsWith(item.href) ? 'bg-sidebar-accent/80' : ''
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </nav>
       <div className="mt-auto p-4 space-y-4">
         <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
@@ -80,13 +107,15 @@ export default function AppSidebar({ user }: AppSidebarProps) {
             Notre IA enrichit vos leads et suggère des stratégies optimales.
           </p>
         </div>
-        <div className="flex items-center gap-4 p-2 rounded-lg bg-sidebar-accent/50">
-            <UserNav user={user} />
-            <div className="flex flex-col">
-              <span className="font-semibold">{user.name}</span>
-              <span className="text-sm text-muted-foreground">{user.email}</span>
-            </div>
-        </div>
+        {user && (
+          <div className="flex items-center gap-4 p-2 rounded-lg bg-sidebar-accent/50">
+              <UserNav user={user} />
+              <div className="flex flex-col">
+                <span className="font-semibold">{user.name}</span>
+                <span className="text-sm text-muted-foreground">{user.username}</span>
+              </div>
+          </div>
+        )}
       </div>
     </aside>
   );
