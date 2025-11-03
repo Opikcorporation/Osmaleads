@@ -72,9 +72,11 @@ service cloud.firestore {
      */
     match /leads/{leadId} {
       allow get, list: if isSignedIn();
-      // An admin can create any lead. A user cannot create a lead.
+      // An admin can create any lead.
       allow create: if isSignedIn() && isAdmin();
+      // An admin or the currently assigned collaborator can update a lead.
       allow update: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
+      // An admin or the currently assigned collaborator can delete a lead.
       allow delete: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
 
       /**
