@@ -62,7 +62,7 @@ export default function DashboardLayout({
               name: user.displayName || 'Nouveau Collaborateur',
               username: username,
               email: user.email,
-              role: username === 'Admin01' ? 'admin' : 'collaborator',
+              role: 'collaborator',
               avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
             };
             
@@ -75,6 +75,7 @@ export default function DashboardLayout({
             setCollaborator(newCollaborator);
           }
         } catch (error: any) {
+          
           // On émet l'erreur contextuelle pour le débogage.
           const permissionError = new FirestorePermissionError({
             path: `collaborators/${user.uid}`,
