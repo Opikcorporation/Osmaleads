@@ -1,4 +1,5 @@
 import { type } from "os";
+import { FieldValue } from "firebase/firestore";
 
 export type User = {
   id: string;
@@ -40,11 +41,12 @@ export type Lead = {
   email: string;
   company: string;
   phone: string;
-  createdAt: string; // ISO date string
+  createdAt: FieldValue | string; // ISO date string or serverTimestamp
   status: LeadStatus;
   assignedCollaboratorId: string | null;
   aiProfile: string; // AI generated profile
   leadData: string;
+  username: string;
 };
 
 export type FirestoreNote = {
