@@ -7,7 +7,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { getUserById } from '@/lib/data';
 import { type Collaborator } from '@/lib/types';
@@ -53,10 +53,26 @@ export default function DashboardLayout({
             avatarUrl: defaultAvatar.imageUrl,
           };
           
-          // This setDoc is the critical operation that might fail due to security rules
-          await setDoc(doc(firestore, 'collaborators', user.uid), newCollaborator);
-          console.log("Successfully created collaborator profile.");
-          setCollaborator(newCollaborator);
+          const docRef = doc(firestore, 'collaborators', user.uid);
+          
+          // Use a try-catch for the setDoc operation to implement contextual error handling.
+          try {
+             await setDoc(docRef, newCollaborator);
+             console.log("Successfully created collaborator profile.");
+             setCollaborator(newCollaborator);
+          } catch(firestoreError: any) {
+             if (firestoreError.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'create',
+                    requestResourceData: newCollaborator,
+                });
+                // Emit the contextual error to be caught by the FirebaseErrorListener
+                errorEmitter.emit('permission-error', permissionError);
+             }
+             // Rethrow to be caught by the outer catch block
+             throw firestoreError;
+          }
         }
       } catch (error) {
         console.error("Failed to fetch or create collaborator profile:", error);
@@ -64,7 +80,7 @@ export default function DashboardLayout({
           variant: "destructive",
           title: "Erreur de chargement du profil",
           description: "Impossible de charger ou de créer votre profil utilisateur. Veuillez contacter le support.",
-          duration: 5000,
+          duration: 9000,
         });
         // Log out user or redirect to an error page might be better
         router.push('/'); 
