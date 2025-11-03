@@ -32,11 +32,7 @@
         },
         "leadData": {
           "type": "string",
-          "description": "Raw lead data (e.g., CSV content, other document formats)."
-        },
-        "aiProfile": {
-          "type": "string",
-          "description": "AI-generated profile of the lead (structured data)."
+          "description": "Raw lead data (e.g., JSON stringified CSV row)."
         },
         "status": {
           "type": "string",
@@ -46,30 +42,12 @@
         "assignedCollaboratorId": {
           "type": "string",
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
-        },
-        "score": {
-          "type": "number",
-          "description": "AI-generated score for lead quality (e.g., 0-100)."
-        },
-        "scoreRationale": {
-          "type": "string",
-          "description": "AI-generated rationale for the assigned score."
-        },
-        "tier": {
-          "type": "string",
-          "description": "The quality tier of the lead, derived from its score.",
-          "enum": [
-            "Bas de gamme",
-            "Moyenne gamme",
-            "Haut de gamme"
-          ]
         }
       },
       "required": [
         "id",
         "name",
         "leadData",
-        "aiProfile",
         "status"
       ]
     },

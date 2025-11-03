@@ -8,11 +8,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -21,13 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, FirestoreNote } from '@/lib/types';
-import { Bot, CalendarIcon, Star } from 'lucide-react';
+import { CalendarIcon, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { StatusBadge } from '@/components/status-badge';
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -85,11 +84,24 @@ export default function LeadDetailPage() {
     return allUsers?.find(u => u.id === collaboratorId);
   }
 
-  const getScoreBadgeColor = (score: number) => {
-    if (score >= 80) return 'bg-green-500 text-white hover:bg-green-600';
-    if (score >= 50) return 'bg-yellow-500 text-black hover:bg-yellow-600';
-    return 'bg-red-500 text-white hover:bg-red-600';
-  };
+  const renderLeadData = () => {
+    if (!lead?.leadData) return null;
+    try {
+        const data = JSON.parse(lead.leadData);
+        return (
+            <ul className="space-y-2 text-sm text-muted-foreground">
+                {Object.entries(data).map(([key, value]) => (
+                    <li key={key} className="flex justify-between">
+                        <span className="font-semibold capitalize text-foreground">{key}:</span>
+                        <span>{String(value)}</span>
+                    </li>
+                ))}
+            </ul>
+        )
+    } catch(e) {
+        return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.leadData}</p>
+    }
+  }
 
   if (leadLoading || assignedUserLoading || notesLoading || allUsersLoading) {
     return <div>Chargement du lead...</div>;
@@ -107,7 +119,7 @@ export default function LeadDetailPage() {
             <div className="flex items-start justify-between">
                 <div>
                     <CardTitle className="text-2xl">{lead.name}</CardTitle>
-                    <CardDescription>{lead.company} - {lead.username}</CardDescription>
+                    <CardDescription>{lead.company} - {lead.email}</CardDescription>
                 </div>
                  {assignedUser && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
@@ -119,12 +131,6 @@ export default function LeadDetailPage() {
                      <span className="font-medium">{assignedUser.name}</span>
                   </div>
                 )}
-            </div>
-             <div className="flex items-center gap-4 pt-4">
-                 <Badge className={getScoreBadgeColor(lead.score) + ' text-base'}>
-                    <Star className="w-4 h-4 mr-2" /> {lead.score}
-                </Badge>
-                <Badge variant="outline" className="text-base">{lead.tier}</Badge>
             </div>
           </CardHeader>
            <CardContent>
@@ -148,14 +154,11 @@ export default function LeadDetailPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Bot className="text-accent" /> Profil Détaillé (IA)</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Info className="text-accent" /> Informations brutes</CardTitle>
+             <CardDescription>Données originales provenant de l'importation CSV.</CardDescription>
           </CardHeader>
           <CardContent>
-            <h3 className="font-semibold mb-2">Justification du Score ({lead.score})</h3>
-            <p className="text-muted-foreground italic mb-4 p-3 bg-muted rounded-md">{lead.scoreRationale}</p>
-            <Separator className="my-4" />
-            <h3 className="font-semibold mb-2">Profil du Lead</h3>
-            <p className="text-muted-foreground whitespace-pre-wrap">{lead.aiProfile}</p>
+            {renderLeadData()}
           </CardContent>
         </Card>
       </div>

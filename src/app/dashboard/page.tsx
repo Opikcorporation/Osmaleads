@@ -23,7 +23,7 @@ import {
   useUser,
 } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp } from 'lucide-react';
@@ -31,8 +31,33 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { generateLeadProfile, getTierFromScore } from '@/ai/flows/generate-lead-profile';
 import { Badge } from '@/components/ui/badge';
+
+// Simple CSV parser
+const parseCSV = (content: string) => {
+    const rows = content.trim().split('\n');
+    const headers = rows[0].split(',').map(h => h.trim());
+    const data = rows.slice(1).map(row => {
+        const values = row.split(',').map(v => v.trim());
+        const obj: {[key: string]: string} = {};
+        headers.forEach((header, index) => {
+            obj[header] = values[index];
+        });
+        return obj;
+    });
+    return data;
+}
+
+// Function to find a key in a case-insensitive way
+const findKey = (obj: any, keys: string[]): string | null => {
+    const lowerCaseKeys = keys.map(k => k.toLowerCase());
+    for (const key in obj) {
+        if (lowerCaseKeys.includes(key.toLowerCase())) {
+            return obj[key];
+        }
+    }
+    return null;
+}
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -64,19 +89,19 @@ export default function DashboardPage() {
     if (!firestore) return;
     setIsImportDialogOpen(false); // Close dialog immediately
     toast({
-      title: "Analyse IA en cours...",
-      description: "Les profils et scores des leads sont en cours de génération.",
+      title: "Importation en cours...",
+      description: "Traitement du fichier CSV.",
     });
 
     try {
-      // 1. Generate AI Profiles for all leads in the file.
-      const profiles = await generateLeadProfile({ leadData });
+      // 1. Parse the CSV data
+      const parsedLeads = parseCSV(leadData);
       
-      if (!profiles || profiles.length === 0) {
+      if (!parsedLeads || parsedLeads.length === 0) {
         toast({
           variant: "destructive",
-          title: "Aucun lead trouvé",
-          description: "L'IA n'a pas pu détecter de leads dans le fichier fourni.",
+          title: "Fichier vide ou invalide",
+          description: "Le fichier CSV ne contient aucune donnée à importer.",
         });
         return;
       }
@@ -85,24 +110,22 @@ export default function DashboardPage() {
       const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
 
-      for (const profile of profiles) {
-        const tier = await getTierFromScore(profile.score);
+      for (const row of parsedLeads) {
         const newLeadDocRef = doc(leadsColRef); // Create a new doc with a random ID
         
+        // Try to find a sensible name for the lead
+        const leadName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || `Lead importé`;
+
         const newLead: Omit<Lead, 'id'> = {
-          name: profile.name || `Lead importé`,
-          email: profile.email || "non fourni",
-          company: profile.company || "non fourni",
-          phone: profile.phone || "non fourni",
-          username: profile.username || "non fourni",
+          name: leadName,
+          email: findKey(row, ['email', 'mail', 'courriel']),
+          company: findKey(row, ['company', 'societe', 'entreprise']),
+          phone: findKey(row, ['phone', 'telephone']),
+          username: findKey(row, ['username', 'user']),
           createdAt: serverTimestamp(),
           status: 'New',
           assignedCollaboratorId: null,
-          aiProfile: profile.profile,
-          leadData: leadData, // Storing the raw data for context could be heavy, consider if needed
-          score: profile.score,
-          scoreRationale: profile.scoreRationale,
-          tier: tier,
+          leadData: JSON.stringify(row), // Store the full row data
         };
         batch.set(newLeadDocRef, newLead);
       }
@@ -112,25 +135,19 @@ export default function DashboardPage() {
 
       toast({
         title: "Importation réussie !",
-        description: `${profiles.length} lead(s) ont été créés avec succès.`,
+        description: `${parsedLeads.length} lead(s) ont été créés avec succès.`,
       });
 
     } catch (error) {
-      console.error("Failed to generate profiles or save leads:", error);
+      console.error("Failed to parse or save leads:", error);
       toast({
         variant: "destructive",
-        title: "Erreur lors de la création des leads",
-        description: "L'analyse IA ou la sauvegarde a échoué. Vérifiez la console pour plus de détails.",
+        title: "Erreur lors de l'importation",
+        description: "La lecture du CSV ou la sauvegarde a échoué. Vérifiez le format du fichier et la console.",
       });
     }
-
   };
 
-  const getScoreBadgeColor = (score: number) => {
-    if (score >= 80) return 'bg-green-500 text-white';
-    if (score >= 50) return 'bg-yellow-500 text-black';
-    return 'bg-red-500 text-white';
-  };
 
   const isLoading = leadsLoading || collaboratorsLoading;
 
@@ -159,7 +176,6 @@ export default function DashboardPage() {
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead className="hidden md:table-cell">Entreprise</TableHead>
-                  <TableHead>Score</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Assigné à</TableHead>
                   <TableHead>
@@ -175,9 +191,6 @@ export default function DashboardPage() {
                       <TableRow key={lead.id}>
                         <TableCell className="font-medium">{lead.name}</TableCell>
                         <TableCell className="hidden md:table-cell">{lead.company}</TableCell>
-                        <TableCell>
-                          <Badge className={getScoreBadgeColor(lead.score)}>{lead.score}</Badge>
-                        </TableCell>
                         <TableCell>
                           <StatusBadge status={lead.status} />
                         </TableCell>
@@ -204,7 +217,7 @@ export default function DashboardPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">
+                    <TableCell colSpan={5} className="text-center">
                       Aucun lead à afficher. Importez votre premier lead pour commencer.
                     </TableCell>
                   </TableRow>

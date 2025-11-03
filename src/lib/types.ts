@@ -41,19 +41,15 @@ export type LeadStatus = (typeof leadStatuses)[number];
 export type Lead = {
   id: string;
   name: string;
-  email: string;
-  company: string;
-  phone: string;
-  username: string;
+  email: string | null;
+  company: string | null;
+  phone: string | null;
+  username: string | null;
   createdAt: FieldValue;
   assignedAt?: FieldValue;
   status: LeadStatus;
   assignedCollaboratorId: string | null;
-  aiProfile: string; // AI generated profile
-  leadData: string;
-  score: number;
-  scoreRationale: string;
-  tier: LeadTier;
+  leadData: string; // Raw CSV row data as JSON
 };
 
 export type FirestoreNote = {
