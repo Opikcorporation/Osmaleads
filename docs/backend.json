@@ -10,6 +10,26 @@
           "type": "string",
           "description": "Unique identifier for the Lead entity."
         },
+        "name": {
+          "type": "string",
+          "description": "The full name of the lead or company."
+        },
+        "company": {
+          "type": "string",
+          "description": "The company name of the lead."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the lead."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the lead."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username or social media handle of the lead."
+        },
         "leadData": {
           "type": "string",
           "description": "Raw lead data (e.g., CSV content, other document formats)."
@@ -28,21 +48,26 @@
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
         },
         "score": {
-            "type": "number",
-            "description": "AI-generated score for lead quality (e.g., 0-100)."
+          "type": "number",
+          "description": "AI-generated score for lead quality (e.g., 0-100)."
         },
         "scoreRationale": {
-            "type": "string",
-            "description": "AI-generated rationale for the assigned score."
+          "type": "string",
+          "description": "AI-generated rationale for the assigned score."
         },
         "tier": {
           "type": "string",
           "description": "The quality tier of the lead, derived from its score.",
-          "enum": ["Bas de gamme", "Moyenne gamme", "Haut de gamme"]
+          "enum": [
+            "Bas de gamme",
+            "Moyenne gamme",
+            "Haut de gamme"
+          ]
         }
       },
       "required": [
         "id",
+        "name",
         "leadData",
         "aiProfile",
         "status"
@@ -179,7 +204,12 @@
         "leadTier": {
           "type": "string",
           "description": "The quality tier of leads this group is configured to handle.",
-          "enum": ["Bas de gamme", "Moyenne gamme", "Haut de gamme", "Tous"]
+          "enum": [
+            "Bas de gamme",
+            "Moyenne gamme",
+            "Haut de gamme",
+            "Tous"
+          ]
         }
       },
       "required": [
@@ -251,5 +281,3 @@
     ]
   }
 }
-
-    

@@ -44,13 +44,13 @@ export type Lead = {
   email: string;
   company: string;
   phone: string;
+  username: string;
   createdAt: FieldValue;
   assignedAt?: FieldValue;
   status: LeadStatus;
   assignedCollaboratorId: string | null;
   aiProfile: string; // AI generated profile
   leadData: string;
-  username: string;
   score: number;
   scoreRationale: string;
   tier: LeadTier;

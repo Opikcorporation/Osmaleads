@@ -24,7 +24,7 @@ import {
   addDocumentNonBlocking
 } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, query, serverTimestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp } from 'lucide-react';
@@ -63,23 +63,24 @@ export default function DashboardPage() {
   
   const handleSaveLead = async ({ leadData, fileName }: { leadData: string, fileName: string }) => {
     if (!firestore) return;
+    setIsImportDialogOpen(false); // Close dialog immediately
     toast({
       title: "Analyse IA en cours...",
       description: "Le profil et le score du lead sont en cours de génération.",
     });
 
     try {
-      // 1. Generate AI Profile and Score
-      const { profile, score, scoreRationale } = await generateLeadProfile({ leadData });
+      // 1. Generate AI Profile and Score and structured data
+      const { profile, score, scoreRationale, name, company, email, phone, username } = await generateLeadProfile({ leadData });
       const tier = await getTierFromScore(score);
 
       // 2. Create lead object
       const newLead: Omit<Lead, 'id'> = {
-        name: fileName.replace(/\.[^/.]+$/, ""), // Remove file extension
-        email: "non fourni",
-        company: "non fourni",
-        phone: "non fourni",
-        username: "non fourni",
+        name: name || fileName.replace(/\.[^/.]+$/, ""), // Use AI name, fallback to filename
+        email: email || "non fourni",
+        company: company || "non fourni",
+        phone: phone || "non fourni",
+        username: username || "non fourni",
         createdAt: serverTimestamp(),
         status: 'New',
         assignedCollaboratorId: null,
@@ -92,7 +93,7 @@ export default function DashboardPage() {
 
       // 3. Save to Firestore
       const leadsColRef = collection(firestore, 'leads');
-      addDocumentNonBlocking(leadsColRef, newLead);
+      await addDocumentNonBlocking(leadsColRef, newLead);
 
       toast({
         title: "Lead créé avec succès !",
@@ -104,11 +105,10 @@ export default function DashboardPage() {
       toast({
         variant: "destructive",
         title: "Erreur lors de la création du lead",
-        description: "L'analyse IA ou la sauvegarde a échoué.",
+        description: "L'analyse IA ou la sauvegarde a échoué. Vérifiez la console pour plus de détails.",
       });
     }
 
-    setIsImportDialogOpen(false);
   };
 
   const getScoreBadgeColor = (score: number) => {
