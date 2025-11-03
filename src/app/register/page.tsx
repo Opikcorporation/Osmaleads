@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useEffect, useState } from 'react';
-import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -33,6 +33,14 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name || !email || !password) {
+        toast({
+            variant: "destructive",
+            title: "Champs manquants",
+            description: "Veuillez remplir tous les champs.",
+        });
+        return;
+    }
     setIsLoading(true);
 
     try {
@@ -51,7 +59,7 @@ export default function RegisterPage() {
       };
 
       const userDocRef = doc(firestore, 'collaborators', firebaseUser.uid);
-      setDocumentNonBlocking(userDocRef, newCollaborator, { merge: true });
+      await setDoc(userDocRef, newCollaborator);
 
       toast({
         title: "Compte créé",
