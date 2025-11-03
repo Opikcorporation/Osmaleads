@@ -50,20 +50,10 @@ export default function RegisterPage() {
     const email = `${username}@example.com`; // Transform username to email for Firebase
 
     try {
-      // Check if any user exists to determine role
-      const usersCollection = collection(firestore, 'collaborators');
-      const existingUsersSnap = await getDocs(usersCollection).catch((serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: usersCollection.path,
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          // Throw a new error to be caught by the outer try-catch block
-          throw new Error('Permission denied when checking existing users.');
-      });
-
-      const isFirstUser = existingUsersSnap.empty;
-      const role = isFirstUser ? 'admin' : 'collaborator';
+      // NOTE: The logic to determine if the user is the first one has been removed
+      // as it was causing permission errors. For now, all new users are collaborators.
+      // An admin role can be assigned manually or via a different mechanism later.
+      const role = 'collaborator';
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -85,18 +75,17 @@ export default function RegisterPage() {
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      // We do not await this, we catch the error to emit a detailed error
-      setDoc(docRef, newCollaborator).catch((serverError) => {
+      await setDoc(docRef, newCollaborator).catch((serverError) => {
         const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'create',
             requestResourceData: newCollaborator
         });
         errorEmitter.emit('permission-error', permissionError);
+        // re-throw to be caught by the outer try-catch
+        throw permissionError;
       });
 
-      // Since setDoc is non-blocking, we optimistically show a success toast
-      // and redirect. If it fails, the error listener will catch it.
       toast({
         title: 'Compte créé avec succès',
         description: "Vous allez être redirigé vers le tableau de bord.",
@@ -110,11 +99,12 @@ export default function RegisterPage() {
         errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (error.message.includes('Permission denied')) {
-        // This is our custom thrown error, no need to show a toast as the
-        // global error handler will display the overlay.
-        setIsLoading(false);
-        return;
+      } else if (error.name === 'FirebaseError') {
+         // This will now catch the detailed permission error.
+         // We don't need a toast because the FirebaseErrorListener will show the overlay.
+         console.error("Registration failed due to Firestore permissions:", error);
+         setIsLoading(false);
+         return; // Stop execution
       }
       
       toast({
@@ -122,16 +112,8 @@ export default function RegisterPage() {
         title: "Erreur d'inscription",
         description: errorMessage,
       });
-    } finally {
-      // Don't set isLoading to false here if we want the user to see the
-      // full-screen error overlay. Only set it to false on a toast-able error.
-      if (
-        error.code === 'auth/email-already-in-use' ||
-        error.code === 'auth/weak-password'
-      ) {
-        setIsLoading(false);
-      }
-    }
+      setIsLoading(false);
+    } 
   };
   
     if (isUserLoading || user) {
