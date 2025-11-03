@@ -73,7 +73,6 @@ export default function DashboardLayout({
       } catch (error: any) {
         // This is the critical part for handling the permission error
         if (error.code === 'permission-denied' || error.name === 'FirebaseError') {
-          console.error("Permission denied while fetching or creating collaborator profile. Emitting contextual error.");
           const permissionError = new FirestorePermissionError({
              path: `collaborators/${user.uid}`,
              operation: 'create', // Assume create is the most likely failure point
