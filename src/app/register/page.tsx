@@ -9,7 +9,7 @@ import { useAuth, useFirestore, useUser, errorEmitter, FirestorePermissionError 
 import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Collaborator } from '@/lib/types';
@@ -73,10 +73,17 @@ export default function RegisterPage() {
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      try {
-        await setDoc(docRef, newCollaborator);
-      } catch (firestoreError: any) {
-        if (firestoreError.code === 'permission-denied') {
+      // This replaces the previous simple await with a non-blocking call
+      // that has proper contextual error handling on failure.
+      setDoc(docRef, newCollaborator)
+        .then(() => {
+            toast({
+                title: 'Compte créé avec succès',
+                description: "Vous allez être redirigé vers le tableau de bord.",
+            });
+            router.push('/dashboard');
+        })
+        .catch((firestoreError) => {
             console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
             const permissionError = new FirestorePermissionError({
                 path: docRef.path,
@@ -84,17 +91,8 @@ export default function RegisterPage() {
                 requestResourceData: newCollaborator,
             });
             errorEmitter.emit('permission-error', permissionError);
-        }
-        throw firestoreError; // Rethrow to be caught by outer catch block
-      }
-
-
-      toast({
-        title: 'Compte créé avec succès',
-        description: "Vous allez être redirigé vers le tableau de bord.",
-      });
-
-      router.push('/dashboard');
+            throw permissionError; // Re-throw to be caught by the outer catch
+        });
 
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
@@ -102,8 +100,8 @@ export default function RegisterPage() {
         errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (error.code === 'permission-denied') {
-          errorMessage = "Vous n'avez pas la permission de créer un profil utilisateur.";
+      } else if (error.name === 'FirebaseError') { // Catch the re-thrown permission error
+          errorMessage = "Vous n'avez pas la permission de créer un profil utilisateur. Les règles de sécurité ont bloqué la requête.";
       }
       
       toast({

@@ -46,6 +46,7 @@ export default function DashboardLayout({
         const userData = await getUserById(firestore, user.uid);
         if (userData) {
           setCollaborator(userData);
+          setIsLoading(false); // User profile found, proceed
         } else {
           // Profile doesn't exist, so we create it.
           console.log("User profile not found in 'collaborators', creating one...");
@@ -62,41 +63,40 @@ export default function DashboardLayout({
           
           const docRef = doc(firestore, 'collaborators', user.uid);
           
-          // Use a non-blocking setDoc with proper error handling
-          setDoc(docRef, newCollaborator)
-            .then(() => {
-              console.log("Successfully created collaborator profile.");
-              setCollaborator(newCollaborator);
-            })
-            .catch((firestoreError) => {
-              // This is where we create and emit the detailed error
-              console.error("Permission denied while creating collaborator profile. Emitting contextual error.");
-              const permissionError = new FirestorePermissionError({
-                 path: docRef.path,
-                 operation: 'create',
-                 requestResourceData: newCollaborator,
-              });
-              errorEmitter.emit('permission-error', permissionError);
-              // We also re-throw it to be caught by the outer block
-              throw permissionError;
-            });
+          // Use setDoc with proper error handling
+          await setDoc(docRef, newCollaborator);
+          
+          console.log("Successfully created collaborator profile.");
+          setCollaborator(newCollaborator);
+          setIsLoading(false); // Profile created, proceed
         }
-      } catch (error) {
-        console.error("Failed to fetch or create collaborator profile:", error);
+      } catch (error: any) {
+        // This is the critical part for handling the permission error
+        if (error.code === 'permission-denied' || error.name === 'FirebaseError') {
+          console.error("Permission denied while fetching or creating collaborator profile. Emitting contextual error.");
+          const permissionError = new FirestorePermissionError({
+             path: `collaborators/${user.uid}`,
+             operation: 'create', // Assume create is the most likely failure point
+             requestResourceData: { userId: user.uid, email: user.email }, // Example data
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        } else {
+          console.error("Failed to fetch or create collaborator profile:", error);
+        }
+
         toast({
           variant: "destructive",
           title: "Erreur de chargement du profil",
-          description: "Impossible de charger ou de créer votre profil. Veuillez contacter le support.",
+          description: "Impossible de charger ou de créer votre profil. Vous allez être déconnecté.",
           duration: 9000,
         });
+
         // Log out user and redirect to login page to prevent loops
         if (auth) {
           await signOut(auth);
         }
         router.push('/');
-      } finally {
-        // This will only run after success or a handled error
-        setIsLoading(false);
+        // Do not set isLoading to false here, as we are navigating away.
       }
     };
 
