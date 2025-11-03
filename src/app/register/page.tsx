@@ -50,10 +50,8 @@ export default function RegisterPage() {
     const email = `${username}@example.com`; // Transform username to email for Firebase
 
     try {
-      // NOTE: The logic to determine if the user is the first one has been removed
-      // as it was causing permission errors. For now, all new users are collaborators.
-      // An admin role can be assigned manually or via a different mechanism later.
-      const role = 'collaborator';
+      // If the username is 'Admin01', assign the 'admin' role. Otherwise, 'collaborator'.
+      const role = username === 'Admin01' ? 'admin' : 'collaborator';
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -75,16 +73,8 @@ export default function RegisterPage() {
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      await setDoc(docRef, newCollaborator).catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'create',
-            requestResourceData: newCollaborator
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // re-throw to be caught by the outer try-catch
-        throw permissionError;
-      });
+      // Use standard setDoc for this critical operation.
+      await setDoc(docRef, newCollaborator);
 
       toast({
         title: 'Compte créé avec succès',
@@ -99,12 +89,6 @@ export default function RegisterPage() {
         errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (error.name === 'FirebaseError') {
-         // This will now catch the detailed permission error.
-         // We don't need a toast because the FirebaseErrorListener will show the overlay.
-         console.error("Registration failed due to Firestore permissions:", error);
-         setIsLoading(false);
-         return; // Stop execution
       }
       
       toast({
@@ -112,6 +96,17 @@ export default function RegisterPage() {
         title: "Erreur d'inscription",
         description: errorMessage,
       });
+
+      // Also emit a detailed error for debugging if it's a permission issue
+      if (error.message.includes('permission-denied') || error.message.includes('insufficient permissions')) {
+         const permissionError = new FirestorePermissionError({
+            path: `collaborators/${auth.currentUser?.uid || 'unknown_user'}`,
+            operation: 'create',
+            requestResourceData: { name, username, role: username === 'Admin01' ? 'admin' : 'collaborator' }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
+
       setIsLoading(false);
     } 
   };
