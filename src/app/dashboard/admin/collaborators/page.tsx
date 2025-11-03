@@ -14,6 +14,7 @@ import {
   useFirestore,
   useMemoFirebase,
   deleteDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import {
   collection,
@@ -65,9 +66,13 @@ export default function AdminCollaboratorsPage() {
 
   const handleSaveCollaborator = async (data: any) => {
     if (editingCollaborator) {
-      // NOTE: Update logic is not implemented as password change is complex.
-      // We are only focusing on creation for now.
-      toast({ title: 'Fonctionnalité non implémentée' });
+      const collaboratorRef = doc(firestore, 'collaborators', editingCollaborator.id);
+      updateDocumentNonBlocking(collaboratorRef, { name: data.name, role: data.role });
+      toast({
+          title: 'Collaborateur mis à jour',
+          description: `Le profil de ${data.name} a été mis à jour.`,
+      });
+      handleCloseDialog();
     } else {
       const email = `${data.username}@example.com`; // Transform username to email
       try {
@@ -81,12 +86,14 @@ export default function AdminCollaboratorsPage() {
         const firebaseUser = userCredential.user;
 
         const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+        const role = data.username === 'Admin01' ? 'admin' : 'collaborator';
+        
         const newCollaborator: Collaborator = {
           id: firebaseUser.uid,
           name: data.name,
           username: data.username,
           email: null,
-          role: data.role,
+          role: role,
           avatarUrl: defaultAvatar.imageUrl,
         };
 
@@ -165,6 +172,10 @@ export default function AdminCollaboratorsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                    <span className="text-sm font-medium capitalize bg-muted px-2 py-1 rounded-md">{c.role}</span>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(c)}>
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Modifier</span>
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="icon" className="h-8 w-8">

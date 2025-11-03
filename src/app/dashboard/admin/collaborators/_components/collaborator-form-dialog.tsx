@@ -61,7 +61,16 @@ export function CollaboratorFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !username || (!isEditMode && !password)) {
+    if (isEditMode && (!name || !username)) {
+      toast({
+            variant: "destructive",
+            title: "Champs manquants",
+            description: "Le nom et le nom d'utilisateur sont requis.",
+        });
+      return;
+    }
+
+    if (!isEditMode && (!name || !username || !password)) {
         toast({
             variant: "destructive",
             title: "Champs manquants",
@@ -70,15 +79,12 @@ export function CollaboratorFormDialog({
       return;
     }
     
+    // For edit mode, we only save name and role.
     if (isEditMode) {
-        toast({
-            title: "Non implémenté",
-            description: "La modification des collaborateurs n'est pas encore prise en charge.",
-        });
-        return;
+        onSave({ name, role });
+    } else {
+        onSave({ name, username, password, role });
     }
-
-    onSave({ name, username, password, role });
   };
 
   return (
