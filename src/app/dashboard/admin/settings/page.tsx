@@ -97,7 +97,7 @@ export default function AdminSettingsPage() {
       if (result.distributedCount > 0) {
         toast({ title: "Distribution IA terminée", description: `${result.distributedCount} leads ont été intelligemment distribués.` });
       } else {
-        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés ou aucune règle ne correspond." });
+        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés." });
       }
 
     } catch (error) {
@@ -124,7 +124,7 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle>Règles de Distribution par Groupe</CardTitle>
             <CardDescription>
-              Configurez des règles de distribution automatique pour chaque groupe.
+              Configurez des règles pour la distribution automatique future (via cron job).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -150,7 +150,7 @@ export default function AdminSettingsPage() {
             <div className="space-y-2">
                 <Label htmlFor="distribution-time">Heure de distribution</Label>
                 <Input id="distribution-time" type="time" value={distributionTime} onChange={(e) => setDistributionTime(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Les leads seront distribués à cette heure chaque jour.</p>
+                <p className="text-xs text-muted-foreground">Utilisée par le déclencheur automatique (cron job).</p>
             </div>
             
             <Button onClick={handleSaveRule} disabled={!selectedGroupId}>Enregistrer la Règle</Button>
@@ -189,19 +189,19 @@ export default function AdminSettingsPage() {
        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bot className="text-accent" /> Distribution Intelligente
+              <Bot className="text-accent" /> Distribution Manuelle (IA)
             </CardTitle>
             <CardDescription>
-              Lancez la distribution des leads non assignés en utilisant l'IA pour une assignation optimale.
+              Lancez immédiatement la distribution des leads non assignés en utilisant l'IA pour une assignation optimale.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-                Cette action appliquera une logique d'IA pour assigner les leads aux collaborateurs les plus pertinents en fonction des règles actives.
+                Cette action appliquera une logique d'IA pour assigner tous les leads actuellement non assignés aux collaborateurs les plus pertinents.
             </p>
             <Button onClick={handleIntelligentDistribution} disabled={isDistributing} className="w-full bg-accent hover:bg-accent/90">
               <Bot className="mr-2 h-4 w-4" />
-              {isDistributing ? 'Analyse IA en cours...' : 'Lancer la Distribution par IA'}
+              {isDistributing ? 'Analyse IA en cours...' : 'Distribuer les leads non assignés (IA)'}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Ceci est une action manuelle qui utilise l'intelligence artificielle.
