@@ -42,7 +42,7 @@ const leadAnalysisPrompt = ai.definePrompt({
 
     - **Primary Goal**: Find the 'name' and 'phone' fields.
     - **name**: Look for column headers like "Nom", "Name", "Full Name", "Nom Complet", "Company Name", "Societe". This is the most critical piece of information.
-    - **phone**: Look for column headers like "Phone", "Téléphone", "Mobile", "Numéro".
+    - **phone**: Look for a column whose value is a sequence of **more than 5 digits**. It may optionally start with a '+' character. This is a very reliable way to identify the phone number.
 
     Also extract other relevant information if available, like email, company, and username.
     
