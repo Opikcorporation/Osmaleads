@@ -73,7 +73,23 @@ export default function RegisterPage() {
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      await setDoc(docRef, newCollaborator);
+      // Use a try-catch block specifically for the Firestore operation
+      try {
+        await setDoc(docRef, newCollaborator);
+      } catch (firestoreError: any) {
+        // If the error is a permission error, emit a detailed contextual error.
+        if (firestoreError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'create',
+                requestResourceData: newCollaborator,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        // Rethrow the error to be caught by the outer catch block for user notification
+        throw firestoreError;
+      }
+
 
       toast({
         title: 'Compte créé avec succès',
@@ -88,6 +104,8 @@ export default function RegisterPage() {
         errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
       } else if (error.code === 'auth/weak-password') {
           errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
+      } else if (error.code === 'permission-denied') {
+          errorMessage = "Vous n'avez pas la permission de créer un compte.";
       }
       
       toast({
@@ -95,15 +113,6 @@ export default function RegisterPage() {
         title: "Erreur d'inscription",
         description: errorMessage,
       });
-
-      if (error.message.includes('permission-denied') || error.message.includes('insufficient permissions')) {
-         const permissionError = new FirestorePermissionError({
-            path: `collaborators/${auth.currentUser?.uid || 'unknown_user'}`,
-            operation: 'create',
-            requestResourceData: { name, username, role: username === 'Alessio_opik' ? 'admin' : 'collaborator' }
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      }
 
       setIsLoading(false);
     } 
