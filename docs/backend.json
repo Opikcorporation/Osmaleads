@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "Lead": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Lead",
+      "type": "object",
+      "description": "Represents a lead in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Lead entity."
+        },
+        "leadData": {
+          "type": "string",
+          "description": "Raw lead data (e.g., CSV content, other document formats)."
+        },
+        "aiProfile": {
+          "type": "string",
+          "description": "AI-generated profile of the lead (structured data)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the lead (e.g., Qualified, Not Qualified).",
+          "format": "string"
+        },
+        "assignedCollaboratorId": {
+          "type": "string",
+          "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
+        }
+      },
+      "required": [
+        "id",
+        "leadData",
+        "aiProfile",
+        "status",
+        "assignedCollaboratorId"
+      ]
+    },
+    "Collaborator": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Collaborator",
+      "type": "object",
+      "description": "Represents a collaborator (user) in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Collaborator entity."
+        },
+        "profilePicture": {
+          "type": "string",
+          "description": "URL to the collaborator's profile picture.",
+          "format": "uri"
+        },
+        "email": {
+          "type": "string",
+          "description": "Collaborator's email address.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "profilePicture",
+        "email"
+      ]
+    },
+    "Group": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Group",
+      "type": "object",
+      "description": "Represents a group of collaborators.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Group entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the group."
+        },
+        "collaboratorIds": {
+          "type": "array",
+          "description": "References to Collaborators within this group. (Relationship: Group 1:N Collaborator)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "collaboratorIds"
+      ]
+    },
+    "Note": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Note",
+      "type": "object",
+      "description": "Represents a note added to a lead.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Note entity."
+        },
+        "leadId": {
+          "type": "string",
+          "description": "Reference to the Lead this note belongs to. (Relationship: Lead 1:N Note)"
+        },
+        "collaboratorId": {
+          "type": "string",
+          "description": "Reference to the Collaborator who created this note. (Relationship: Collaborator 1:N Note)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the note was created.",
+          "format": "date-time"
+        },
+        "content": {
+          "type": "string",
+          "description": "Content of the note."
+        }
+      },
+      "required": [
+        "id",
+        "leadId",
+        "collaboratorId",
+        "timestamp",
+        "content"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/collaborators/{collaboratorId}",
+        "definition": {
+          "entityName": "Collaborator",
+          "schema": {
+            "$ref": "#/backend/entities/Collaborator"
+          },
+          "description": "Stores collaborator profiles. Only the collaborator can read/write their own document.",
+          "params": [
+            {
+              "name": "collaboratorId",
+              "description": "The unique identifier of the collaborator."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/groups/{groupId}",
+        "definition": {
+          "entityName": "Group",
+          "schema": {
+            "$ref": "#/backend/entities/Group"
+          },
+          "description": "Stores group information. Admins can create/modify groups.",
+          "params": [
+            {
+              "name": "groupId",
+              "description": "The unique identifier of the group."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/leads/{leadId}",
+        "definition": {
+          "entityName": "Lead",
+          "schema": {
+            "$ref": "#/backend/entities/Lead"
+          },
+          "description": "Stores lead data. Each lead has an `assignedCollaboratorId`. Security rules allow the assigned collaborator or admins to read/write the lead.",
+          "params": [
+            {
+              "name": "leadId",
+              "description": "The unique identifier of the lead."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/leads/{leadId}/notes/{noteId}",
+        "definition": {
+          "entityName": "Note",
+          "schema": {
+            "$ref": "#/backend/entities/Note"
+          },
+          "description": "Stores notes for each lead. Includes denormalized `assignedCollaboratorId` from the lead document for authorization independence. Security rules allow the assigned collaborator or admins to create/read/write notes for the assigned lead.",
+          "params": [
+            {
+              "name": "leadId",
+              "description": "The unique identifier of the lead."
+            },
+            {
+              "name": "noteId",
+              "description": "The unique identifier of the note."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and support secure list operations (QAPs). It prioritizes path-based ownership for user-related data and membership maps for collaborative data. Denormalization is used extensively to avoid `get()` calls in security rules.\n\n*   `/collaborators/{collaboratorId}`: Stores collaborator profiles. Security rules will ensure only the collaborator can read/write their own document.\n*   `/groups/{groupId}`: Stores group information.  No specific ownership; could be managed by admins.  Security rules could restrict creation/modification to admin roles (enforced via existence checks in `/roles_admin/{uid}`).\n*   `/leads/{leadId}`: Stores lead data. Each lead has an `assignedCollaboratorId`.  Security rules will allow the assigned collaborator to read/write the lead. Admin can also read all leads.\n*   `/leads/{leadId}/notes/{noteId}`: Stores notes for each lead. Denormalizes `assignedCollaboratorId` from the lead document to ensure authorization independence.  Security rules allow the assigned collaborator (denormalized) or admins to create/read/write notes for the assigned lead."
+  }
+}
