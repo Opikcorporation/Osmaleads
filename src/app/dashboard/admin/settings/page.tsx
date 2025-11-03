@@ -25,12 +25,11 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection, doc, where, query, getDocs, writeBatch } from 'firebase/firestore';
-import type { Group, DistributionSetting, Lead } from '@/lib/types';
+import { collection, doc } from 'firebase/firestore';
+import type { Group, DistributionSetting } from '@/lib/types';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { suggestRedistributionStrategy } from "@/ai/flows/suggest-redistribution-strategy";
-
+import { distributeLeads } from "@/ai/flows/distribute-leads-flow";
 
 export default function AdminSettingsPage() {
   const firestore = useFirestore();
@@ -88,59 +87,22 @@ export default function AdminSettingsPage() {
     return groups?.find(g => g.id === groupId)?.name || 'Groupe inconnu';
   }
 
-  const handleManualDistribution = async () => {
+  const handleIntelligentDistribution = async () => {
     setIsDistributing(true);
-    toast({ title: "Lancement de la distribution...", description: "Recherche des leads non assignés." });
+    toast({ title: "Lancement de la distribution intelligente...", description: "L'IA analyse les leads et les collaborateurs." });
 
     try {
-      // 1. Fetch all necessary data
-      const unassignedLeadsQuery = query(collection(firestore, 'leads'), where('assignedCollaboratorId', '==', null));
-      const unassignedLeadsSnap = await getDocs(unassignedLeadsQuery);
-      const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
-
-      if (unassignedLeads.length === 0) {
-        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés." });
-        setIsDistributing(false);
-        return;
-      }
+      const result = await distributeLeads({});
       
-      const distributionSettings = settings || [];
-      const allGroups = groups || [];
-
-      let leadsToDistribute = [...unassignedLeads];
-      let distributedCount = 0;
-      
-      const batch = writeBatch(firestore);
-
-      // Simple round-robin distribution logic
-      for (const setting of distributionSettings) {
-        const group = allGroups.find(g => g.id === setting.groupId);
-        if (!group || group.collaboratorIds.length === 0) continue;
-
-        const leadsForThisGroup = leadsToDistribute.splice(0, setting.leadsPerDay);
-        if (leadsForThisGroup.length === 0) continue;
-
-        let collaboratorIndex = 0;
-        for (const lead of leadsForThisGroup) {
-          const assignedCollaboratorId = group.collaboratorIds[collaboratorIndex % group.collaboratorIds.length];
-          const leadRef = doc(firestore, 'leads', lead.id);
-          batch.update(leadRef, { assignedCollaboratorId: assignedCollaboratorId });
-          
-          collaboratorIndex++;
-          distributedCount++;
-        }
-      }
-
-      if (distributedCount > 0) {
-        await batch.commit();
-        toast({ title: "Distribution terminée", description: `${distributedCount} leads ont été distribués.` });
+      if (result.distributedCount > 0) {
+        toast({ title: "Distribution IA terminée", description: `${result.distributedCount} leads ont été intelligemment distribués.` });
       } else {
-        toast({ title: "Distribution terminée", description: "Aucun lead n'a été distribué. Vérifiez vos règles." });
+        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés ou aucune règle ne correspond." });
       }
 
     } catch (error) {
-      console.error("Distribution error:", error);
-      toast({ variant: "destructive", title: "Erreur de distribution", description: "Une erreur s'est produite." });
+      console.error("Intelligent distribution error:", error);
+      toast({ variant: "destructive", title: "Erreur de distribution IA", description: "Une erreur s'est produite lors de l'analyse." });
     }
 
     setIsDistributing(false);
@@ -227,22 +189,22 @@ export default function AdminSettingsPage() {
        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bot className="text-accent" /> Distribution Manuelle
+              <Bot className="text-accent" /> Distribution Intelligente
             </CardTitle>
             <CardDescription>
-              Lancez la distribution des leads non assignés en fonction des règles actives.
+              Lancez la distribution des leads non assignés en utilisant l'IA pour une assignation optimale.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-                Cette action appliquera les règles de distribution à tous les leads actuellement non assignés.
+                Cette action appliquera une logique d'IA pour assigner les leads aux collaborateurs les plus pertinents en fonction des règles actives.
             </p>
-            <Button onClick={handleManualDistribution} disabled={isDistributing} className="w-full bg-accent hover:bg-accent/90">
+            <Button onClick={handleIntelligentDistribution} disabled={isDistributing} className="w-full bg-accent hover:bg-accent/90">
               <Bot className="mr-2 h-4 w-4" />
-              {isDistributing ? 'Distribution en cours...' : 'Lancer la Distribution Manuelle'}
+              {isDistributing ? 'Analyse IA en cours...' : 'Lancer la Distribution par IA'}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              Ceci est une action manuelle.
+              Ceci est une action manuelle qui utilise l'intelligence artificielle.
             </p>
           </CardContent>
         </Card>
