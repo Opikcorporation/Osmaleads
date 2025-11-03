@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = useState('Admin01');
-  const [password, setPassword] = useState('12345678a');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

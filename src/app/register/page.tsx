@@ -22,9 +22,9 @@ export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState('Admin User');
+  const [username, setUsername] = useState('Admin01');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
