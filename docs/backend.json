@@ -26,6 +26,19 @@
         "assignedCollaboratorId": {
           "type": "string",
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
+        },
+        "score": {
+            "type": "number",
+            "description": "AI-generated score for lead quality (e.g., 0-100)."
+        },
+        "scoreRationale": {
+            "type": "string",
+            "description": "AI-generated rationale for the assigned score."
+        },
+        "tier": {
+          "type": "string",
+          "description": "The quality tier of the lead, derived from its score.",
+          "enum": ["Bas de gamme", "Moyenne gamme", "Haut de gamme"]
         }
       },
       "required": [
@@ -159,21 +172,21 @@
           "type": "string",
           "description": "Reference to the Group this setting applies to."
         },
-        "leadsPerDay": {
+        "dailyQuota": {
           "type": "number",
-          "description": "Number of leads to distribute per day to this group."
+          "description": "Maximum number of leads to distribute per day to this group."
         },
-        "distributionTime": {
+        "leadTier": {
           "type": "string",
-          "description": "Time of day to distribute leads (e.g., '17:00').",
-          "format": "time"
+          "description": "The quality tier of leads this group is configured to handle.",
+          "enum": ["Bas de gamme", "Moyenne gamme", "Haut de gamme", "Tous"]
         }
       },
       "required": [
         "id",
         "groupId",
-        "leadsPerDay",
-        "distributionTime"
+        "dailyQuota",
+        "leadTier"
       ]
     }
   },
@@ -238,3 +251,5 @@
     ]
   }
 }
+
+    

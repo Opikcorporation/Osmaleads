@@ -27,21 +27,18 @@ import type { Lead, Collaborator } from '@/lib/types';
 import { collection, query, where, serverTimestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, PlusCircle } from 'lucide-react';
+import { FileUp } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { generateLeadProfile } from '@/ai/flows/generate-lead-profile';
+import { generateLeadProfile, getTierFromScore } from '@/ai/flows/generate-lead-profile';
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
-  const router = useRouter();
-  const { toast } = useToast();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-
 
   // Determine the query based on the user's role
   const leadsQuery = useMemoFirebase(() => {
@@ -67,15 +64,15 @@ export default function DashboardPage() {
     if (!firestore) return;
     toast({
       title: "Analyse IA en cours...",
-      description: "Le profil du lead est en cours de génération.",
+      description: "Le profil et le score du lead sont en cours de génération.",
     });
 
     try {
-      // 1. Generate AI Profile
-      const { profile } = await generateLeadProfile({ leadData });
+      // 1. Generate AI Profile and Score
+      const { profile, score, scoreRationale } = await generateLeadProfile({ leadData });
+      const tier = getTierFromScore(score);
 
       // 2. Create lead object
-      // We'll use the file name as a placeholder for the lead name
       const newLead: Omit<Lead, 'id'> = {
         name: fileName.replace(/\.[^/.]+$/, ""), // Remove file extension
         email: "non fourni",
@@ -87,6 +84,9 @@ export default function DashboardPage() {
         assignedCollaboratorId: null,
         aiProfile: profile,
         leadData: leadData,
+        score: score,
+        scoreRationale: scoreRationale,
+        tier: tier,
       };
 
       // 3. Save to Firestore
@@ -95,7 +95,7 @@ export default function DashboardPage() {
 
       toast({
         title: "Lead créé avec succès !",
-        description: `${newLead.name} a été ajouté à la liste.`,
+        description: `${newLead.name} a été ajouté avec un score de ${score}.`,
       });
 
     } catch (error) {
@@ -110,6 +110,11 @@ export default function DashboardPage() {
     setIsImportDialogOpen(false);
   };
 
+  const getScoreBadgeColor = (score: number) => {
+    if (score >= 80) return 'bg-green-500 text-white';
+    if (score >= 50) return 'bg-yellow-500 text-black';
+    return 'bg-red-500 text-white';
+  };
 
   const isLoading = leadsLoading || collaboratorsLoading;
 
@@ -138,6 +143,7 @@ export default function DashboardPage() {
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead className="hidden md:table-cell">Entreprise</TableHead>
+                  <TableHead>Score</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Assigné à</TableHead>
                   <TableHead>
@@ -153,6 +159,9 @@ export default function DashboardPage() {
                       <TableRow key={lead.id}>
                         <TableCell className="font-medium">{lead.name}</TableCell>
                         <TableCell className="hidden md:table-cell">{lead.company}</TableCell>
+                        <TableCell>
+                          <Badge className={getScoreBadgeColor(lead.score)}>{lead.score}</Badge>
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={lead.status} />
                         </TableCell>
@@ -179,7 +188,7 @@ export default function DashboardPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       Aucun lead à afficher. Importez votre premier lead pour commencer.
                     </TableCell>
                   </TableRow>
@@ -198,3 +207,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, Users, Trash2, Edit } from "lucide-react";
+import { PlusCircle, Users, Trash2, Edit, Bot } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -18,7 +18,7 @@ import {
   deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc } from 'firebase/firestore';
-import type { Group, Collaborator } from '@/lib/types';
+import type { Group, Collaborator, DistributionSetting } from '@/lib/types';
 import { useState } from 'react';
 import { GroupFormDialog } from './_components/group-form-dialog';
 import {
@@ -33,12 +33,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { distributeLeadsForGroup } from '@/ai/flows/distribute-leads-flow';
 
 export default function AdminGroupsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [distributingGroupId, setDistributingGroupId] = useState<string | null>(null);
 
   const groupsQuery = useMemoFirebase(
     () => collection(firestore, 'groups'),
@@ -48,13 +50,21 @@ export default function AdminGroupsPage() {
     () => collection(firestore, 'collaborators'),
     [firestore]
   );
+  const settingsQuery = useMemoFirebase(
+    () => collection(firestore, 'distributionSettings'),
+    [firestore]
+  );
 
   const { data: groups, isLoading: groupsLoading } =
     useCollection<Group>(groupsQuery);
   const { data: users, isLoading: usersLoading } =
     useCollection<Collaborator>(usersQuery);
+  const { data: settings, isLoading: settingsLoading } = 
+    useCollection<DistributionSetting>(settingsQuery);
 
-  if (groupsLoading || usersLoading) {
+  const isLoading = groupsLoading || usersLoading || settingsLoading;
+
+  if (isLoading) {
     return <div>Chargement des groupes...</div>;
   }
 
@@ -98,6 +108,29 @@ export default function AdminGroupsPage() {
     deleteDocumentNonBlocking(groupRef);
     toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe a été supprimé avec succès.' });
   };
+  
+  const handleDistribute = async (group: Group) => {
+    setDistributingGroupId(group.id);
+    toast({ title: `Distribution pour ${group.name}`, description: "L'IA recherche des leads correspondants..." });
+    
+    try {
+        const result = await distributeLeadsForGroup({ groupId: group.id });
+        if(result.distributedCount > 0) {
+            toast({ title: "Distribution réussie", description: `${result.distributedCount} lead(s) ont été distribués au groupe ${group.name}.` });
+        } else {
+            toast({ title: "Distribution terminée", description: `Aucun nouveau lead à distribuer pour le groupe ${group.name} pour le moment.` });
+        }
+    } catch (error: any) {
+        console.error("Distribution error for group:", error);
+        toast({ variant: 'destructive', title: "Erreur de distribution", description: error.message || "Une erreur inconnue est survenue." });
+    } finally {
+        setDistributingGroupId(null);
+    }
+  }
+  
+  const getGroupSetting = (groupId: string) => {
+    return settings?.find(s => s.groupId === groupId);
+  }
 
 
   return (
@@ -112,6 +145,9 @@ export default function AdminGroupsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {groups?.map((group) => {
           const members = getGroupMembers(group.id);
+          const groupSetting = getGroupSetting(group.id);
+          const isDistributing = distributingGroupId === group.id;
+
           return (
             <Card key={group.id} className="flex flex-col">
               <CardHeader>
@@ -150,7 +186,7 @@ export default function AdminGroupsPage() {
                 <CardDescription>{members.length} membre(s)</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
-                <div>
+                 <div>
                   <h4 className="mb-2 text-sm font-semibold">Membres</h4>
                   {members.length > 0 ? (
                   <>
@@ -168,7 +204,21 @@ export default function AdminGroupsPage() {
                       <p className="text-sm text-muted-foreground">Aucun membre dans ce groupe.</p>
                   )}
                 </div>
+                 <div>
+                    <h4 className="mb-2 text-sm font-semibold">Règle de Distribution</h4>
+                    {groupSetting ? (
+                        <p className="text-sm text-muted-foreground">Cible : <span className="font-bold text-primary">{groupSetting.leadTier}</span> (Max {groupSetting.dailyQuota}/jour)</p>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">Aucune règle définie.</p>
+                    )}
+                 </div>
               </CardContent>
+               <div className="p-4 pt-0">
+                 <Button onClick={() => handleDistribute(group)} disabled={!groupSetting || isDistributing} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Bot className="mr-2 h-4 w-4" />
+                    {isDistributing ? 'Distribution...' : `Distribuer à ${group.name}`}
+                </Button>
+               </div>
             </Card>
           )
         })}
@@ -183,3 +233,5 @@ export default function AdminGroupsPage() {
     </>
   );
 }
+
+    

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bot, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   useCollection,
   useFirestore,
@@ -26,19 +26,18 @@ import {
   deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc } from 'firebase/firestore';
-import type { Group, DistributionSetting } from '@/lib/types';
-import { useState } from "react";
+import type { Group, DistributionSetting, LeadTier } from '@/lib/types';
+import { leadTiers } from '@/lib/types';
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { distributeLeads } from "@/ai/flows/distribute-leads-flow";
 
 export default function AdminSettingsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
-  const [leadsPerDay, setLeadsPerDay] = useState(5);
-  const [distributionTime, setDistributionTime] = useState("17:00");
-  const [isDistributing, setIsDistributing] = useState(false);
+  const [dailyQuota, setDailyQuota] = useState(5);
+  const [leadTier, setLeadTier] = useState<LeadTier | 'Tous'>('Tous');
 
   const groupsQuery = useMemoFirebase(
     () => collection(firestore, 'groups'),
@@ -52,6 +51,21 @@ export default function AdminSettingsPage() {
   const { data: groups, isLoading: groupsLoading } = useCollection<Group>(groupsQuery);
   const { data: settings, isLoading: settingsLoading } = useCollection<DistributionSetting>(settingsQuery);
 
+  // When selected group changes, update the form with its existing settings
+  useEffect(() => {
+    if (selectedGroupId) {
+      const existingSetting = settings?.find(s => s.groupId === selectedGroupId);
+      if (existingSetting) {
+        setDailyQuota(existingSetting.dailyQuota);
+        setLeadTier(existingSetting.leadTier);
+      } else {
+        // Reset to default if new group is selected that has no setting yet
+        setDailyQuota(5);
+        setLeadTier('Tous');
+      }
+    }
+  }, [selectedGroupId, settings]);
+
   const handleSaveRule = () => {
     if (!selectedGroupId) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un groupe.' });
@@ -62,8 +76,8 @@ export default function AdminSettingsPage() {
 
     const ruleData = {
       groupId: selectedGroupId,
-      leadsPerDay,
-      distributionTime,
+      dailyQuota,
+      leadTier,
     };
 
     if (existingSetting) {
@@ -87,28 +101,6 @@ export default function AdminSettingsPage() {
     return groups?.find(g => g.id === groupId)?.name || 'Groupe inconnu';
   }
 
-  const handleIntelligentDistribution = async () => {
-    setIsDistributing(true);
-    toast({ title: "Lancement de la distribution intelligente...", description: "L'IA analyse les leads et les collaborateurs." });
-
-    try {
-      const result = await distributeLeads({});
-      
-      if (result.distributedCount > 0) {
-        toast({ title: "Distribution IA terminée", description: `${result.distributedCount} leads ont été intelligemment distribués.` });
-      } else {
-        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés." });
-      }
-
-    } catch (error) {
-      console.error("Intelligent distribution error:", error);
-      toast({ variant: "destructive", title: "Erreur de distribution IA", description: "Une erreur s'est produite lors de l'analyse." });
-    }
-
-    setIsDistributing(false);
-  };
-
-
   if (groupsLoading || settingsLoading) {
     return <div>Chargement...</div>;
   }
@@ -116,15 +108,15 @@ export default function AdminSettingsPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Paramètres de Distribution</h1>
+        <h1 className="text-2xl font-semibold md:text-3xl">Règles de Distribution</h1>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Règles de Distribution par Groupe</CardTitle>
+            <CardTitle>Configurer une Règle</CardTitle>
             <CardDescription>
-              Configurez des règles pour la distribution automatique future (via cron job).
+              Définissez quel type de lead chaque groupe reçoit et leur quota journalier.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -141,16 +133,25 @@ export default function AdminSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="quota">Leads par jour</Label>
-              <Input id="quota" type="number" value={leadsPerDay} onChange={(e) => setLeadsPerDay(Number(e.target.value))} placeholder="e.g., 5" />
-            </div>
 
             <div className="space-y-2">
-                <Label htmlFor="distribution-time">Heure de distribution</Label>
-                <Input id="distribution-time" type="time" value={distributionTime} onChange={(e) => setDistributionTime(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Utilisée par le déclencheur automatique (cron job).</p>
+              <Label htmlFor="lead-tier">Tier de Lead Ciblé</Label>
+              <Select onValueChange={(value) => setLeadTier(value as any)} value={leadTier}>
+                <SelectTrigger id="lead-tier">
+                  <SelectValue placeholder="Sélectionner un tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Tous">Tous les Tiers</SelectItem>
+                  {leadTiers.map(tier => (
+                    <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="quota">Quota de leads par jour</Label>
+              <Input id="quota" type="number" value={dailyQuota} onChange={(e) => setDailyQuota(Number(e.target.value))} placeholder="e.g., 5" />
             </div>
             
             <Button onClick={handleSaveRule} disabled={!selectedGroupId}>Enregistrer la Règle</Button>
@@ -172,10 +173,13 @@ export default function AdminSettingsPage() {
                     <div key={setting.id} className="flex items-center justify-between rounded-lg border p-3">
                         <div>
                             <p className="font-semibold">{getGroupName(setting.groupId)}</p>
-                            <p className="text-sm text-muted-foreground">{setting.leadsPerDay} leads/jour à {setting.distributionTime}</p>
+                            <p className="text-sm text-muted-foreground">
+                                Cible : <span className="font-bold text-primary">{setting.leadTier}</span> (Max {setting.dailyQuota}/jour)
+                            </p>
                         </div>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteRule(setting.id)}>
+                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDeleteRule(setting.id)}>
                             <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Supprimer</span>
                         </Button>
                     </div>
                 ))
@@ -185,29 +189,8 @@ export default function AdminSettingsPage() {
           </CardContent>
         </Card>
       </div>
-      
-       <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="text-accent" /> Distribution Manuelle (IA)
-            </CardTitle>
-            <CardDescription>
-              Lancez immédiatement la distribution des leads non assignés en utilisant l'IA pour une assignation optimale.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Cette action appliquera une logique d'IA pour assigner tous les leads actuellement non assignés aux collaborateurs les plus pertinents.
-            </p>
-            <Button onClick={handleIntelligentDistribution} disabled={isDistributing} className="w-full bg-accent hover:bg-accent/90">
-              <Bot className="mr-2 h-4 w-4" />
-              {isDistributing ? 'Analyse IA en cours...' : 'Distribuer les leads non assignés (IA)'}
-            </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Ceci est une action manuelle qui utilise l'intelligence artificielle.
-            </p>
-          </CardContent>
-        </Card>
     </>
   );
 }
+
+    

@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, FirestoreNote } from '@/lib/types';
-import { Bot, CalendarIcon } from 'lucide-react';
+import { Bot, CalendarIcon, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
@@ -82,6 +83,12 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     return allUsers?.find(u => u.id === collaboratorId);
   }
 
+  const getScoreBadgeColor = (score: number) => {
+    if (score >= 80) return 'bg-green-500 text-white hover:bg-green-600';
+    if (score >= 50) return 'bg-yellow-500 text-black hover:bg-yellow-600';
+    return 'bg-red-500 text-white hover:bg-red-600';
+  };
+
   if (leadLoading || assignedUserLoading || notesLoading || allUsersLoading) {
     return <div>Chargement du lead...</div>;
   }
@@ -111,6 +118,12 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                   </div>
                 )}
             </div>
+             <div className="flex items-center gap-4 pt-4">
+                 <Badge className={getScoreBadgeColor(lead.score) + ' text-base'}>
+                    <Star className="w-4 h-4 mr-2" /> {lead.score}
+                </Badge>
+                <Badge variant="outline" className="text-base">{lead.tier}</Badge>
+            </div>
           </CardHeader>
            <CardContent>
              <div className="flex items-center gap-4">
@@ -136,6 +149,10 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             <CardTitle className="flex items-center gap-2"><Bot className="text-accent" /> Profil Détaillé (IA)</CardTitle>
           </CardHeader>
           <CardContent>
+            <h3 className="font-semibold mb-2">Justification du Score ({lead.score})</h3>
+            <p className="text-muted-foreground italic mb-4 p-3 bg-muted rounded-md">{lead.scoreRationale}</p>
+            <Separator className="my-4" />
+            <h3 className="font-semibold mb-2">Profil du Lead</h3>
             <p className="text-muted-foreground whitespace-pre-wrap">{lead.aiProfile}</p>
           </CardContent>
         </Card>
@@ -188,3 +205,5 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     </div>
   );
 }
+
+    

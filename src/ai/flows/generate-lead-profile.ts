@@ -1,15 +1,17 @@
 'use server';
 
 /**
- * @fileOverview Generates a comprehensive lead profile from imported data.
+ * @fileOverview Generates a comprehensive lead profile from imported data, including a score.
  *
- * - generateLeadProfile - A function that generates the lead profile.
+ * - generateLeadProfile - A function that generates the lead profile and score.
  * - GenerateLeadProfileInput - The input type for the generateLeadProfile function.
  * - GenerateLeadProfileOutput - The return type for the generateLeadProfile function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { LeadTier } from '@/lib/types';
+import { leadTiers } from '@/lib/types';
 
 const GenerateLeadProfileInputSchema = z.object({
   leadData: z
@@ -19,7 +21,9 @@ const GenerateLeadProfileInputSchema = z.object({
 export type GenerateLeadProfileInput = z.infer<typeof GenerateLeadProfileInputSchema>;
 
 const GenerateLeadProfileOutputSchema = z.object({
-  profile: z.string().describe('A comprehensive profile of the lead.'),
+  profile: z.string().describe('A comprehensive profile of the lead, summarizing key information, potential interests, and possible pain points.'),
+  score: z.number().min(0).max(100).describe('A score from 0 to 100 representing the quality of the lead. 100 is the best possible score.'),
+  scoreRationale: z.string().describe('A brief explanation for why the score was given.'),
 });
 export type GenerateLeadProfileOutput = z.infer<typeof GenerateLeadProfileOutputSchema>;
 
@@ -31,10 +35,15 @@ const prompt = ai.definePrompt({
   name: 'generateLeadProfilePrompt',
   input: {schema: GenerateLeadProfileInputSchema},
   output: {schema: GenerateLeadProfileOutputSchema},
-  prompt: `You are an AI assistant that specializes in creating lead profiles from imported data. You will receive lead data in CSV or other text format. Analyze the data and generate a comprehensive profile of the lead, including key information, potential interests, and possible pain points.
-  
-Lead Data:
-{{{leadData}}}`,
+  prompt: `You are an expert AI assistant for sales teams. Your task is to analyze raw lead data and produce a structured profile.
+
+  1.  **Analyze the data:** Read the provided lead data carefully.
+  2.  **Generate a Profile:** Create a concise, comprehensive profile summarizing the most important information for a salesperson.
+  3.  **Score the Lead:** Based on your analysis, assign a score from 0 to 100. A higher score means a better, more qualified lead. Consider factors like budget, company size, expressed needs, and contact information quality.
+  4.  **Justify the Score:** Provide a short, clear rationale for the score you assigned.
+
+  Lead Data:
+  {{{leadData}}}`,
 });
 
 const generateLeadProfileFlow = ai.defineFlow(
@@ -48,3 +57,11 @@ const generateLeadProfileFlow = ai.defineFlow(
     return output!;
   }
 );
+
+export function getTierFromScore(score: number): LeadTier {
+  if (score >= 80) return 'Haut de gamme';
+  if (score >= 50) return 'Moyenne gamme';
+  return 'Bas de gamme';
+}
+
+    

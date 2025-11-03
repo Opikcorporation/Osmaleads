@@ -51,6 +51,9 @@ export type Lead = {
   aiProfile: string; // AI generated profile
   leadData: string;
   username: string;
+  score: number;
+  scoreRationale: string;
+  tier: LeadTier;
 };
 
 export type FirestoreNote = {
@@ -74,6 +77,8 @@ export type Collaborator = {
 export type DistributionSetting = {
   id: string;
   groupId: string;
-  leadsPerDay: number;
-  distributionTime: string; // e.g., "17:00"
+  dailyQuota: number;
+  leadTier: LeadTier | 'Tous';
 };
+
+    
