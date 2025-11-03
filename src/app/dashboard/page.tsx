@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   // Determine the query based on the user's role
   const leadsQuery = useMemoFirebase(() => {
@@ -70,7 +71,7 @@ export default function DashboardPage() {
     try {
       // 1. Generate AI Profile and Score
       const { profile, score, scoreRationale } = await generateLeadProfile({ leadData });
-      const tier = getTierFromScore(score);
+      const tier = await getTierFromScore(score);
 
       // 2. Create lead object
       const newLead: Omit<Lead, 'id'> = {
@@ -207,5 +208,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
