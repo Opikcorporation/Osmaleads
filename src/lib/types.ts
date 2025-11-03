@@ -29,6 +29,7 @@ export type Note = {
 
 export const leadStatuses = [
   'New',
+  'Analyzing',
   'Qualified',
   'Not Qualified',
   'No Answer',
@@ -76,5 +77,3 @@ export type DistributionSetting = {
   dailyQuota: number;
   leadTier: LeadTier | 'Tous';
 };
-
-    

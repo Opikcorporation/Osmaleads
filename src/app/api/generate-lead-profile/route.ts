@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
         email: structuredProfile.email || null,
         phone: structuredProfile.phone || null,
         username: structuredProfile.username || null,
+        status: 'New', // Set status to 'New' after analysis
     };
 
     // Update the lead document in Firestore with the structured data
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, leadId: leadId, profile: updateData });
   } catch (error: any) {
     console.error('Error in generate-lead-profile API route:', error);
+    // If AI fails, update status to 'New' anyway to unblock it
+    const { leadId } = await req.json();
+    if(leadId) {
+        const { firestore } = getFirebaseAdmin();
+        const leadRef = firestore.collection('leads').doc(leadId);
+        await leadRef.update({ status: 'New' }).catch(e => console.error("Failed to update status on error:", e));
+    }
     return NextResponse.json({ error: error.message || 'An internal server error occurred' }, { status: 500 });
   }
 }

@@ -23,7 +23,7 @@ import {
   useUser,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
@@ -166,7 +166,7 @@ export default function DashboardPage() {
     setIsImportDialogOpen(false);
     toast({
       title: "Importation en cours...",
-      description: "Traitement du fichier CSV.",
+      description: "Traitement du fichier et création des leads.",
     });
 
     try {
@@ -188,11 +188,16 @@ export default function DashboardPage() {
         const newLeadDocRef = doc(leadsColRef);
         const sensibleName = findKey(row, ["Nom", "Name", "Company", "Societe", "Full Name", "Nom Complet"]) || `Lead importé`;
 
-        const newLead: Partial<Lead> = {
+        const newLead: Omit<Lead, 'id'> = {
           name: sensibleName,
-          status: 'New',
+          status: 'Analyzing', // Set initial status to Analyzing
           assignedCollaboratorId: null,
           leadData: JSON.stringify(row),
+          createdAt: serverTimestamp(),
+          company: null,
+          email: null,
+          phone: null,
+          username: null,
         };
         batch.set(newLeadDocRef, newLead);
         newLeadIds.push(newLeadDocRef.id);
@@ -205,6 +210,7 @@ export default function DashboardPage() {
         description: `${parsedLeads.length} lead(s) ont été créés. L'analyse IA commence en arrière-plan.`,
       });
 
+      // Trigger AI analysis for each new lead
       newLeadIds.forEach(leadId => triggerAiAnalysis(leadId));
 
     } catch (error) {
@@ -450,5 +456,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
