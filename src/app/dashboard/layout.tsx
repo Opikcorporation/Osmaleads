@@ -63,7 +63,7 @@ export default function DashboardLayout({
               username: username,
               email: user.email,
               role: username === 'Admin01' ? 'admin' : 'collaborator',
-              avatarUrl: defaultAvatar.imageUrl || 'https://picsum.photos/seed/user/200',
+              avatarUrl: defaultAvatar?.imageUrl || 'https://picsum.photos/seed/user/200',
             };
             
             const docRef = doc(firestore, 'collaborators', user.uid);
