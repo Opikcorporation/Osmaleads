@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
 import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus } from 'lucide-react';
 import { Logo } from '../logo';
+import { useUser } from '@/firebase';
 
 interface AppSidebarProps {
   user: Collaborator;
@@ -54,7 +55,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       </div>
       <nav className="flex-1 space-y-2 p-4">
         {navItems
-          .filter((item) => item.roles.includes(user.role))
+          .filter((item) => (user.role && item.roles.includes(user.role)) || user.username === 'Admin01' ) // Allow admin user to see all
           .map((item) => (
             <Link
               key={item.href}

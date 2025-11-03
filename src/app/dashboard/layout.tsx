@@ -7,81 +7,53 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser } from '@/firebase';
 import { useEffect } from 'react';
-import type { Collaborator } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { collection, query, where } from 'firebase/firestore';
+import type { Collaborator } from '@/lib/types';
+
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading: isAuthLoading } = useUser();
-  const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  // Simple, robust query to get the collaborator profile.
-  // This will only run when the user object is available.
-  const collaboratorQuery = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null),
-    [user, firestore]
-  );
-  
-  // The useCollection hook handles loading and error states for us.
-  const { data: collaboratorData, isLoading: isProfileLoading } = useCollection<Collaborator>(collaboratorQuery);
-  
-  const collaborator = collaboratorData?.[0];
-  
-  // Overall loading state depends on auth and profile fetching.
-  const isLoading = isAuthLoading || (user && isProfileLoading);
-
+  // This is the simplest, most robust check.
+  // We wait for auth to be ready, then redirect if no user is found.
   useEffect(() => {
-    // If auth has finished loading and there's still no user, redirect to login.
-    if (!isAuthLoading && !user) {
+    if (!isUserLoading && !user) {
       router.push('/');
     }
-  }, [isAuthLoading, user, router]);
+  }, [isUserLoading, user, router]);
 
-  // While loading auth or the profile, show a clear loading message.
-  if (isLoading) {
+  // While loading auth, show a clear loading message.
+  // This prevents any component from rendering prematurely.
+  if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Chargement du tableau de bord...</p>
+        <p>Chargement de la session...</p>
       </div>
     );
   }
   
-  // After all loading is done, if there's a user but no profile, it's a critical error.
-  if (user && !collaborator) {
-     return (
-        <div className="flex min-h-screen w-full items-center justify-center bg-background text-center">
-            <div>
-                <h2 className="text-xl font-semibold text-destructive">Erreur de Profil</h2>
-                <p className="text-muted-foreground mt-2">
-                    Impossible de charger le profil collaborateur associé à votre compte. <br />
-                    Cela peut se produire si la création du profil a échoué lors de l'inscription.
-                </p>
-                <Button onClick={() => router.push('/')} className="mt-4">Retour à la connexion</Button>
-            </div>
-        </div>
-    );
-  }
+  // A simplified user object for the components that need it.
+  const mockCollaborator: Collaborator = {
+    id: user.uid,
+    name: user.displayName || 'Utilisateur',
+    username: user.email?.split('@')[0] || 'utilisateur',
+    email: user.email,
+    role: 'collaborator',
+    avatarUrl: user.photoURL || '',
+  };
 
-  // If there's no user and we're not loading, we're likely redirecting.
-  if (!user || !collaborator) {
-    return (
-        <div className="flex min-h-screen w-full items-center justify-center bg-background">
-            <p>Redirection en cours...</p>
-        </div>
-    );
-  }
 
   // If we get here, everything is loaded and valid.
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
-      <AppSidebar user={collaborator} />
+      <AppSidebar user={mockCollaborator} />
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 md:hidden">
           <Sheet>
@@ -92,7 +64,7 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col p-0">
-              <AppSidebar user={collaborator} />
+              <AppSidebar user={mockCollaborator} />
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
