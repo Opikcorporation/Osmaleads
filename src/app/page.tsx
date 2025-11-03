@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('password');
+  const [password, setPassword] = useState('12345678a');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -61,13 +61,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background dark:bg-background">
+    <div className="flex min-h-screen w-full items-center justify-center bg-background">
       <div className="w-full max-w-sm p-4">
         <div className="text-center mb-8">
             <div className="inline-block">
-              <Logo className="mx-auto h-12 w-12 text-foreground dark:text-foreground" />
+              <Logo className="mx-auto h-12 w-12 text-foreground" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight mt-4 text-foreground dark:text-foreground">LeadFlowAI</h1>
+            <h1 className="text-3xl font-bold tracking-tight mt-4 text-foreground">LeadFlowAI</h1>
             <p className="text-muted-foreground mt-2">
               Connectez-vous à votre tableau de bord
             </p>
@@ -76,7 +76,7 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
+            <Input id="email" type="email" placeholder="nom@exemple.com" required value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>
@@ -86,6 +86,13 @@ export default function LoginPage() {
             {isLoading ? 'Connexion en cours...' : 'Se connecter'}
           </Button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+            Vous n'avez pas de compte ?{' '}
+            <Link href="/register" className="font-semibold text-primary hover:underline">
+                Créer un compte
+            </Link>
+        </p>
       </div>
     </div>
   );
