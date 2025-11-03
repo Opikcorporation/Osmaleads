@@ -85,11 +85,6 @@ export default function LoginPage() {
           <Button type="submit" className="w-full text-base font-semibold" disabled={isLoading}>
             {isLoading ? 'Connexion en cours...' : 'Se connecter'}
           </Button>
-          <Button variant="secondary" className="w-full" asChild>
-            <Link href="/register">
-              Créer un compte
-            </Link>
-          </Button>
         </form>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
-import { LayoutDashboard, Settings, Users, BotMessageSquare } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus } from 'lucide-react';
 import { Logo } from '../logo';
 
 interface AppSidebarProps {
@@ -25,8 +25,14 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       roles: ['admin', 'collaborator'],
     },
     {
+        href: '/dashboard/admin/collaborators',
+        label: 'Collaborateurs',
+        icon: UserPlus,
+        roles: ['admin'],
+    },
+    {
       href: '/dashboard/admin/groups',
-      label: 'Groups',
+      label: 'Groupes',
       icon: Users,
       roles: ['admin'],
     },
@@ -55,7 +61,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                pathname.startsWith(item.href) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -67,10 +73,10 @@ export default function AppSidebar({ user }: AppSidebarProps) {
         <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
           <div className='flex items-center gap-2'>
             <BotMessageSquare className="h-6 w-6 text-accent"/>
-            <h3 className="font-semibold text-accent">AI Insights</h3>
+            <h3 className="font-semibold text-accent">Perspectives IA</h3>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            Our AI is working to enrich your leads and suggest optimal strategies.
+            Notre IA enrichit vos leads et suggère des stratégies optimales.
           </p>
         </div>
         <div className="flex items-center gap-4 p-2 rounded-lg bg-sidebar-accent/50">
