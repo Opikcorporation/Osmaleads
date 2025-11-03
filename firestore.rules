@@ -24,20 +24,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows a collaborator to read and write their own profile.
-     * @path /collaborators/{collaboratorId}
-     * @allow (get, list, create, update, delete) if request.auth.uid == collaboratorId
-     * @deny (get, list, create, update, delete) if request.auth.uid != collaboratorId
-     * @principle Enforces document ownership for collaborator profiles.
-     */
-    match /collaborators/{collaboratorId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(collaboratorId) && request.resource.data.id == request.auth.uid;
-      allow update: if isSignedIn() && isOwner(collaboratorId) && resource.data.id == request.resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(collaboratorId);
-    }
-    
-    /**
      * @description Helper function to check if the user has the 'admin' role.
      * It checks for the existence of a document in `/collaborators/{uid}` where the role is 'admin'.
      * @return {boolean} True if the user is an admin, false otherwise.
@@ -72,17 +58,18 @@ service cloud.firestore {
 
 
     /**
-     * @description Allows the assigned collaborator to read/write leads.
+     * @description Allows the assigned collaborator to read/write leads. Admins can create unassigned leads.
      * @path /leads/{leadId}
      * @allow (get, list) if true
-     * @allow (create) if request.auth.uid == request.resource.data.assignedCollaboratorId
-     * @allow (update, delete) if resource.data.assignedCollaboratorId == request.auth.uid
-     * @deny (create, update, delete) if resource.data.assignedCollaboratorId != request.auth.uid
-     * @principle Enforces ownership via assignedCollaboratorId.
+     * @allow (create) if (isAdmin() || request.auth.uid == request.resource.data.assignedCollaboratorId)
+     * @allow (update, delete) if resource.data.assignedCollaboratorId == request.auth.uid || isAdmin()
+     * @deny (create, update, delete) if !(isAdmin() || resource.data.assignedCollaboratorId == request.auth.uid)
+     * @principle Enforces ownership via assignedCollaboratorId, with admin override.
      */
     match /leads/{leadId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.assignedCollaboratorId == request.auth.uid;
+      // An admin can create any lead (including unassigned). A user can create a lead if they assign it to themselves.
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.assignedCollaboratorId == request.auth.uid);
       allow update: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
       allow delete: if isSignedIn() && (isExistingAssignedCollaborator(resource.data.assignedCollaboratorId) || isAdmin());
 
