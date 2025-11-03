@@ -12,7 +12,7 @@ export type User = {
 export type Group = {
   id:string;
   name: string;
-  memberIds: string[];
+  collaboratorIds: string[];
 };
 
 export type Note = {
