@@ -38,19 +38,17 @@ const leadAnalysisPrompt = ai.definePrompt({
   input: { schema: GenerateLeadProfileInputSchema },
   output: { schema: GenerateLeadProfileOutputSchema },
   prompt: `
-    You are an expert data analyst. Your task is to analyze the raw data of a single lead and extract key information into a structured format.
-    The input data is a JSON object representing a row from a CSV or text file. The keys are the original column headers, which can be messy (e.g., "col_1", "Téléphone", "E-mail").
+    You are an expert data analyst. Your only task is to analyze the raw data of a single lead (one row from a CSV) and identify which column corresponds to the prospect's **name** and which column corresponds to their **phone number**.
 
-    Your goal is to intelligently map these messy keys to the following standard fields: name, company, email, phone, username, and score.
+    - **Primary Goal**: Find the 'name' and 'phone' fields.
+    - **name**: Look for column headers like "Nom", "Name", "Full Name", "Nom Complet", "Company Name", "Societe". This is the most critical piece of information.
+    - **phone**: Look for column headers like "Phone", "Téléphone", "Mobile", "Numéro".
 
-    - **name**: This is the most critical field. Look for keys like "Nom", "Name", "Full Name", "Nom Complet", "Company Name", "Societe". This should be the primary identifier for the lead.
-    - **company**: If a separate company name is identifiable, extract it. Often, it might be the same as the name.
-    - **email**: Look for keys like "Email", "Courriel", "E-mail".
-    - **phone**: Look for keys like "Phone", "Téléphone", "Mobile".
-    - **username**: Look for keys like "Username", "user", "handle".
-    - **score**: Provide a lead quality score from 0-100. Base this on the quantity and quality of information available. For example, a lead with a name, email, and phone number is higher quality than one with just a name.
+    Also extract other relevant information if available, like email, company, and username.
+    
+    Finally, provide a lead quality score from 0-100. Base this on how much information is available. A lead with a name and phone number is a high-quality lead.
 
-    Analyze the following data and return ONLY the structured JSON object.
+    Analyze the following data and return ONLY the structured JSON object with the identified fields.
 
     Lead Data:
     {{{leadData}}}
