@@ -39,7 +39,7 @@ service cloud.firestore {
      */
     match /collaborators/{collaboratorId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin() && request.resource.data.id == collaboratorId;
+      allow create: if isSignedIn() && request.auth.uid == collaboratorId && !exists(/databases/$(database)/documents/collaborators/$(collaboratorId));
       allow update: if isSignedIn() && isOwner(collaboratorId) && resource.data.id == request.resource.data.id;
       allow delete: if isAdmin();
     }
