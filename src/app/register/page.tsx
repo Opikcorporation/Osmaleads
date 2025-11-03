@@ -141,15 +141,15 @@ export default function RegisterPage() {
             <Input id="name" type="text" placeholder="John Doe" required value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="username">Nom d'utilisateur</Label>
-            <Input id="username" type="text" placeholder="johndoe" required value={username} onChange={e => setUsername(e.target.value)} />
+            <Label htmlFor="username">Nom d'utilisateur (Admin)</Label>
+            <Input id="username" type="text" placeholder="Admin01" required value={username} onChange={e => setUsername(e.target.value)} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Mot de passe</Label>
             <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="w-full text-base font-semibold" disabled={isLoading}>
-            {isLoading ? 'Création du compte...' : 'Créer mon compte'}
+            {isLoading ? 'Création du compte...' : 'Créer mon compte Admin'}
           </Button>
         </form>
 
