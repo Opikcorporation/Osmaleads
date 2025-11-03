@@ -21,10 +21,9 @@ import {
   useFirestore,
   useMemoFirebase,
   useUser,
-  addDocumentNonBlocking
 } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
+import { collection, query, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp } from 'lucide-react';
@@ -66,45 +65,61 @@ export default function DashboardPage() {
     setIsImportDialogOpen(false); // Close dialog immediately
     toast({
       title: "Analyse IA en cours...",
-      description: "Le profil et le score du lead sont en cours de génération.",
+      description: "Les profils et scores des leads sont en cours de génération.",
     });
 
     try {
-      // 1. Generate AI Profile and Score and structured data
-      const { profile, score, scoreRationale, name, company, email, phone, username } = await generateLeadProfile({ leadData });
-      const tier = await getTierFromScore(score);
-
-      // 2. Create lead object
-      const newLead: Omit<Lead, 'id'> = {
-        name: name || `Lead importé - ${fileName.replace(/\.[^/.]+$/, "")}`, // Use AI name, fallback to filename
-        email: email || "non fourni",
-        company: company || "non fourni",
-        phone: phone || "non fourni",
-        username: username || "non fourni",
-        createdAt: serverTimestamp(),
-        status: 'New',
-        assignedCollaboratorId: null,
-        aiProfile: profile,
-        leadData: leadData,
-        score: score,
-        scoreRationale: scoreRationale,
-        tier: tier,
-      };
-
-      // 3. Save to Firestore
+      // 1. Generate AI Profiles for all leads in the file.
+      const profiles = await generateLeadProfile({ leadData });
+      
+      if (!profiles || profiles.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Aucun lead trouvé",
+          description: "L'IA n'a pas pu détecter de leads dans le fichier fourni.",
+        });
+        return;
+      }
+      
+      // 2. Use a batch write to save all leads in one go.
+      const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
-      await addDocumentNonBlocking(leadsColRef, newLead);
+
+      for (const profile of profiles) {
+        const tier = await getTierFromScore(profile.score);
+        const newLeadDocRef = doc(leadsColRef); // Create a new doc with a random ID
+        
+        const newLead: Omit<Lead, 'id'> = {
+          name: profile.name || `Lead importé`,
+          email: profile.email || "non fourni",
+          company: profile.company || "non fourni",
+          phone: profile.phone || "non fourni",
+          username: profile.username || "non fourni",
+          createdAt: serverTimestamp(),
+          status: 'New',
+          assignedCollaboratorId: null,
+          aiProfile: profile.profile,
+          leadData: leadData, // Storing the raw data for context could be heavy, consider if needed
+          score: profile.score,
+          scoreRationale: profile.scoreRationale,
+          tier: tier,
+        };
+        batch.set(newLeadDocRef, newLead);
+      }
+
+      // 3. Commit the batch
+      await batch.commit();
 
       toast({
-        title: "Lead créé avec succès !",
-        description: `${newLead.name} a été ajouté avec un score de ${score}.`,
+        title: "Importation réussie !",
+        description: `${profiles.length} lead(s) ont été créés avec succès.`,
       });
 
     } catch (error) {
-      console.error("Failed to generate profile or save lead:", error);
+      console.error("Failed to generate profiles or save leads:", error);
       toast({
         variant: "destructive",
-        title: "Erreur lors de la création du lead",
+        title: "Erreur lors de la création des leads",
         description: "L'analyse IA ou la sauvegarde a échoué. Vérifiez la console pour plus de détails.",
       });
     }
