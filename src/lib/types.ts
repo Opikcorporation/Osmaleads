@@ -43,5 +43,21 @@ export type Lead = {
   status: LeadStatus;
   assignedToId: string | null;
   profile: string; // AI generated profile
-  notes: Note[];
+};
+
+export type FirestoreNote = {
+  id: string;
+  leadId: string;
+  collaboratorId: string;
+  timestamp: any;
+  content: string;
+};
+
+export type Collaborator = {
+  id: string;
+  name: string;
+  email: string | null;
+  role: 'admin' | 'collaborator';
+  avatarUrl: string;
+  groupId?: string;
 };

@@ -6,12 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
-import type { User } from '@/lib/types';
+import type { Collaborator } from '@/lib/types';
 import { LayoutDashboard, Settings, Users, BotMessageSquare } from 'lucide-react';
 import { Logo } from '../logo';
 
 interface AppSidebarProps {
-  user: User;
+  user: Collaborator;
 }
 
 export default function AppSidebar({ user }: AppSidebarProps) {

@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import {
   Activity,
@@ -25,45 +26,53 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getUserById, getLeads, getUsers } from '@/lib/data';
-import type { Lead } from '@/lib/types';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import type { Lead, Collaborator } from '@/lib/types';
 import { StatusBadge } from '@/components/status-badge';
+import { collection } from 'firebase/firestore';
 
-// This is a mock auth function. In a real app, you'd get the user from the session.
-const getAuthenticatedUser = async () => {
-  return await getUserById('user-1'); // Switch to 'user-2' to test collaborator view
-};
+export default function DashboardPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-export default async function DashboardPage() {
-  const user = await getAuthenticatedUser();
-  if (!user) return <div>Not logged in</div>;
+  const leadsQuery = useMemoFirebase(() => collection(firestore, 'leads'), [firestore]);
+  const usersQuery = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
+  
+  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  const { data: users, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
+  const { data: currentUserData, isLoading: currentUserDataLoading } = useCollection<Collaborator>(
+    useMemoFirebase(() => user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null, [user, firestore])
+  );
 
-  const leads = await getLeads();
-  const users = await getUsers();
-  const collaborators = users.filter((u) => u.role === 'collaborator');
+  const currentUser = currentUserData?.[0];
+
+  if (isUserLoading || leadsLoading || usersLoading || currentUserDataLoading || !currentUser) {
+    return <div>Chargement...</div>;
+  }
+  
+  const collaborators = users?.filter((u) => u.role === 'collaborator') || [];
 
   const getAssignedUser = (lead: Lead) => {
     if (!lead.assignedToId) return null;
-    return users.find((u) => u.id === lead.assignedToId);
+    return users?.find((u) => u.id === lead.assignedToId);
   };
   
   const stats = {
-    totalLeads: leads.length,
-    qualified: leads.filter(l => l.status === 'Qualified').length,
-    signed: leads.filter(l => l.status === 'Signed').length,
-    newLeads: leads.filter(l => l.status === 'New').length,
+    totalLeads: leads?.length || 0,
+    qualified: leads?.filter(l => l.status === 'Qualified').length || 0,
+    signed: leads?.filter(l => l.status === 'Signed').length || 0,
+    newLeads: leads?.filter(l => l.status === 'New').length || 0,
   };
   
-  // Logic to get collaborator leads
-  const collaboratorLeads = user.role === 'collaborator' 
-    ? leads.filter(lead => lead.assignedToId === user.id)
+  const collaboratorLeads = currentUser.role === 'collaborator' 
+    ? leads?.filter(lead => lead.assignedToId === currentUser.id)
     : [];
 
   return (
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Dashboard</h1>
-        {user.role === 'admin' && (
+        {currentUser.role === 'admin' && (
             <Button>
                 <FileUp className="mr-2 h-4 w-4" /> Import Leads
             </Button>
@@ -111,9 +120,9 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{user.role === 'admin' ? 'All Leads' : 'My Leads'}</CardTitle>
+          <CardTitle>{currentUser.role === 'admin' ? 'All Leads' : 'My Leads'}</CardTitle>
           <CardDescription>
-            {user.role === 'admin' ? 'A list of all leads in the system.' : 'Leads assigned to you.'}
+            {currentUser.role === 'admin' ? 'A list of all leads in the system.' : 'Leads assigned to you.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -122,12 +131,12 @@ export default async function DashboardPage() {
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Status</TableHead>
-                {user.role === 'admin' && <TableHead>Assigned To</TableHead>}
+                {currentUser.role === 'admin' && <TableHead>Assigned To</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(user.role === 'admin' ? leads : collaboratorLeads).map((lead) => {
+              {(currentUser.role === 'admin' ? leads : collaboratorLeads)?.map((lead) => {
                 const assignedUser = getAssignedUser(lead);
                 return (
                   <TableRow key={lead.id}>
@@ -138,7 +147,7 @@ export default async function DashboardPage() {
                     <TableCell>
                       <StatusBadge status={lead.status} />
                     </TableCell>
-                    {user.role === 'admin' && (
+                    {currentUser.role === 'admin' && (
                       <TableCell>
                         {assignedUser ? (
                           <div className="flex items-center gap-2">
