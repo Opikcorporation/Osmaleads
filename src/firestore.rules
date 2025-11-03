@@ -31,6 +31,7 @@ service cloud.firestore {
     // Collection Rules
     match /collaborators/{collaboratorId} {
       // A user can create their OWN profile document upon signing up.
+      // This is the critical rule that was failing.
       allow create: if isOwner(collaboratorId);
 
       // Any signed-in user can view collaborator profiles (for avatars, names etc).
