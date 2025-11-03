@@ -1,5 +1,5 @@
 'use client';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -29,18 +29,20 @@ import { useState } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 
-export default function LeadDetailPage({ params }: { params: { id: string } }) {
+export default function LeadDetailPage() {
+  const params = useParams();
+  const leadId = params.id as string;
   const firestore = useFirestore();
   const { user: authUser } = useUser();
   const { toast } = useToast();
 
-  const leadRef = useMemoFirebase(() => doc(firestore, 'leads', params.id), [firestore, params.id]);
+  const leadRef = useMemoFirebase(() => doc(firestore, 'leads', leadId), [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
   const assignedUserRef = useMemoFirebase(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
   const { data: assignedUser, isLoading: assignedUserLoading } = useDoc<Collaborator>(assignedUserRef);
 
-  const notesRef = useMemoFirebase(() => query(collection(firestore, 'leads', params.id, 'notes'), orderBy('timestamp', 'desc')), [firestore, params.id]);
+  const notesRef = useMemoFirebase(() => query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')), [firestore, leadId]);
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
   
   const allUsersRef = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
@@ -205,5 +207,3 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     </div>
   );
 }
-
-    
