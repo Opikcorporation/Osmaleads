@@ -9,7 +9,7 @@ import { useAuth, useFirestore, useUser, errorEmitter, FirestorePermissionError 
 import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Collaborator } from '@/lib/types';
@@ -50,8 +50,8 @@ export default function RegisterPage() {
     const email = `${username}@example.com`; // Transform username to email for Firebase
 
     try {
-      // If the username is 'Admin01', assign the 'admin' role. Otherwise, 'collaborator'.
-      const role = username === 'Admin01' ? 'admin' : 'collaborator';
+      // Hardcode the role assignment for the admin user.
+      const role = username === 'Alessio_opik' ? 'admin' : 'collaborator';
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -73,7 +73,6 @@ export default function RegisterPage() {
       
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
 
-      // Use standard setDoc for this critical operation.
       await setDoc(docRef, newCollaborator);
 
       toast({
@@ -97,12 +96,11 @@ export default function RegisterPage() {
         description: errorMessage,
       });
 
-      // Also emit a detailed error for debugging if it's a permission issue
       if (error.message.includes('permission-denied') || error.message.includes('insufficient permissions')) {
          const permissionError = new FirestorePermissionError({
             path: `collaborators/${auth.currentUser?.uid || 'unknown_user'}`,
             operation: 'create',
-            requestResourceData: { name, username, role: username === 'Admin01' ? 'admin' : 'collaborator' }
+            requestResourceData: { name, username, role: username === 'Alessio_opik' ? 'admin' : 'collaborator' }
         });
         errorEmitter.emit('permission-error', permissionError);
       }
