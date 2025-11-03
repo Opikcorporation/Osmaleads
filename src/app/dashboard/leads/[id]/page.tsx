@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, FirestoreNote } from '@/lib/types';
 import { Bot, CalendarIcon } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
@@ -36,11 +36,14 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
   const leadRef = useMemoFirebase(() => doc(firestore, 'leads', params.id), [firestore, params.id]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
-  const assignedUserRef = useMemoFirebase(() => lead?.assignedToId ? doc(firestore, 'collaborators', lead.assignedToId) : null, [firestore, lead]);
+  const assignedUserRef = useMemoFirebase(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
   const { data: assignedUser, isLoading: assignedUserLoading } = useDoc<Collaborator>(assignedUserRef);
 
   const notesRef = useMemoFirebase(() => query(collection(firestore, 'leads', params.id, 'notes'), orderBy('timestamp', 'desc')), [firestore, params.id]);
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
+  
+  const allUsersRef = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
+  const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
 
   const [newNote, setNewNote] = useState('');
   
@@ -74,8 +77,12 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       description: "Votre note a été enregistrée.",
     });
   };
+  
+  const getNoteAuthor = (collaboratorId: string) => {
+    return allUsers?.find(u => u.id === collaboratorId);
+  }
 
-  if (leadLoading || assignedUserLoading || notesLoading) {
+  if (leadLoading || assignedUserLoading || notesLoading || allUsersLoading) {
     return <div>Chargement du lead...</div>;
   }
 
@@ -95,7 +102,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                 </div>
                  {assignedUser && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Assigned to</span>
+                    <span>Assigné à</span>
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
                       <AvatarFallback>{assignedUser.name.charAt(0)}</AvatarFallback>
@@ -126,10 +133,10 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Bot className="text-accent" /> AI-Generated Profile</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Bot className="text-accent" /> Profil Généré par IA</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{lead.profile}</p>
+            <p className="text-muted-foreground whitespace-pre-wrap">{lead.aiProfile}</p>
           </CardContent>
         </Card>
       </div>
@@ -137,36 +144,42 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Notes & History</CardTitle>
+            <CardTitle>Notes & Historique</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleAddNote} className="space-y-2">
-              <Textarea placeholder="Add a new note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
-              <Button className="w-full" type="submit" disabled={!newNote.trim()}>Add Note</Button>
+              <Textarea placeholder="Ajouter une note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+              <Button className="w-full" type="submit" disabled={!newNote.trim()}>Ajouter une note</Button>
             </form>
             <Separator />
             <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {notes?.length === 0 ? (
-                <p className="text-sm text-center text-muted-foreground py-4">No notes yet.</p>
+                <p className="text-sm text-center text-muted-foreground py-4">Aucune note pour le moment.</p>
               ) : (
-                notes?.map((note) => (
+                notes?.map((note) => {
+                  const author = getNoteAuthor(note.collaboratorId);
+                  return (
                   <div key={note.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8">
-                      {/* <AvatarImage src={note.author.avatarUrl} alt={note.author.name} />
-                      <AvatarFallback>{note.author.name.charAt(0)}</AvatarFallback> */}
-                    </Avatar>
+                     {author ? (
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={author.avatarUrl} alt={author.name} />
+                            <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                     ) : (
+                        <Avatar className="h-8 w-8 bg-muted" />
+                     )}
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        {/* <p className="font-semibold text-sm">{note.author.name}</p> */}
+                        <p className="font-semibold text-sm">{author?.name || "Utilisateur inconnu"}</p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <CalendarIcon className="h-3 w-3" />
-                          {note.timestamp && format(note.timestamp.toDate(), 'MMM d, yyyy')}
+                          {note.timestamp && format(note.timestamp.toDate(), 'MMM d, yyyy, h:mm a')}
                         </p>
                       </div>
                       <p className="text-sm text-muted-foreground">{note.content}</p>
                     </div>
                   </div>
-                ))
+                )})
               )}
             </div>
           </CardContent>

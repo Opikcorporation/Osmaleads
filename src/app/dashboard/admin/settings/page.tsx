@@ -25,10 +25,12 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection, doc, where, query } from 'firebase/firestore';
-import type { Group, DistributionSetting } from '@/lib/types';
+import { collection, doc, where, query, getDocs, writeBatch } from 'firebase/firestore';
+import type { Group, DistributionSetting, Lead } from '@/lib/types';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { suggestRedistributionStrategy } from "@/ai/flows/suggest-redistribution-strategy";
+
 
 export default function AdminSettingsPage() {
   const firestore = useFirestore();
@@ -37,6 +39,7 @@ export default function AdminSettingsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
   const [leadsPerDay, setLeadsPerDay] = useState(5);
   const [distributionTime, setDistributionTime] = useState("17:00");
+  const [isDistributing, setIsDistributing] = useState(false);
 
   const groupsQuery = useMemoFirebase(
     () => collection(firestore, 'groups'),
@@ -84,6 +87,65 @@ export default function AdminSettingsPage() {
   const getGroupName = (groupId: string) => {
     return groups?.find(g => g.id === groupId)?.name || 'Groupe inconnu';
   }
+
+  const handleManualDistribution = async () => {
+    setIsDistributing(true);
+    toast({ title: "Lancement de la distribution...", description: "Recherche des leads non assignés." });
+
+    try {
+      // 1. Fetch all necessary data
+      const unassignedLeadsQuery = query(collection(firestore, 'leads'), where('assignedCollaboratorId', '==', null));
+      const unassignedLeadsSnap = await getDocs(unassignedLeadsQuery);
+      const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
+
+      if (unassignedLeads.length === 0) {
+        toast({ title: "Aucun lead à distribuer", description: "Tous les leads sont déjà assignés." });
+        setIsDistributing(false);
+        return;
+      }
+      
+      const distributionSettings = settings || [];
+      const allGroups = groups || [];
+
+      let leadsToDistribute = [...unassignedLeads];
+      let distributedCount = 0;
+      
+      const batch = writeBatch(firestore);
+
+      // Simple round-robin distribution logic
+      for (const setting of distributionSettings) {
+        const group = allGroups.find(g => g.id === setting.groupId);
+        if (!group || group.collaboratorIds.length === 0) continue;
+
+        const leadsForThisGroup = leadsToDistribute.splice(0, setting.leadsPerDay);
+        if (leadsForThisGroup.length === 0) continue;
+
+        let collaboratorIndex = 0;
+        for (const lead of leadsForThisGroup) {
+          const assignedCollaboratorId = group.collaboratorIds[collaboratorIndex % group.collaboratorIds.length];
+          const leadRef = doc(firestore, 'leads', lead.id);
+          batch.update(leadRef, { assignedCollaboratorId: assignedCollaboratorId });
+          
+          collaboratorIndex++;
+          distributedCount++;
+        }
+      }
+
+      if (distributedCount > 0) {
+        await batch.commit();
+        toast({ title: "Distribution terminée", description: `${distributedCount} leads ont été distribués.` });
+      } else {
+        toast({ title: "Distribution terminée", description: "Aucun lead n'a été distribué. Vérifiez vos règles." });
+      }
+
+    } catch (error) {
+      console.error("Distribution error:", error);
+      toast({ variant: "destructive", title: "Erreur de distribution", description: "Une erreur s'est produite." });
+    }
+
+    setIsDistributing(false);
+  };
+
 
   if (groupsLoading || settingsLoading) {
     return <div>Chargement...</div>;
@@ -165,22 +227,22 @@ export default function AdminSettingsPage() {
        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bot className="text-accent" /> Stratégie IA
+              <Bot className="text-accent" /> Distribution Manuelle
             </CardTitle>
             <CardDescription>
-              Utilisez l'IA pour suggérer la meilleure stratégie de distribution pour les leads non assignés.
+              Lancez la distribution des leads non assignés en fonction des règles actives.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-                Notre IA peut analyser les leads non assignés et la performance de votre équipe pour suggérer le collaborateur optimal pour chaque lead, maximisant votre potentiel de conversion.
+                Cette action appliquera les règles de distribution à tous les leads actuellement non assignés.
             </p>
-            <Button className="w-full bg-accent hover:bg-accent/90">
+            <Button onClick={handleManualDistribution} disabled={isDistributing} className="w-full bg-accent hover:bg-accent/90">
               <Bot className="mr-2 h-4 w-4" />
-              Suggérer & Distribuer Maintenant
+              {isDistributing ? 'Distribution en cours...' : 'Lancer la Distribution Manuelle'}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              Ceci lancera la stratégie IA sur tous les leads actuellement non assignés.
+              Ceci est une action manuelle.
             </p>
           </CardContent>
         </Card>

@@ -29,7 +29,7 @@ import {
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
 import { StatusBadge } from '@/components/status-badge';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -38,11 +38,14 @@ export default function DashboardPage() {
   const leadsQuery = useMemoFirebase(() => collection(firestore, 'leads'), [firestore]);
   const usersQuery = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
   
+  const currentUserQuery = useMemoFirebase(
+    () => user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null, 
+    [user, firestore]
+  );
+  const { data: currentUserData, isLoading: currentUserDataLoading } = useCollection<Collaborator>(currentUserQuery);
+
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: users, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
-  const { data: currentUserData, isLoading: currentUserDataLoading } = useCollection<Collaborator>(
-    useMemoFirebase(() => user ? query(collection(firestore, 'collaborators'), where('id', '==', user.uid)) : null, [user, firestore])
-  );
 
   const currentUser = currentUserData?.[0];
 
@@ -50,11 +53,9 @@ export default function DashboardPage() {
     return <div>Chargement...</div>;
   }
   
-  const collaborators = users?.filter((u) => u.role === 'collaborator') || [];
-
   const getAssignedUser = (lead: Lead) => {
-    if (!lead.assignedToId) return null;
-    return users?.find((u) => u.id === lead.assignedToId);
+    if (!lead.assignedCollaboratorId) return null;
+    return users?.find((u) => u.id === lead.assignedCollaboratorId);
   };
   
   const stats = {
@@ -65,7 +66,7 @@ export default function DashboardPage() {
   };
   
   const collaboratorLeads = currentUser.role === 'collaborator' 
-    ? leads?.filter(lead => lead.assignedToId === currentUser.id)
+    ? leads?.filter(lead => lead.assignedCollaboratorId === currentUser.id)
     : [];
 
   return (

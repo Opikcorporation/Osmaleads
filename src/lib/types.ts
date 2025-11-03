@@ -41,8 +41,9 @@ export type Lead = {
   phone: string;
   createdAt: string; // ISO date string
   status: LeadStatus;
-  assignedToId: string | null;
-  profile: string; // AI generated profile
+  assignedCollaboratorId: string | null;
+  aiProfile: string; // AI generated profile
+  leadData: string;
 };
 
 export type FirestoreNote = {
