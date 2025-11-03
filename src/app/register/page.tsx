@@ -60,6 +60,7 @@ export default function RegisterPage() {
     const email = `${username}@example.com`;
 
     try {
+      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -67,10 +68,9 @@ export default function RegisterPage() {
       );
       const firebaseUser = userCredential.user;
       
+      // 2. Prepare collaborator data
       const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-      
       const role = username === 'Admin01' ? 'admin' : 'collaborator';
-
       const newCollaborator: Collaborator = {
         id: firebaseUser.uid,
         name: name,
@@ -80,47 +80,34 @@ export default function RegisterPage() {
         avatarUrl: defaultAvatar.imageUrl,
       };
       
+      // 3. Create collaborator document in Firestore
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
-
-      // This replaces the previous simple await with a non-blocking call
-      // that has proper contextual error handling on failure.
-      setDoc(docRef, newCollaborator)
-        .then(() => {
-            toast({
-                title: 'Compte créé avec succès',
-                description: "Vous allez être redirigé vers le tableau de bord.",
-            });
-            router.push('/dashboard');
-        })
-        .catch((firestoreError) => {
-            // This is the critical part for creating the contextual error.
-            const permissionError = new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'create',
-                requestResourceData: newCollaborator,
-            });
-            // Emit the error for the global listener to catch and display.
-            errorEmitter.emit('permission-error', permissionError);
-            
-            // We still inform the user via toast, but we don't log to console.
-            toast({
-                variant: 'destructive',
-                title: "Erreur de permission",
-                description: "Impossible de créer votre profil. Vérifiez les règles de sécurité.",
-                duration: 9000,
-            });
-
-            // We can re-throw the original error if we want other catch blocks
-            // to be aware of a failure, but the primary debugging mechanism
-            // is the emitted event.
-            // throw firestoreError;
-        });
+      
+      // This is now a blocking call within the registration flow.
+      // This ensures the profile is created before redirecting.
+      await setDoc(docRef, newCollaborator);
+        
+      toast({
+          title: 'Compte créé avec succès',
+          description: "Vous allez être redirigé vers le tableau de bord.",
+      });
+      router.push('/dashboard');
 
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
-      }
+       
+       if (error.code === 'auth/email-already-in-use') {
+         errorMessage = "Ce nom d'utilisateur (email) est déjà utilisé.";
+       } else if (error.name === 'FirebaseError' && error.code === 'permission-denied') {
+          // This is a Firestore permission error
+          const permissionError = new FirestorePermissionError({
+                path: `collaborators/${username}`, // Path is illustrative
+                operation: 'create',
+                requestResourceData: 'hidden', // Don't log PII
+            });
+          errorEmitter.emit('permission-error', permissionError);
+          errorMessage = "Erreur de permission lors de la création du profil."
+       }
       
       toast({
         variant: 'destructive',
@@ -128,10 +115,7 @@ export default function RegisterPage() {
         description: errorMessage,
       });
 
-    } finally {
-        // We don't set loading to false here on success because the redirect will happen.
-        // But we do on failure.
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
   

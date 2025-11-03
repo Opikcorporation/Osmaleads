@@ -53,7 +53,8 @@ export default function DashboardLayout({
             setCollaborator(userData);
           } else {
             // Profile doesn't exist, let's create it.
-            console.log("Collaborator profile not found, creating one...");
+            // This is a fallback. The main creation should happen at registration.
+            console.log("Collaborator profile not found, creating one as a fallback...");
             const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
             const username = user.email?.split('@')[0] || `user-${user.uid.substring(0,5)}`;
 
@@ -68,10 +69,9 @@ export default function DashboardLayout({
             
             const docRef = doc(firestore, 'collaborators', user.uid);
             
-            // This is a crucial operation. If it fails, we need to handle it.
             await setDoc(docRef, newCollaborator);
 
-            console.log("Collaborator profile created successfully.");
+            console.log("Collaborator profile created successfully in layout.");
             setCollaborator(newCollaborator);
           }
         } catch (error: any) {
