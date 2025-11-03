@@ -21,7 +21,7 @@ const GenerateLeadProfileInputSchema = z.object({
 export type GenerateLeadProfileInput = z.infer<typeof GenerateLeadProfileInputSchema>;
 
 const GenerateLeadProfileOutputSchema = z.object({
-  name: z.string().describe("The full name of the lead or company, extracted from the data."),
+  name: z.string().describe("The full name of the lead or company, extracted from the data. This is the most important field. Make a best guess and do not leave it empty."),
   company: z.string().optional().describe("The company name, if available."),
   email: z.string().optional().describe("The lead's email, if available."),
   phone: z.string().optional().describe("The lead's phone number, if available."),
@@ -40,16 +40,28 @@ const prompt = ai.definePrompt({
   name: 'generateLeadProfilePrompt',
   input: {schema: GenerateLeadProfileInputSchema},
   output: {schema: GenerateLeadProfileOutputSchema},
-  prompt: `You are an expert AI assistant for sales teams. Your task is to analyze raw lead data and produce a structured profile.
+  prompt: `You are an expert AI assistant for sales teams, specialized in parsing and analyzing lead data from various text formats, especially CSV.
 
-  1.  **Analyze the data:** Read the provided lead data carefully.
-  2.  **Extract Key Information:** Pull out the lead's full name, company name, email, phone number, and username if they are present in the data. If a field is not present, omit it. The 'name' field is the most important; use the company name if a person's name is not available.
-  3.  **Generate a Profile:** Create a concise, comprehensive profile summarizing the most important information for a salesperson.
-  4.  **Score the Lead:** Based on your analysis, assign a score from 0 to 100. A higher score means a better, more qualified lead. Consider factors like budget, company size, expressed needs, and contact information quality.
-  5.  **Justify the Score:** Provide a short, clear rationale for the score you assigned.
+Your task is to analyze the raw text data below and produce a structured profile.
 
-  Lead Data:
-  {{{leadData}}}`,
+1.  **Analyze the Data Format:** The data is likely a CSV, but could be tab-separated or just unstructured text. Identify the structure. If it's a CSV, identify the header row to understand the columns (e.g., "Full Name", "Email", "Company", etc.).
+2.  **Extract Key Information:** Based on the structure, extract the following information. Be resilient to different header names.
+    *   **name (Crucial):** Find the lead's full name or a company name. This is the most important field. Look for columns like 'Name', 'Full Name', 'Nom Complet', 'Company', 'Company Name', 'Societe'. This field **must not be empty**. Make a best effort guess.
+    *   **company:** Find the company name if it's different from the main lead name.
+    *   **email:** Find the contact email.
+    *   **phone:** Find the phone number.
+    *   **username:** Find any social media handle or username.
+3.  **Generate a Comprehensive Profile:** Write a concise summary of the most important information for a salesperson. Include key details from the data, potential interests, and possible pain points.
+4.  **Score the Lead:** Assign a score from 0 to 100. A higher score means a better, more qualified lead. Consider factors like the completeness of contact information, budget (if mentioned), company size, expressed needs, etc.
+5.  **Justify the Score:** Provide a short, clear rationale for the score you assigned.
+
+The data you need to analyze is below. Do NOT use the filename as a source of information. All information must be extracted from the content itself.
+
+Lead Data:
+\`\`\`
+{{{leadData}}}
+\`\`\`
+`,
 });
 
 const generateLeadProfileFlow = ai.defineFlow(

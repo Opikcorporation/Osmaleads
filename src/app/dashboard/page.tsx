@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
       // 2. Create lead object
       const newLead: Omit<Lead, 'id'> = {
-        name: name || fileName.replace(/\.[^/.]+$/, ""), // Use AI name, fallback to filename
+        name: name || `Lead importé - ${fileName.replace(/\.[^/.]+$/, "")}`, // Use AI name, fallback to filename
         email: email || "non fourni",
         company: company || "non fourni",
         phone: phone || "non fourni",
