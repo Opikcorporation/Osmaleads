@@ -1,0 +1,86 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { UserNav } from '@/components/user-nav';
+import { cn } from '@/lib/utils';
+import type { User } from '@/lib/types';
+import { LayoutDashboard, Settings, Users, BotMessageSquare } from 'lucide-react';
+import { Logo } from '../logo';
+
+interface AppSidebarProps {
+  user: User;
+}
+
+export default function AppSidebar({ user }: AppSidebarProps) {
+  const pathname = usePathname();
+
+  const navItems = [
+    {
+      href: '/dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      roles: ['admin', 'collaborator'],
+    },
+    {
+      href: '/dashboard/admin/groups',
+      label: 'Groups',
+      icon: Users,
+      roles: ['admin'],
+    },
+    {
+      href: '/dashboard/admin/settings',
+      label: 'Distribution',
+      icon: Settings,
+      roles: ['admin'],
+    },
+  ];
+
+  return (
+    <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
+      <div className="flex h-16 items-center border-b px-6">
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+          <Logo className="h-8 w-8" />
+          <span className="text-xl text-primary">LeadFlowAI</span>
+        </Link>
+      </div>
+      <nav className="flex-1 space-y-2 p-4">
+        {navItems
+          .filter((item) => item.roles.includes(user.role))
+          .map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+              )}
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </Link>
+          ))}
+      </nav>
+      <div className="mt-auto p-4 space-y-4">
+        <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
+          <div className='flex items-center gap-2'>
+            <BotMessageSquare className="h-6 w-6 text-accent"/>
+            <h3 className="font-semibold text-accent">AI Insights</h3>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Our AI is working to enrich your leads and suggest optimal strategies.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 p-2 rounded-lg bg-sidebar-accent/50">
+            <UserNav user={user} />
+            <div className="flex flex-col">
+              <span className="font-semibold">{user.name}</span>
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+            </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
