@@ -31,26 +31,25 @@ export default function DashboardLayout({
   const { toast } = useToast();
 
   useEffect(() => {
-    // 1. Si le chargement est en cours, ne rien faire.
+    // Ne rien faire tant que l'état d'authentification ou Firestore n'est pas prêt.
     if (isUserLoading || !firestore) {
       setIsLoading(true);
       return;
     }
 
-    // 2. Si le chargement est terminé et qu'il n'y a pas d'utilisateur, rediriger.
+    // Le chargement est terminé. S'il n'y a pas d'utilisateur, rediriger.
     if (!user) {
       router.push('/');
-      setIsLoading(false); // Le chargement est terminé, il n'y a pas d'utilisateur.
+      setIsLoading(false);
       return;
     }
     
-    // 3. L'utilisateur est authentifié et Firestore est prêt.
+    // L'utilisateur est authentifié et Firestore est prêt.
     const fetchCollaborator = async () => {
       try {
         const userData = await getUserById(firestore, user.uid);
         if (userData) {
           setCollaborator(userData);
-          setIsLoading(false); // Profil trouvé, chargement terminé.
         } else {
           // Le profil n'existe pas, on tente de le créer.
           console.log("Profil collaborateur non trouvé, tentative de création...");
@@ -67,9 +66,7 @@ export default function DashboardLayout({
           
           const docRef = doc(firestore, 'collaborators', user.uid);
           
-          // Tenter de créer le document.
           await setDoc(docRef, newCollaborator);
-
           console.log("Profil collaborateur créé avec succès.");
           setCollaborator(newCollaborator);
         }
@@ -81,14 +78,14 @@ export default function DashboardLayout({
         const permissionError = new FirestorePermissionError({
           path: `collaborators/${user.uid}`,
           operation: 'create',
-          requestResourceData: 'hidden', // On ne log plus les données ici pour éviter la redondance
+          requestResourceData: 'hidden',
         });
         errorEmitter.emit('permission-error', permissionError);
 
         toast({
           variant: "destructive",
-          title: "Erreur de chargement du profil",
-          description: "Impossible de charger ou créer votre profil. Vous allez être déconnecté.",
+          title: "Impossible de charger ou créer votre profil",
+          description: "Vous allez être déconnecté.",
           duration: 9000,
         });
 
@@ -98,7 +95,7 @@ export default function DashboardLayout({
         }
         router.push('/');
       } finally {
-        setIsLoading(false); // Le chargement est terminé quoi qu'il arrive.
+        setIsLoading(false);
       }
     };
 
