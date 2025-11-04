@@ -1,3 +1,4 @@
+'use client';
 import { type } from "os";
 import { FieldValue, serverTimestamp } from "firebase/firestore";
 
