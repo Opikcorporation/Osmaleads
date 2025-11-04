@@ -107,10 +107,8 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
-    // THIS IS THE CRITICAL FIX:
-    // Do not attempt to build the query until the collaborator profile is fully loaded.
-    // If it's loading or doesn't exist, return null to prevent any query from running.
-    if (isProfileLoading || !collaborator) {
+    // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
+    if (!collaborator) {
       return null;
     }
 
@@ -136,7 +134,7 @@ export default function DashboardPage() {
     }
 
     return q;
-  }, [firestore, collaborator, isProfileLoading, statusFilter, assigneeFilter, tierFilter]);
+  }, [firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
 
   const collaboratorsQuery = useMemo(
     () => (collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null),
