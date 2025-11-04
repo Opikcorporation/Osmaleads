@@ -33,8 +33,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { suggestRedistributionStrategy } from '@/ai/flows/suggest-redistribution-strategy';
-import type { AssignmentAction } from "@/ai/flows/suggest-redistribution-strategy";
 
 export default function AdminGroupsPage() {
   const firestore = useFirestore();
@@ -152,49 +150,33 @@ export default function AdminGroupsPage() {
     toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe et ses règles ont été supprimés.' });
   };
   
-  const executeDistribution = async (assignments: AssignmentAction[]) => {
-      try {
+  const handleDistribute = async (group: Group) => {
+    setDistributingGroupId(group.id);
+    toast({ title: `Distribution pour ${group.name}`, description: "Lancement du processus d'assignation..." });
+    
+    try {
         const response = await fetch('/api/distribute-leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assignments }),
+          body: JSON.stringify({ groupId: group.id }),
         });
+
         const result = await response.json();
+
         if (!response.ok) {
-            throw new Error(result.details || 'Failed to execute distribution');
+            throw new Error(result.details || result.error || 'Une erreur inconnue est survenue.');
         }
-        return result.distributedCount;
-      } catch (error: any) {
-         console.error("Execute distribution error:", error);
-         throw new Error(error.message || 'Network error during execution.');
-      }
-  }
-
-  const handleDistribute = async (group: Group) => {
-    setDistributingGroupId(group.id);
-    toast({ title: `Distribution pour ${group.name}`, description: "Analyse et recherche des leads..." });
-    
-    try {
-        // Step 1: Get the strategy from the flow
-        const strategyResult = await suggestRedistributionStrategy({ groupId: group.id });
-        const assignments = strategyResult.assignments;
-
-        if (assignments.length === 0) {
-            toast({ title: "Distribution terminée", description: `Aucun nouveau lead à distribuer pour le groupe ${group.name}.` });
-            setDistributingGroupId(null);
-            return;
+        
+        const distributedCount = result.distributedCount || 0;
+        if (distributedCount > 0) {
+            toast({ title: "Distribution réussie", description: `${distributedCount} lead(s) ont été distribués.` });
+        } else {
+            toast({ title: "Distribution terminée", description: result.message || "Aucun nouveau lead à distribuer." });
         }
-
-        toast({ title: "Stratégie prête", description: `${assignments.length} lead(s) vont être assignés. Exécution en cours...` });
-
-        // Step 2: Execute the strategy via the API route
-        const distributedCount = await executeDistribution(assignments);
-
-        toast({ title: "Distribution réussie", description: `${distributedCount} lead(s) ont été distribués.` });
 
     } catch (error: any) {
         console.error("Distribution error for group:", error);
-        toast({ variant: 'destructive', title: "Erreur de distribution", description: error.message || "Une erreur inconnue est survenue." });
+        toast({ variant: 'destructive', title: "Erreur de distribution", description: error.message });
     } finally {
         setDistributingGroupId(null);
     }

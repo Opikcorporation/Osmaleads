@@ -4,15 +4,33 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-
-const AssignmentActionSchema = z.object({
-  leadId: z.string(),
-  collaboratorId: z.string(),
-});
+import type { Lead, Group, DistributionSetting } from '@/lib/types';
 
 const RequestBodySchema = z.object({
-  assignments: z.array(AssignmentActionSchema),
+  groupId: z.string(),
 });
+
+async function getTodaysAssignments(firestore: FirebaseFirestore.Firestore): Promise<{ [collaboratorId: string]: number }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const assignmentsCount: { [collaboratorId: string]: number } = {};
+    const leadsAssignedTodayQuery = firestore.collection('leads')
+        .where('assignedAt', '>=', today)
+        .where('assignedAt', '<', tomorrow);
+    
+    const snapshot = await leadsAssignedTodayQuery.get();
+    snapshot.forEach(doc => {
+        const lead = doc.data() as Lead;
+        if (lead.assignedCollaboratorId) {
+            assignmentsCount[lead.assignedCollaboratorId] = (assignmentsCount[lead.assignedCollaboratorId] || 0) + 1;
+        }
+    });
+    return assignmentsCount;
+};
+
 
 export async function POST(request: Request) {
   try {
@@ -22,14 +40,71 @@ export async function POST(request: Request) {
     if (!validation.success) {
       return NextResponse.json({ error: 'Invalid request body', details: validation.error.formErrors }, { status: 400 });
     }
+    
+    const { groupId } = validation.data;
+    const { firestore } = getFirebaseAdmin();
 
-    const { assignments } = validation.data;
+    // 1. Get Group, Settings, and Collaborators
+    const groupSnap = await firestore.collection('groups').doc(groupId).get();
+    if (!groupSnap.exists) {
+        return NextResponse.json({ error: `Group with ID ${groupId} not found.` }, { status: 404 });
+    }
+    const group = { ...groupSnap.data(), id: groupSnap.id } as Group;
 
-    if (assignments.length === 0) {
-        return NextResponse.json({ message: "No assignments to perform." }, { status: 200 });
+    const settingsSnap = await firestore.collection('distributionSettings').where('groupId', '==', groupId).limit(1).get();
+    if (settingsSnap.empty) {
+        return NextResponse.json({ message: "No distribution setting found for this group." }, { status: 200 });
+    }
+    const setting = { ...settingsSnap.docs[0].data(), id: settingsSnap.docs[0].id } as DistributionSetting;
+    
+    const eligibleCollaborators = group.collaboratorIds || [];
+    if (eligibleCollaborators.length === 0) {
+        return NextResponse.json({ message: "No collaborators in this group to distribute to." }, { status: 200 });
     }
 
-    const { firestore } = getFirebaseAdmin();
+    // 2. Determine how many leads to assign
+    const todaysAssignments = await getTodaysAssignments(firestore);
+    const groupLeadsToday = eligibleCollaborators.reduce((sum, memberId) => sum + (todaysAssignments[memberId] || 0), 0);
+    
+    let leadsToAssignCount = setting.dailyQuota - groupLeadsToday;
+    if (leadsToAssignCount <= 0) {
+        return NextResponse.json({ message: `Daily quota of ${setting.dailyQuota} already met for this group.` }, { status: 200 });
+    }
+
+    // 3. Get unassigned leads matching the tier
+    let unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '==', null);
+    if (setting.leadTier !== 'Tous') {
+        unassignedLeadsQuery = unassignedLeadsQuery.where('tier', '==', setting.leadTier);
+    }
+    const unassignedLeadsSnap = await unassignedLeadsQuery.limit(leadsToAssignCount).get();
+    const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
+
+    if (unassignedLeads.length === 0) {
+        return NextResponse.json({ message: "No unassigned leads matching the criteria." }, { status: 200 });
+    }
+    
+    // 4. Create assignment strategy (round-robin)
+    const assignments: { leadId: string, collaboratorId: string }[] = [];
+    const currentAssignmentsCount = { ...todaysAssignments };
+    
+    const sortedEligibleCollaborators = [...eligibleCollaborators].sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
+
+    for (const lead of unassignedLeads) {
+        const collaboratorToAssignId = sortedEligibleCollaborators[0];
+        if (collaboratorToAssignId) {
+            assignments.push({ leadId: lead.id, collaboratorId: collaboratorToAssignId });
+            
+            currentAssignmentsCount[collaboratorToAssignId] = (currentAssignmentsCount[collaboratorToAssignId] || 0) + 1;
+            // Re-sort to maintain balance for the next lead
+            sortedEligibleCollaborators.sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
+        }
+    }
+
+    if (assignments.length === 0) {
+        return NextResponse.json({ message: "No assignments could be made." }, { status: 200 });
+    }
+
+    // 5. Execute batch write
     const batch = firestore.batch();
     const serverTimestamp = FieldValue.serverTimestamp();
 
