@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirestore, useUserProfile } from '@/firebase';
+import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -54,7 +54,7 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  const { collaborator, isLoading: isProfileLoading } = useUserProfile();
+  const { collaborator, isLoading: isProfileLoading } = useFirebase();
 
   const leadsQuery = useMemo(() => {
     // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
@@ -305,7 +305,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Performance par Collaborateur</CardTitle>
             <CardDescription>Classement basé sur les leads signés et le taux de conversion.</CardDescription>
-          </CardHeader>
+          </Header>
           <CardContent>
             <Table>
                   <TableHeader>
@@ -356,3 +356,5 @@ export default function AnalyticsPage() {
     </>
   );
 }
+
+    

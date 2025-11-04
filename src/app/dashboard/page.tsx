@@ -19,9 +19,9 @@ import { StatusBadge } from '@/components/status-badge';
 import {
   useCollection,
   useFirestore,
-  useUserProfile,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
+  useFirebase,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
@@ -80,7 +80,7 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { collaborator, isLoading: isProfileLoading } = useUserProfile();
+  const { collaborator, isLoading: isProfileLoading } = useFirebase();
   const { toast } = useToast();
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -153,6 +153,10 @@ export default function DashboardPage() {
       (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [leads, searchTerm]);
+
+  useEffect(() => {
+    setSelectedLeads([]);
+  }, [filteredLeads]);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true && filteredLeads) {
@@ -544,3 +548,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

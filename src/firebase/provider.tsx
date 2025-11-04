@@ -12,7 +12,7 @@ import { errorEmitter } from './error-emitter';
 // Represents the combined user context: Auth user + Firestore profile
 interface UserContext {
   user: User | null;
-  profile: Collaborator | null;
+  collaborator: Collaborator | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -39,7 +39,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 }) => {
   const [userContext, setUserContext] = useState<UserContext>({
     user: null,
-    profile: null,
+    collaborator: null,
     isLoading: true, // Start loading immediately
     error: null,
   });
@@ -47,7 +47,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
     if (!auth || !firestore) {
-      setUserContext({ user: null, profile: null, isLoading: false, error: new Error("Auth or Firestore service not provided.") });
+      setUserContext({ user: null, collaborator: null, isLoading: false, error: new Error("Auth or Firestore service not provided.") });
       return;
     }
 
@@ -65,20 +65,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                 // Profile found, context is fully loaded.
                 setUserContext({ 
                   user: firebaseUser, 
-                  profile: { ...snapshot.data(), id: snapshot.id } as Collaborator,
+                  collaborator: { ...snapshot.data(), id: snapshot.id } as Collaborator,
                   isLoading: false, 
                   error: null 
                 });
               } else {
                 // User exists in Auth, but not in Firestore. This is a valid, non-loading state.
-                setUserContext({ user: firebaseUser, profile: null, isLoading: false, error: null });
+                setUserContext({ user: firebaseUser, collaborator: null, isLoading: false, error: null });
               }
             },
             (profileError: FirestoreError) => {
                // A real error occurred trying to fetch the profile.
                const contextualError = new FirestorePermissionError({ operation: 'get', path: profileRef.path });
                console.error("FirebaseProvider: Profile snapshot error:", contextualError);
-               setUserContext({ user: firebaseUser, profile: null, isLoading: false, error: contextualError });
+               setUserContext({ user: firebaseUser, collaborator: null, isLoading: false, error: contextualError });
                errorEmitter.emit('permission-error', contextualError);
             }
           );
@@ -86,12 +86,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           return () => unsubscribeProfile();
         } else {
           // No user is logged in. The context is fully determined and not loading.
-          setUserContext({ user: null, profile: null, isLoading: false, error: null });
+          setUserContext({ user: null, collaborator: null, isLoading: false, error: null });
         }
       },
       (authError) => { // Auth listener itself failed
         console.error("FirebaseProvider: onAuthStateChanged error:", authError);
-        setUserContext({ user: null, profile: null, isLoading: false, error: authError });
+        setUserContext({ user: null, collaborator: null, isLoading: false, error: authError });
       }
     );
 
@@ -105,7 +105,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       firestore: firestore,
       auth: auth,
       user: userContext.user,
-      collaborator: userContext.profile,
+      collaborator: userContext.collaborator,
       isLoading: userContext.isLoading,
       error: userContext.error,
     };
@@ -164,3 +164,5 @@ export const useFirebaseApp = (): FirebaseApp => {
     if (!firebaseApp) throw new Error("FirebaseApp not available.");
     return firebaseApp;
 };
+
+    
