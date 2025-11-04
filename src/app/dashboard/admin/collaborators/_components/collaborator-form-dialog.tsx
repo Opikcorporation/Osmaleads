@@ -69,28 +69,33 @@ export function CollaboratorFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditMode && (!name || !username)) {
-      toast({
-            variant: "destructive",
-            title: "Champs manquants",
-            description: "Le nom et le nom d'utilisateur sont requis.",
-        });
-      return;
-    }
-
-    if (!isEditMode && (!name || !username || !password)) {
-        toast({
-            variant: "destructive",
-            title: "Champs manquants",
-            description: "Veuillez remplir tous les champs obligatoires.",
-        });
-      return;
-    }
-    
-    // For edit mode, we only save name and role.
     if (isEditMode) {
+        if (!name || !username) {
+            toast({
+                variant: "destructive",
+                title: "Champs manquants",
+                description: "Le nom et le nom d'utilisateur sont requis.",
+            });
+            return;
+        }
         onSave({ name, role, avatarColor });
     } else {
+        if (!name || !username || !password) {
+            toast({
+                variant: "destructive",
+                title: "Champs manquants",
+                description: "Veuillez remplir tous les champs obligatoires.",
+            });
+            return;
+        }
+        if (password.length < 6) {
+             toast({
+                variant: "destructive",
+                title: "Mot de passe trop court",
+                description: "Le mot de passe doit contenir au moins 6 caractères.",
+            });
+            return;
+        }
         onSave({ name, username, password, role, avatarColor });
     }
   };
