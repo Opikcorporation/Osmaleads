@@ -80,7 +80,7 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { collaborator } = useUserProfile(); // Use the new safe hook
+  const { collaborator, isLoading: isProfileLoading } = useUserProfile();
   const { toast } = useToast();
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -143,7 +143,7 @@ export default function DashboardPage() {
   
   // The layout now handles the primary loading state.
   // We only need to worry about the loading of data specific to this page.
-  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];

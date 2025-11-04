@@ -54,7 +54,7 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  const { collaborator } = useUserProfile();
+  const { collaborator, isLoading: isProfileLoading } = useUserProfile();
 
   const leadsQuery = useMemo(() => {
     // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
@@ -80,7 +80,7 @@ export default function AnalyticsPage() {
   
   // The main layout already handles the profile loading state.
   // We just need to wait for the data queries for this specific page.
-  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
   const getInitials = (name: string) => {
