@@ -8,12 +8,12 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // The root page's only job is to redirect to the login page.
-    // The login page will then handle redirecting to the dashboard if the user is already authenticated.
+    // La page racine redirige de manière inconditionnelle vers la page de connexion.
+    // C'est la page de connexion qui décidera ensuite s'il faut rediriger vers le dashboard.
     router.replace('/login');
   }, [router]);
 
-  // Display a loading indicator while the redirection is happening
+  // Affiche un état de chargement pendant que la redirection s'effectue.
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">
       <div className="text-center space-y-4">

@@ -21,7 +21,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redirect if the user is already logged in
+  // Redirection si l'utilisateur est déjà connecté.
+  // Ce useEffect est la clé pour éviter les boucles.
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/dashboard');
@@ -33,7 +34,6 @@ export default function LoginPage() {
     if (!auth) return;
 
     setIsSubmitting(true);
-    // The convention is to create emails from usernames for the password provider
     const emailToLogin = `${username}@example.com`;
 
     try {
@@ -42,7 +42,7 @@ export default function LoginPage() {
         title: 'Connexion réussie',
         description: 'Bienvenue !',
       });
-      // The useEffect above will handle the redirection to the dashboard
+      // La redirection sera gérée par le useEffect ci-dessus lorsque l'état de `user` changera.
     } catch (error: any) {
       console.error("Login failed:", error);
       let errorMessage = "Le nom d'utilisateur ou le mot de passe est incorrect.";
@@ -59,7 +59,7 @@ export default function LoginPage() {
     }
   };
 
-  // Show a loading screen while auth state is being determined
+  // Pendant que Firebase vérifie l'état de connexion, ou si l'utilisateur est déjà connecté et sur le point d'être redirigé.
   if (isUserLoading || user) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -71,7 +71,7 @@ export default function LoginPage() {
     );
   }
 
-  // Render the login form if not loading and no user is logged in
+  // Si le chargement est terminé et qu'il n'y a pas d'utilisateur, afficher le formulaire.
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
