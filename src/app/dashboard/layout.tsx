@@ -67,6 +67,8 @@ export default function DashboardLayout({
   }
   
   if (!collaborator) {
+     // This case covers the brief moment before the useEffect redirect triggers,
+     // or if the user somehow lands here without being authenticated.
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <p>Redirection vers la page de connexion...</p>
