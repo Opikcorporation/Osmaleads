@@ -165,8 +165,32 @@ export default function AdminGroupsPage() {
   
   const handleDistribute = async (group: Group) => {
     setDistributingGroupId(group.id);
-    toast({ title: `Distribution pour ${group.name}`, description: "La logique de distribution n'est pas encore implémentée." });
-    setTimeout(() => setDistributingGroupId(null), 2000);
+    try {
+      const response = await fetch('/api/distribute-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: group.id }),
+      });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.details || result.error || `Erreur HTTP ${response.status}`);
+      }
+
+      toast({
+        title: 'Distribution terminée',
+        description: result.message || 'La distribution a été exécutée.',
+      });
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de distribution',
+        description: error.message || 'Une erreur inconnue est survenue.',
+      });
+    } finally {
+      setDistributingGroupId(null);
+    }
   }
   
   return (
