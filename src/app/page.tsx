@@ -1,30 +1,19 @@
 'use client';
 
-import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Logo } from '@/components/logo';
 
 export default function HomePage() {
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // Wait until the auth state is determined
-    if (isUserLoading) {
-      return; // Do nothing while loading
-    }
+    // The root page's only job is to redirect to the login page.
+    // The login page will then handle redirecting to the dashboard if the user is already authenticated.
+    router.replace('/login');
+  }, [router]);
 
-    if (user) {
-      // If user is logged in, redirect to dashboard
-      router.push('/dashboard');
-    } else {
-      // If no user is logged in, redirect to the login page
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-
-  // Display a loading indicator while the logic runs
+  // Display a loading indicator while the redirection is happening
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">
       <div className="text-center space-y-4">

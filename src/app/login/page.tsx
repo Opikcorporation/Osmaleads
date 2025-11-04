@@ -59,7 +59,7 @@ export default function LoginPage() {
     }
   };
 
-  // Show a loading screen while auth state is being determined or if already logged in
+  // Show a loading screen while auth state is being determined
   if (isUserLoading || user) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
