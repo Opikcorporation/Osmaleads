@@ -6,13 +6,16 @@ import { useAuth, useFirestore, useUser, setDocumentNonBlocking } from '@/fireba
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  type User,
 } from 'firebase/auth';
 import { useEffect, useState, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { getRandomColor } from '@/lib/colors';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 // --- Configuration du Compte Admin Cible ---
 const ADMIN_USERNAME = 'alessio_opik';
@@ -25,7 +28,11 @@ export default function LoginPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
 
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState('Démarrage...');
   const [error, setError] = useState<string | null>(null);
 
@@ -35,124 +42,148 @@ export default function LoginPage() {
       return;
     }
 
-    setStatus(`Préparation du compte admin "${ADMIN_USERNAME}"...`);
-    let adminUser: User;
+    setStatus(`Vérification du compte admin "${ADMIN_USERNAME}"...`);
 
     try {
-      // 1. Essayer de connecter l'admin
-      setStatus('Tentative de connexion...');
-      const userCredential = await signInWithEmailAndPassword(
+      // On essaye de créer l'utilisateur. Si l'email est déjà utilisé,
+      // c'est que le compte existe déjà, ce qui est notre but.
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
         ADMIN_EMAIL,
         ADMIN_PASSWORD
       );
-      adminUser = userCredential.user;
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        // 2. Si l'utilisateur n'existe pas, le créer
-        setStatus('Compte admin non trouvé. Création en cours...');
-        try {
-          const newUserCredential = await createUserWithEmailAndPassword(
-            auth,
-            ADMIN_EMAIL,
-            ADMIN_PASSWORD
-          );
-          adminUser = newUserCredential.user;
-        } catch (creationError: any) {
-          setError(
-            `Erreur critique lors de la création du compte : ${creationError.message}`
-          );
-          setStatus('Échec de la création');
-          return;
-        }
-      } else {
-        // Autre erreur de connexion
-        setError(`Erreur de connexion : ${err.message}`);
-        setStatus('Échec de la connexion');
-        return;
-      }
-    }
-
-    // 3. À ce stade, nous avons un utilisateur authentifié (créé ou connecté).
-    // On vérifie et répare son profil Firestore.
-    setStatus('Vérification et réparation du profil de la base de données...');
-    const adminRef = doc(firestore, 'collaborators', adminUser.uid);
-
-    try {
-      const docSnap = await getDoc(adminRef);
-
+      
+      // Si la création réussit (le compte n'existait pas), on crée son profil
+      setStatus('Compte admin non trouvé. Création en cours...');
+      const adminUser = userCredential.user;
+      const adminRef = doc(firestore, 'collaborators', adminUser.uid);
       const profileData: Collaborator = {
         id: adminUser.uid,
         name: 'Alessio Opik',
         username: ADMIN_USERNAME,
         email: ADMIN_EMAIL,
         role: 'admin',
-        avatarColor: docSnap.exists()
-          ? docSnap.data().avatarColor || getRandomColor()
-          : getRandomColor(),
+        avatarColor: getRandomColor(),
       };
-
-      // Utilise la fonction non-bloquante pour la mise à jour
       setDocumentNonBlocking(adminRef, profileData, { merge: true });
+      setStatus('Compte admin initialisé.');
 
-      setStatus('Profil admin validé. Redirection vers le tableau de bord...');
-      // La redirection est gérée par le useEffect principal qui surveille `user`
-    } catch (e: any) {
-      // Ce bloc ne sera probablement pas atteint car l'erreur est gérée dans setDocumentNonBlocking
-      // Mais on le garde comme sécurité
-      setError(`Erreur lors de la synchronisation du profil : ${e.message}`);
-      setStatus('Échec de la synchronisation');
+    } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
+        // C'est le cas normal, le compte existe déjà, on ne fait rien.
+        setStatus('Compte admin prêt.');
+      } else {
+        // Une autre erreur inattendue
+        setError(`Erreur critique lors de l'initialisation : ${err.message}`);
+        setStatus('Échec de l\'initialisation');
+      }
     }
   }, [auth, firestore]);
 
+  // Exécuter la vérification du compte admin une seule fois au chargement
   useEffect(() => {
-    // Si un utilisateur (n'importe lequel) est déjà connecté et que le chargement est terminé, le rediriger.
-    if (!isUserLoading && user) {
-      setStatus('Utilisateur déjà connecté. Redirection...');
-      router.push('/dashboard');
-      return;
-    }
-    
-    // Si le chargement est terminé et qu'il n'y a PAS d'utilisateur, on lance le processus de connexion forcée.
     if (!isUserLoading && !user) {
         ensureAdminAccount();
     }
-  }, [isUserLoading, user, ensureAdminAccount, router]);
+  }, [isUserLoading, user, ensureAdminAccount]);
+  
+  // Rediriger si l'utilisateur est déjà connecté
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [isUserLoading, user, router]);
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
 
-  // Affichage pendant que le processus est en cours
-  if (isUserLoading || (!error && !user)) {
-    return (
+    setIsSubmitting(true);
+    const emailToLogin = `${username}@example.com`;
+
+    try {
+      await signInWithEmailAndPassword(auth, emailToLogin, password);
+      toast({
+        title: 'Connexion réussie',
+        description: 'Bienvenue !',
+      });
+      // La redirection est gérée par le useEffect qui surveille `user`
+    } catch (error: any) {
+      console.error(error);
+      let errorMessage = "Le nom d'utilisateur ou le mot de passe est incorrect.";
+      if (error.code === 'auth/invalid-credential') {
+          errorMessage = "Le nom d'utilisateur ou le mot de passe est incorrect.";
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Échec de la connexion',
+        description: errorMessage,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Affichage pendant que le chargement initial ou la redirection a lieu
+  if (isUserLoading || user) {
+     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <Logo className="mx-auto h-12 w-12 animate-pulse text-foreground" />
-          <p className="font-semibold">{status}</p>
+          <p className="font-semibold">Chargement de la session...</p>
         </div>
       </div>
     );
   }
 
-  // En cas d'erreur bloquante, on l'affiche.
-  if (error) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <div className="w-full max-w-sm p-4 text-center">
-          <div className="inline-block">
-            <Logo className="mx-auto h-12 w-12 text-destructive" />
+  return (
+    <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2">
+            <Logo className="h-7 w-7" /> LeadFlowAI
+          </CardTitle>
+          <CardDescription>
+            Connectez-vous pour accéder à votre tableau de bord.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Nom d'utilisateur</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="ex: alessio_opik"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Connexion...' : 'Se connecter'}
+            </Button>
+          </form>
+           <div className="mt-4 text-center text-sm">
+            <p className="text-muted-foreground">
+              Utilisateur admin par défaut : <span className="font-mono">alessio_opik</span>
+            </p>
+            <p className="text-muted-foreground">
+              Mot de passe : <span className="font-mono">password123</span>
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight mt-4 text-foreground">
-            Une Erreur Est Survenue
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {status}: {error}
-          </p>
-          <Button onClick={() => window.location.reload()} className="mt-6">
-            Réessayer
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return null; // Affichage vide pendant la redirection finale.
+        </CardContent>
+      </Card>
+    </main>
+  );
 }
