@@ -58,7 +58,7 @@ export default function DashboardLayout({
             id: user.uid,
             name: 'Alessio Opik',
             username: 'alessio_opik',
-            email: user.email || 'alessio_opik@example.com',
+            email: 'alessio_opik@example.com',
             role: 'admin',
             avatarColor: getRandomColor(),
         };
