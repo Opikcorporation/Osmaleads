@@ -109,24 +109,26 @@ export default function DashboardPage() {
 
   const leadsQuery = useMemo(() => {
     if (!user || !collaborator) return null;
+
     let q = query(collection(firestore, 'leads'));
 
-    // If user is a collaborator, only show their leads
+    // If user is a collaborator, only show their assigned leads.
+    // If user is an admin, they can filter by assignee.
     if (collaborator.role === 'collaborator') {
         q = query(q, where('assignedCollaboratorId', '==', user.uid));
+    } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
+        const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
+        q = query(q, where('assignedCollaboratorId', '==', assigneeId));
     }
-
+    
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }
-     if (tierFilter !== 'All' && collaborator?.role === 'admin') {
+    
+    if (tierFilter !== 'All' && collaborator?.role === 'admin') {
       q = query(q, where('tier', '==', tierFilter));
     }
-    // Only show assignee filter if user is an admin
-    if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
-      const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
-      q = query(q, where('assignedCollaboratorId', '==', assigneeId));
-    }
+
     return q;
   }, [user, firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
 
