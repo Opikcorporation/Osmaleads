@@ -143,7 +143,7 @@ export default function DashboardPage() {
   
   // The layout now handles the primary loading state.
   // We only need to worry about the loading of data specific to this page.
-  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];

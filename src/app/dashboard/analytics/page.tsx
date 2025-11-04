@@ -80,7 +80,7 @@ export default function AnalyticsPage() {
   
   // The main layout already handles the profile loading state.
   // We just need to wait for the data queries for this specific page.
-  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
   const getInitials = (name: string) => {
