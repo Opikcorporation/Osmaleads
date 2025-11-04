@@ -20,6 +20,9 @@ import {
 import type { Collaborator } from '@/lib/types';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { AvatarSelectionDialog } from './avatar-selection-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 interface CollaboratorFormDialogProps {
   isOpen: boolean;
@@ -38,6 +41,9 @@ export function CollaboratorFormDialog({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+  
   const { toast } = useToast();
 
   const isEditMode = !!collaborator;
@@ -48,13 +54,16 @@ export function CollaboratorFormDialog({
         setName(collaborator.name);
         setUsername(collaborator.username || '');
         setRole(collaborator.role);
+        setAvatarUrl(collaborator.avatarUrl);
         setPassword(''); // Don't show password on edit
       } else {
         // Reset form for creation
+        const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
         setName('');
         setUsername('');
         setPassword('');
         setRole('collaborator');
+        setAvatarUrl(defaultAvatar.imageUrl);
       }
     }
   }, [collaborator, isOpen]);
@@ -81,13 +90,14 @@ export function CollaboratorFormDialog({
     
     // For edit mode, we only save name and role.
     if (isEditMode) {
-        onSave({ name, role });
+        onSave({ name, role, avatarUrl });
     } else {
-        onSave({ name, username, password, role });
+        onSave({ name, username, password, role, avatarUrl });
     }
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
@@ -102,6 +112,20 @@ export function CollaboratorFormDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+             {isEditMode && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Avatar</Label>
+                    <div className="col-span-3 flex items-center gap-4">
+                        <Avatar className="h-12 w-12">
+                            <AvatarImage src={avatarUrl} alt={name} />
+                            <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setIsAvatarDialogOpen(true)}>
+                            Changer
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 Nom
@@ -167,5 +191,14 @@ export function CollaboratorFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <AvatarSelectionDialog
+        isOpen={isAvatarDialogOpen}
+        onClose={() => setIsAvatarDialogOpen(false)}
+        onSelect={(newAvatarUrl) => {
+            setAvatarUrl(newAvatarUrl);
+            setIsAvatarDialogOpen(false);
+        }}
+    />
+    </>
   );
 }

@@ -67,7 +67,11 @@ export default function AdminCollaboratorsPage() {
   const handleSaveCollaborator = async (data: any) => {
     if (editingCollaborator) {
       const collaboratorRef = doc(firestore, 'collaborators', editingCollaborator.id);
-      updateDocumentNonBlocking(collaboratorRef, { name: data.name, role: data.role });
+      updateDocumentNonBlocking(collaboratorRef, { 
+          name: data.name, 
+          role: data.role,
+          avatarUrl: data.avatarUrl,
+      });
       toast({
           title: 'Collaborateur mis à jour',
           description: `Le profil de ${data.name} a été mis à jour.`,
@@ -85,7 +89,6 @@ export default function AdminCollaboratorsPage() {
         );
         const firebaseUser = userCredential.user;
 
-        const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
         const role = data.username === 'Admin01' ? 'admin' : 'collaborator';
         
         const newCollaborator: Collaborator = {
@@ -94,7 +97,7 @@ export default function AdminCollaboratorsPage() {
           username: data.username,
           email: null,
           role: role,
-          avatarUrl: defaultAvatar.imageUrl,
+          avatarUrl: data.avatarUrl,
         };
 
         await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
