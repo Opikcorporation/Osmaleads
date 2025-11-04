@@ -59,8 +59,10 @@ export default function AnalyticsPage() {
   const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
   const leadsQuery = useMemo(() => {
-    // Crucially, wait until the collaborator profile is loaded to know their role.
-    if (!collaborator) {
+    // THIS IS THE CRITICAL FIX:
+    // Do not attempt to build the query until the collaborator profile is fully loaded.
+    // If it's loading or doesn't exist, return null to prevent any query from running.
+    if (isProfileLoading || !collaborator) {
       return null;
     }
 
@@ -70,7 +72,7 @@ export default function AnalyticsPage() {
         q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
     }
     return q;
-  }, [firestore, collaborator]);
+  }, [firestore, collaborator, isProfileLoading]);
 
   const collaboratorsQuery = useMemo(() => 
     (collaborator?.role === 'admin') ? collection(firestore, 'collaborators') : null,
