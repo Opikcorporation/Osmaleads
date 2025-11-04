@@ -88,15 +88,13 @@ export default function AdminCollaboratorsPage() {
           data.password
         );
         const firebaseUser = userCredential.user;
-
-        const role = data.username === 'Admin01' ? 'admin' : 'collaborator';
         
         const newCollaborator: Collaborator = {
           id: firebaseUser.uid,
           name: data.name,
           username: data.username,
-          email: null,
-          role: role,
+          email: email,
+          role: data.role,
           avatarColor: data.avatarColor || getRandomColor(),
         };
 

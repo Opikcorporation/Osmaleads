@@ -71,7 +71,8 @@ export default function RegisterPage() {
       // 2. Prepare collaborator data
       const role = username === 'Admin01' ? 'admin' : 'collaborator';
       
-      const newCollaborator: Omit<Collaborator, 'id'> = {
+      const newCollaborator: Collaborator = {
+        id: firebaseUser.uid,
         name: name,
         username: username,
         email: email,
@@ -83,11 +84,7 @@ export default function RegisterPage() {
       // The ID of the document MUST match the UID of the auth user
       const docRef = doc(firestore, 'collaborators', firebaseUser.uid);
       
-      // We explicitly add the id to the document data as well for easier querying
-      await setDoc(docRef, {
-        ...newCollaborator,
-        id: firebaseUser.uid
-      });
+      await setDoc(docRef, newCollaborator);
         
       toast({
           title: 'Compte créé avec succès',

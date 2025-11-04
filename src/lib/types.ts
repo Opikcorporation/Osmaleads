@@ -1,24 +1,8 @@
 'use client';
 import { FieldValue } from "firebase/firestore";
 
-export type User = {
-  id: string;
-  name: string;
-  username: string;
-  email: string | null;
-  role: 'admin' | 'collaborator';
-  avatarColor: string;
-};
-
 export const leadTiers = ['Haut de gamme', 'Moyenne gamme', 'Bas de gamme'] as const;
 export type LeadTier = (typeof leadTiers)[number];
-
-export type Note = {
-  id: string;
-  content: string;
-  createdAt: string; // ISO date string
-  author: Pick<User, 'id' | 'name' | 'avatarColor'>;
-};
 
 export const leadStatuses = [
   'New',
