@@ -107,16 +107,12 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
-    // CRITICAL FIX: Do not construct the query until the collaborator profile (and thus role) is fully loaded.
-    // If `collaborator` is not loaded, return null to prevent an unauthorized query.
     if (!collaborator) {
       return null;
     }
 
     let q = query(collection(firestore, 'leads'));
 
-    // If user is a collaborator, only show their assigned leads.
-    // If user is an admin, they can filter by assignee.
     if (collaborator.role === 'collaborator') {
         q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
     } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
@@ -154,12 +150,10 @@ export default function DashboardPage() {
   }, [leads, searchTerm]);
 
   const isLoading = leadsLoading || collaboratorsLoading || isProfileLoading;
-  
-  const leadIds = useMemo(() => filteredLeads?.map(l => l.id) || [], [filteredLeads]);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true) {
-      setSelectedLeads(leadIds);
+      setSelectedLeads(filteredLeads.map(l => l.id));
     } else {
       setSelectedLeads([]);
     }
@@ -422,7 +416,7 @@ export default function DashboardPage() {
                     {collaborator?.role === 'admin' && (
                       <TableHead padding="checkbox" className="w-12">
                           <Checkbox
-                          checked={leadIds.length > 0 && selectedLeads.length === leadIds.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
+                          checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
                           onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                           aria-label="Select all"
                           />
@@ -467,7 +461,7 @@ export default function DashboardPage() {
                             </TableCell>
                             {collaborator?.role === 'admin' && (
                                 <TableCell>
-                                    {lead.score !== null ? (
+                                    {lead.score !== null && typeof lead.score !== 'undefined' ? (
                                         <span className={cn("font-semibold",
                                             lead.score > 70 ? 'text-green-600' :
                                             lead.score >= 40 ? 'text-amber-500' :
