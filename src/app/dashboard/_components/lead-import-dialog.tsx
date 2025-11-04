@@ -55,6 +55,8 @@ export function LeadImportDialog({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentScoreColumnIndex, setCurrentScoreColumnIndex] = useState(0);
 
+  const { toast } = useToast();
+
   const resetState = () => {
     setStep(1);
     setFile(null);
@@ -321,15 +323,12 @@ export function LeadImportDialog({
                      <Button type="button" variant="ghost" onClick={handlePrevScoreColumn}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                     </Button>
-                    {currentScoreColumnIndex < scoreColumns.length - 1 ? (
-                        <Button type="button" onClick={handleNextScoreColumn}>
-                            Suivant <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    ) : (
-                        <Button type="submit">
-                            Importer et Calculer les Scores
-                        </Button>
-                    )}
+                    <Button type="button" onClick={handleNextScoreColumn}>
+                      {currentScoreColumnIndex < scoreColumns.length - 1
+                        ? 'Suivant'
+                        : 'Importer et Calculer les Scores'}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                 </>
             )}
           </DialogFooter>
