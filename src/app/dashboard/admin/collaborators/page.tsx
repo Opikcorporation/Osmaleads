@@ -65,12 +65,13 @@ export default function AdminCollaboratorsPage() {
   };
 
   const handleSaveCollaborator = async (data: any) => {
+    // Editing an existing collaborator
     if (editingCollaborator) {
       const collaboratorRef = doc(firestore, 'collaborators', editingCollaborator.id);
       updateDocumentNonBlocking(collaboratorRef, { 
           name: data.name, 
           role: data.role,
-          avatarColor: data.avatarColor,
+          avatarColor: data.avatarColor, // Ensure avatarColor is included in the update
       });
       toast({
           title: 'Collaborateur mis à jour',
@@ -78,6 +79,7 @@ export default function AdminCollaboratorsPage() {
       });
       handleCloseDialog();
     } else {
+      // Creating a new collaborator
       const email = `${data.username}@example.com`; // Transform username to email
       try {
         // Can't create user in Auth and Firestore in one transaction,
@@ -89,16 +91,17 @@ export default function AdminCollaboratorsPage() {
         );
         const firebaseUser = userCredential.user;
         
-        // Ensure all fields, especially email and avatarColor, are included
+        // Construct a complete Collaborator object, ensuring all fields are present
         const newCollaborator: Collaborator = {
           id: firebaseUser.uid,
           name: data.name,
           username: data.username,
-          email: email, // Make sure email is saved
+          email: email, // Save the generated email
           role: data.role,
           avatarColor: data.avatarColor || getRandomColor(), // Ensure avatarColor is saved
         };
 
+        // Atomically set the complete document in Firestore
         await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
 
         toast({
@@ -136,6 +139,7 @@ export default function AdminCollaboratorsPage() {
   };
 
   const getInitials = (name: string) => {
+    if (!name) return '';
     return name
       .split(' ')
       .map((n) => n[0])

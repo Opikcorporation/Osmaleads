@@ -101,6 +101,7 @@ export function CollaboratorFormDialog({
   };
 
   const getInitials = (name: string) => {
+    if (!name) return '??';
     return name
       .split(' ')
       .map((n) => n[0])
@@ -129,7 +130,7 @@ export function CollaboratorFormDialog({
                 <div className="col-span-3 flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                         <AvatarFallback style={{ backgroundColor: avatarColor }} className="text-white font-bold">
-                            {getInitials(name) || '??'}
+                            {getInitials(name)}
                         </AvatarFallback>
                     </Avatar>
                      <div className="flex flex-wrap gap-2">
