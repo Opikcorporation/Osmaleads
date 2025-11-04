@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   useCollection,
   useFirestore,
@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { getRandomColor } from '@/lib/colors';
 
 export default function AdminCollaboratorsPage() {
   const firestore = useFirestore();
@@ -70,7 +70,7 @@ export default function AdminCollaboratorsPage() {
       updateDocumentNonBlocking(collaboratorRef, { 
           name: data.name, 
           role: data.role,
-          avatarUrl: data.avatarUrl,
+          avatarColor: data.avatarColor,
       });
       toast({
           title: 'Collaborateur mis à jour',
@@ -97,7 +97,7 @@ export default function AdminCollaboratorsPage() {
           username: data.username,
           email: null,
           role: role,
-          avatarUrl: data.avatarUrl,
+          avatarColor: data.avatarColor || getRandomColor(),
         };
 
         await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
@@ -136,6 +136,14 @@ export default function AdminCollaboratorsPage() {
     });
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
+
   if (collaboratorsLoading) {
     return <div>Chargement des collaborateurs...</div>;
   }
@@ -165,8 +173,9 @@ export default function AdminCollaboratorsPage() {
               >
                 <div className="flex items-center gap-4">
                   <Avatar>
-                    <AvatarImage src={c.avatarUrl} />
-                    <AvatarFallback>{c.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback style={{ backgroundColor: c.avatarColor }} className="text-white font-bold">
+                        {getInitials(c.name)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-semibold">{c.name}</p>

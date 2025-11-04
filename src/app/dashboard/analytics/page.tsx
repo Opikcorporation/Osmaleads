@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Target, CheckCircle, Award, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +69,15 @@ export default function AnalyticsPage() {
     useCollection<Collaborator>(collaboratorsQuery);
   
   const isLoading = leadsLoading || collaboratorsLoading;
+
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
 
   const kpiData = useMemo(() => {
     if (!leads) return null;
@@ -282,8 +291,9 @@ export default function AnalyticsPage() {
                             <TableCell>
                                 <div className="flex items-center gap-3">
                                     <Avatar>
-                                        <AvatarImage src={data.collaborator.avatarUrl} alt={data.collaborator.name} />
-                                        <AvatarFallback>{data.collaborator.name.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback style={{ backgroundColor: data.collaborator.avatarColor }} className="text-white font-bold">
+                                            {getInitials(data.collaborator.name)}
+                                        </AvatarFallback>
                                     </Avatar>
                                     <div>
                                         <p className="font-medium">{data.collaborator.name}</p>

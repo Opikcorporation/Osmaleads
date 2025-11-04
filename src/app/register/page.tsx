@@ -13,7 +13,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Collaborator } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { getRandomColor } from '@/lib/colors';
 
 export default function RegisterPage() {
   const auth = useAuth();
@@ -69,7 +69,6 @@ export default function RegisterPage() {
       const firebaseUser = userCredential.user;
       
       // 2. Prepare collaborator data
-      const defaultAvatar = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
       const role = username === 'Admin01' ? 'admin' : 'collaborator';
       
       const newCollaborator: Omit<Collaborator, 'id'> = {
@@ -77,7 +76,7 @@ export default function RegisterPage() {
         username: username,
         email: email,
         role: role,
-        avatarUrl: defaultAvatar.imageUrl,
+        avatarColor: getRandomColor(),
       };
       
       // 3. Create collaborator document in Firestore

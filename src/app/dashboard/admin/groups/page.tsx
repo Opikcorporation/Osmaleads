@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PlusCircle, Users, Trash2, Edit, Bot } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
   useFirestore,
@@ -63,6 +63,14 @@ export default function AdminGroupsPage() {
     useCollection<DistributionSetting>(settingsQuery);
 
   const isLoading = groupsLoading || usersLoading || settingsLoading;
+
+    const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
 
   if (isLoading) {
     return <div>Chargement des groupes...</div>;
@@ -225,8 +233,9 @@ export default function AdminGroupsPage() {
                       <div className="flex -space-x-2 overflow-hidden">
                       {members.slice(0, 5).map(member => (
                           <Avatar key={member.id} className="inline-block h-10 w-10 rounded-full ring-2 ring-card">
-                          <AvatarImage src={member.avatarUrl} alt={member.name} />
-                          <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback style={{ backgroundColor: member.avatarColor }} className="text-white font-bold">
+                            {getInitials(member.name)}
+                          </AvatarFallback>
                           </Avatar>
                       ))}
                       {members.length > 5 && <Avatar className="inline-block h-10 w-10 rounded-full ring-2 ring-card"><AvatarFallback>+{members.length-5}</AvatarFallback></Avatar>}

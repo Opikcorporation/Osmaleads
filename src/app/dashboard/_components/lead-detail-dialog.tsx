@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
@@ -78,6 +78,15 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
 
   const [newNote, setNewNote] = useState('');
+
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
   
   const handleStatusChange = (status: LeadStatus) => {
     if (lead) {
@@ -175,8 +184,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
                           <span>Assigné à</span>
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={assignedUser.avatarUrl} alt={assignedUser.name} />
-                            <AvatarFallback>{assignedUser.name.charAt(0)}</AvatarFallback>
+                             <AvatarFallback style={{ backgroundColor: assignedUser.avatarColor }} className="text-white font-bold">
+                                {getInitials(assignedUser.name)}
+                            </AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{assignedUser.name}</span>
                         </div>
@@ -234,8 +244,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                         <div key={note.id} className="flex gap-3">
                           {author ? (
                               <Avatar className="h-8 w-8">
-                                  <AvatarImage src={author.avatarUrl} alt={author.name} />
-                                  <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback style={{ backgroundColor: author.avatarColor }} className="text-white font-bold">
+                                    {getInitials(author.name)}
+                                </AvatarFallback>
                               </Avatar>
                           ) : (
                               <Avatar className="h-8 w-8 bg-muted" />

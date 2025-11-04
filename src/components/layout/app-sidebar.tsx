@@ -32,7 +32,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       roles: ['admin', 'collaborator'],
     },
     {
-        href: '/dashboard/admin/collaborators', // Corrected Link
+        href: '/dashboard/admin',
         label: 'Admin',
         icon: Settings,
         roles: ['admin'],
@@ -72,7 +72,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                pathname.startsWith(item.href) && item.href !== '/dashboard' || pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/dashboard/admin') || pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />

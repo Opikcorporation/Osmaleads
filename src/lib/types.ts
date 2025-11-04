@@ -8,7 +8,7 @@ export type User = {
   username: string;
   email: string | null;
   role: 'admin' | 'collaborator';
-  avatarUrl: string;
+  avatarColor: string;
   groupId?: string;
 };
 
@@ -25,7 +25,7 @@ export type Note = {
   id: string;
   content: string;
   createdAt: string; // ISO date string
-  author: Pick<User, 'id' | 'name', 'avatarUrl'>;
+  author: Pick<User, 'id' | 'name', 'avatarColor'>;
 };
 
 export const leadStatuses = [
@@ -67,7 +67,7 @@ export type Collaborator = {
   username: string;
   email: string | null;
   role: 'admin' | 'collaborator';
-  avatarUrl: string;
+  avatarColor: string;
   groupId?: string;
 };
 

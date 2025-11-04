@@ -24,7 +24,7 @@ import {
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -90,6 +90,15 @@ export default function DashboardPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [tierFilter, setTierFilter] = useState<string>('All');
+
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
 
   const leadsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -469,8 +478,7 @@ export default function DashboardPage() {
                             {assignee ? (
                                 <div className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={assignee.avatarUrl} />
-                                    <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback style={{backgroundColor: assignee.avatarColor}} className="text-white font-bold">{getInitials(assignee.name)}</AvatarFallback>
                                 </Avatar>
                                 <span className="hidden sm:inline">{assignee.name}</span>
                                 </div>
