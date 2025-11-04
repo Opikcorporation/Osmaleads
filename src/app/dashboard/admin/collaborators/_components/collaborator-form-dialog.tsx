@@ -42,7 +42,7 @@ export function CollaboratorFormDialog({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
-  const [avatarColor, setAvatarColor] = useState('');
+  const [avatarColor, setAvatarColor] = useState(getRandomColor());
   
   const { toast } = useToast();
 

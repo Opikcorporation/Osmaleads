@@ -89,13 +89,14 @@ export default function AdminCollaboratorsPage() {
         );
         const firebaseUser = userCredential.user;
         
+        // Ensure all fields, especially email and avatarColor, are included
         const newCollaborator: Collaborator = {
           id: firebaseUser.uid,
           name: data.name,
           username: data.username,
-          email: email,
+          email: email, // Make sure email is saved
           role: data.role,
-          avatarColor: data.avatarColor || getRandomColor(),
+          avatarColor: data.avatarColor || getRandomColor(), // Ensure avatarColor is saved
         };
 
         await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
