@@ -7,9 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import {
   Bar,
@@ -54,21 +54,30 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
+  const collaboratorRef = useMemoFirebase(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
+  const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
-  const leadsQuery = useMemoFirebase(
-    () => collection(firestore, 'leads'),
-    [firestore]
-  );
-  const collaboratorsQuery = useMemoFirebase(
-    () => collection(firestore, 'collaborators'),
-    [firestore]
+  const leadsQuery = useMemoFirebase(() => {
+    if (!user || !collaborator) return null;
+
+    let q = query(collection(firestore, 'leads'));
+    // If user is a collaborator, only show their leads
+    if (collaborator.role === 'collaborator') {
+        q = query(q, where('assignedCollaboratorId', '==', user.uid));
+    }
+    return q;
+  }, [user, firestore, collaborator]);
+
+  const collaboratorsQuery = useMemoFirebase(() => 
+    collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null,
+    [firestore, collaborator]
   );
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
-  const { data: collaborators, isLoading: collaboratorsLoading } =
-    useCollection<Collaborator>(collaboratorsQuery);
+  const { data: collaborators, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  const isLoading = leadsLoading || collaboratorsLoading;
+  const isLoading = leadsLoading || collaboratorsLoading || isProfileLoading;
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -84,8 +93,16 @@ export default function AnalyticsPage() {
     const totalLeads = leads.length;
     const qualifiedLeads = leads.filter(l => l.status === 'Qualified').length;
     const signedLeads = leads.filter(l => l.status === 'Signed').length;
-    const leadsWithScore = leads.filter(l => l.score !== null);
-    const averageScore = leadsWithScore.length > 0 ? leadsWithScore.reduce((sum, l) => sum + (l.score || 0), 0) / leadsWithScore.length : 0;
+    
+    let averageScore: number | null = 0;
+    if (collaborator?.role === 'admin') {
+      const leadsWithScore = leads.filter(l => typeof l.score === 'number');
+      averageScore = leadsWithScore.length > 0 
+        ? leadsWithScore.reduce((sum, l) => sum + (l.score || 0), 0) / leadsWithScore.length 
+        : 0;
+    } else {
+      averageScore = null;
+    }
     
     return {
       totalLeads,
@@ -93,7 +110,7 @@ export default function AnalyticsPage() {
       signedLeads,
       averageScore,
     };
-  }, [leads]);
+  }, [leads, collaborator]);
 
   const leadsByStatusData = useMemo(() => {
     if (!leads) return [];
@@ -106,18 +123,18 @@ export default function AnalyticsPage() {
   }, [leads]);
   
   const leadsByTierData = useMemo(() => {
-    if (!leads) return [];
+    if (!leads || collaborator?.role !== 'admin') return [];
     const tierCounts = leads.reduce((acc, lead) => {
-      const tier = lead.tier || 'Bas de gamme';
+      const tier = lead.tier || 'Bas de gamme'; // Default if tier is null/undefined
       acc[tier] = (acc[tier] || 0) + 1;
       return acc;
     }, {} as Record<LeadTier, number>);
     
     return Object.entries(tierCounts).map(([name, value]) => ({ name: name as LeadTier, value }));
-  }, [leads]);
+  }, [leads, collaborator]);
   
   const collaboratorPerformanceData = useMemo(() => {
-    if (!leads || !collaborators) return [];
+    if (!leads || !collaborators || collaborator?.role !== 'admin') return [];
     return collaborators
         .filter(c => c.role === 'collaborator')
         .map(c => {
@@ -132,7 +149,7 @@ export default function AnalyticsPage() {
             }
         })
         .sort((a,b) => b.signedCount - a.signedCount || b.conversionRate - a.conversionRate);
-  }, [leads, collaborators]);
+  }, [leads, collaborators, collaborator]);
 
   if (isLoading) {
     return (
@@ -152,11 +169,14 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-semibold md:text-3xl">Analyse & Performance</h1>
       </div>
        <p className="text-muted-foreground">
-        Visualisez les métriques clés de votre acquisition de leads.
+        {collaborator?.role === 'admin' ? 
+          'Visualisez les métriques clés de votre acquisition de leads.' :
+          'Visualisez les métriques clés de vos leads assignés.'
+        }
       </p>
 
       {/* KPI Cards */}
-      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className={cn("mt-4 grid gap-4 md:grid-cols-2", collaborator?.role === 'admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total des Leads</CardTitle>
@@ -164,7 +184,9 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{kpiData.totalLeads}</div>
-            <p className="text-xs text-muted-foreground">Nombre total de leads importés</p>
+            <p className="text-xs text-muted-foreground">
+              {collaborator?.role === 'admin' ? 'Nombre total de leads importés' : 'Nombre de leads qui vous sont assignés'}
+            </p>
           </CardContent>
         </Card>
          <Card>
@@ -187,21 +209,23 @@ export default function AnalyticsPage() {
             <p className="text-xs text-muted-foreground">Nombre total de contrats signés</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{kpiData.averageScore.toFixed(0)}%</div>
-            <p className="text-xs text-muted-foreground">Qualité moyenne des leads</p>
-          </CardContent>
-        </Card>
+        {collaborator?.role === 'admin' && kpiData.averageScore !== null && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpiData.averageScore.toFixed(0)}%</div>
+              <p className="text-xs text-muted-foreground">Qualité moyenne des leads</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
       
       {/* Charts */}
-      <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="lg:col-span-2">
+      <div className={cn("mt-6 grid gap-6 md:grid-cols-1", collaborator?.role === 'admin' && "lg:grid-cols-5")}>
+        <Card className={cn(collaborator?.role === 'admin' && "lg:col-span-2")}>
            <CardHeader>
             <CardTitle>Répartition par Statut</CardTitle>
              <CardDescription>Distribution des leads à travers leur cycle de vie.</CardDescription>
@@ -238,89 +262,95 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-         <Card className="lg:col-span-3">
-           <CardHeader>
-            <CardTitle>Répartition par Qualité</CardTitle>
-            <CardDescription>Nombre de leads pour chaque tier de qualité.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={leadsByTierData}>
-                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`}/>
-                    <Tooltip cursor={{fill: 'hsla(var(--muted))'}} content={({ active, payload, label }) => {
-                         if (active && payload && payload.length) {
-                             return (
-                                <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                    <p className="font-bold">{`${label} : ${payload[0].value} leads`}</p>
-                                </div>
-                             )
-                         }
-                         return null
-                    }} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {leadsByTierData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={tierColors[entry.name]} />
-                        ))}
-                    </Bar>
-                </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {collaborator?.role === 'admin' && (
+             <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Répartition par Qualité</CardTitle>
+                <CardDescription>Nombre de leads pour chaque tier de qualité.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={leadsByTierData}>
+                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false}/>
+                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`}/>
+                        <Tooltip cursor={{fill: 'hsla(var(--muted))'}} content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                                return (
+                                    <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                        <p className="font-bold">{`${label} : ${payload[0].value} leads`}</p>
+                                    </div>
+                                )
+                            }
+                            return null
+                        }} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                            {leadsByTierData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={tierColors[entry.name]} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+        )}
       </div>
 
        {/* Collaborator Performance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance par Collaborateur</CardTitle>
-          <CardDescription>Classement basé sur les leads signés et le taux de conversion.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Collaborateur</TableHead>
-                        <TableHead>Leads Assignés</TableHead>
-                        <TableHead>Leads Signés</TableHead>
-                        <TableHead className="text-right">Taux de Conversion</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {collaboratorPerformanceData.map(data => (
-                        <TableRow key={data.collaborator.id}>
-                            <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarFallback style={{ backgroundColor: data.collaborator.avatarColor }} className="text-white font-bold">
-                                            {getInitials(data.collaborator.name)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{data.collaborator.name}</p>
-                                        <p className="text-sm text-muted-foreground">{data.collaborator.username}</p>
-                                    </div>
-                                </div>
-                            </TableCell>
-                            <TableCell>{data.assignedCount}</TableCell>
-                            <TableCell>{data.signedCount}</TableCell>
-                            <TableCell className="text-right">
-                                <Badge className={cn("font-semibold",
-                                    data.conversionRate > 50 ? 'bg-green-100 text-green-800' :
-                                    data.conversionRate > 20 ? 'bg-amber-100 text-amber-800' :
-                                    'bg-red-100 text-red-800'
-                                )}>{data.conversionRate.toFixed(1)}%</Badge>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                     {collaboratorPerformanceData.length === 0 && (
-                        <TableRow>
-                            <TableCell colSpan={4} className="text-center h-24">Aucun collaborateur à analyser.</TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-           </Table>
-        </CardContent>
-      </Card>
+      {collaborator?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance par Collaborateur</CardTitle>
+            <CardDescription>Classement basé sur les leads signés et le taux de conversion.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+                  <TableHeader>
+                      <TableRow>
+                          <TableHead>Collaborateur</TableHead>
+                          <TableHead>Leads Assignés</TableHead>
+                          <TableHead>Leads Signés</TableHead>
+                          <TableHead className="text-right">Taux de Conversion</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {collaboratorPerformanceData.map(data => (
+                          <TableRow key={data.collaborator.id}>
+                              <TableCell>
+                                  <div className="flex items-center gap-3">
+                                      <Avatar>
+                                          <AvatarFallback style={{ backgroundColor: data.collaborator.avatarColor }} className="text-white font-bold">
+                                              {getInitials(data.collaborator.name)}
+                                          </AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                          <p className="font-medium">{data.collaborator.name}</p>
+                                          <p className="text-sm text-muted-foreground">{data.collaborator.username}</p>
+                                      </div>
+                                  </div>
+                              </TableCell>
+                              <TableCell>{data.assignedCount}</TableCell>
+                              <TableCell>{data.signedCount}</TableCell>
+                              <TableCell className="text-right">
+                                  <Badge className={cn("font-semibold",
+                                      data.conversionRate > 50 ? 'bg-green-100 text-green-800' :
+                                      data.conversionRate > 20 ? 'bg-amber-100 text-amber-800' :
+                                      'bg-red-100 text-red-800'
+                                  )}>{data.conversionRate.toFixed(1)}%</Badge>
+                              </TableCell>
+                          </TableRow>
+                      ))}
+                      {collaboratorPerformanceData.length === 0 && (
+                          <TableRow>
+                              <TableCell colSpan={4} className="text-center h-24">Aucun collaborateur à analyser.</TableCell>
+                          </TableRow>
+                      )}
+                  </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+       )}
     </>
   );
 }
+
+    
