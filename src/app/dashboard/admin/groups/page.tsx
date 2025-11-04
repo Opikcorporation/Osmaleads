@@ -13,9 +13,6 @@ import {
   useCollection,
   useFirestore,
   useMemoFirebase,
-  addDocumentNonBlocking,
-  updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import type { Group, Collaborator, DistributionSetting } from '@/lib/types';
@@ -64,6 +61,7 @@ export default function AdminGroupsPage() {
   const isLoading = groupsLoading || usersLoading || settingsLoading;
 
     const getInitials = (name: string) => {
+    if (!name) return '';
     return name
       .split(' ')
       .map((n) => n[0])
