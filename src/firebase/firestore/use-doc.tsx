@@ -1,6 +1,6 @@
 'use client';
     
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -46,15 +46,24 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  
+  const docRefRef = useRef(docRef);
 
   useEffect(() => {
-    // Absolute safety guard: Do not proceed if the reference is not ready.
+    // Absolute safety guard: If the reference is not ready, reset state and stop.
     if (!docRef) {
-      setIsLoading(false); // Not loading if there's no reference
+      setIsLoading(false);
       setData(null);
       setError(null);
       return;
     }
+    
+    if (docRefRef.current === docRef && data !== null) {
+      setIsLoading(false);
+      return;
+    }
+    
+    docRefRef.current = docRef;
 
     setIsLoading(true);
     setError(null);
@@ -85,7 +94,7 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [docRef]);
+  }, [docRef, data]);
 
   return { data, isLoading, error };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Query,
   onSnapshot,
@@ -61,14 +61,25 @@ export function useCollection<T = any>(
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  const queryRef = useRef(targetRefOrQuery);
+  
   useEffect(() => {
-    // Absolute safety guard: Do not proceed if the query/reference is not ready.
+    // Absolute safety guard: If the query is not ready, reset state and stop.
+    // This prevents stale data or invalid queries from being used during re-renders.
     if (!targetRefOrQuery) {
-      setIsLoading(false); // Not loading if there's no query
+      setIsLoading(false); 
       setData(null);
       setError(null);
       return;
     }
+    
+    // Only re-subscribe if the query has actually changed.
+    if (queryRef.current === targetRefOrQuery && data !== null) {
+      setIsLoading(false);
+      return;
+    }
+    
+    queryRef.current = targetRefOrQuery;
 
     setIsLoading(true);
     setError(null);
@@ -104,7 +115,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [targetRefOrQuery]);
+  }, [targetRefOrQuery, data]);
 
   return { data, isLoading, error };
 }
