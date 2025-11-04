@@ -46,3 +46,16 @@ export type Collaborator = {
   role: 'admin' | 'collaborator';
   avatarColor: string;
 };
+
+export type Group = {
+    id: string;
+    name: string;
+    collaboratorIds: string[];
+}
+
+export type DistributionSetting = {
+    id: string;
+    groupId: string;
+    dailyQuota: number;
+    leadTier: LeadTier | 'Tous';
+}
