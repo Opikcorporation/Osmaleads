@@ -87,13 +87,6 @@ export default function LoginPage() {
             {isLoading ? 'Connexion en cours...' : 'Se connecter'}
           </Button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-            Vous n'avez pas de compte ?{' '}
-            <Link href="/register" className="font-semibold text-primary hover:underline">
-                Créer un compte
-            </Link>
-        </p>
       </div>
     </div>
   );
