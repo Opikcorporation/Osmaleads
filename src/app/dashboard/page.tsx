@@ -107,19 +107,24 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
+    // Crucially, wait until the collaborator profile is loaded to know their role.
     if (!collaborator) {
       return null;
     }
 
     let q = query(collection(firestore, 'leads'));
 
+    // If it's a collaborator, ALWAYS filter by their ID.
     if (collaborator.role === 'collaborator') {
         q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
-    } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
+    } 
+    // If it's an admin, apply the assignee filter from the UI.
+    else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
         const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
         q = query(q, where('assignedCollaboratorId', '==', assigneeId));
     }
     
+    // Apply other filters
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }

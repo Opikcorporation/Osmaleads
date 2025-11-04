@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
   }, [firestore, collaborator]);
 
   const collaboratorsQuery = useMemo(() => 
-    collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null,
+    (collaborator?.role === 'admin') ? collection(firestore, 'collaborators') : null,
     [firestore, collaborator]
   );
 
