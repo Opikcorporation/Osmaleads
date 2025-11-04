@@ -25,9 +25,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Leads can be read by admins or the assigned collaborator.
-    // They can only be created or deleted by admins.
+    // Leads collection can be listed by admins. Individual leads can be read/updated
+    // by admins or the assigned collaborator.
     match /leads/{leadId} {
+      allow list: if isAdmin(); // Allows admins to query the whole collection
       allow read, update: if isAdmin() || isAssigned(leadId);
       allow create, delete: if isAdmin();
 
