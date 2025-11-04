@@ -38,9 +38,9 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/status-badge';
 
 const tierColors: Record<LeadTier, string> = {
-  Excellent: '#16a34a', // green-600
-  Moyen: '#f59e0b', // amber-500
-  Faible: '#dc2626', // red-600
+  'Haut de gamme': '#16a34a', // green-600
+  'Moyenne gamme': '#f59e0b', // amber-500
+  'Bas de gamme': '#dc2626', // red-600
 };
 
 const statusColors: Record<LeadStatus, string> = {
@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
   const leadsByTierData = useMemo(() => {
     if (!leads) return [];
     const tierCounts = leads.reduce((acc, lead) => {
-      const tier = lead.tier || 'Faible';
+      const tier = lead.tier || 'Bas de gamme';
       acc[tier] = (acc[tier] || 0) + 1;
       return acc;
     }, {} as Record<LeadTier, number>);

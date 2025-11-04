@@ -12,7 +12,7 @@ export type User = {
   groupId?: string;
 };
 
-export const leadTiers = ['Excellent', 'Moyen', 'Faible'] as const;
+export const leadTiers = ['Haut de gamme', 'Moyenne gamme', 'Bas de gamme'] as const;
 export type LeadTier = (typeof leadTiers)[number];
 
 export type Group = {
@@ -51,6 +51,7 @@ export type Lead = {
   score: number | null;
   leadData: string; // Raw CSV row data as JSON
   assignedCollaboratorId: string | null;
+  assignedAt?: FieldValue;
 };
 
 export type FirestoreNote = {

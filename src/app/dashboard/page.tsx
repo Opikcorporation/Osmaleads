@@ -214,9 +214,9 @@ export default function DashboardPage() {
         
         let tier: LeadTier | null = null;
         if (finalScore !== null) {
-          if (finalScore > 70) tier = 'Excellent';
-          else if (finalScore >= 40) tier = 'Moyen';
-          else tier = 'Faible';
+          if (finalScore > 70) tier = 'Haut de gamme';
+          else if (finalScore >= 40) tier = 'Moyenne gamme';
+          else tier = 'Bas de gamme';
         }
         
         const newLead: Omit<Lead, 'id'> = {
@@ -457,13 +457,13 @@ export default function DashboardPage() {
                             <TableCell>
                                 {lead.tier ? (
                                     <Badge variant={
-                                        lead.tier === 'Excellent' ? 'default' :
-                                        lead.tier === 'Moyen' ? 'secondary' :
+                                        lead.tier === 'Haut de gamme' ? 'default' :
+                                        lead.tier === 'Moyenne gamme' ? 'secondary' :
                                         'destructive'
                                     } className={cn(
-                                        lead.tier === 'Excellent' && 'bg-green-600 hover:bg-green-700',
-                                        lead.tier === 'Moyen' && 'bg-amber-500 hover:bg-amber-600',
-                                        lead.tier === 'Faible' && 'bg-red-600 hover:bg-red-700'
+                                        lead.tier === 'Haut de gamme' && 'bg-green-600 hover:bg-green-700',
+                                        lead.tier === 'Moyenne gamme' && 'bg-amber-500 hover:bg-amber-600',
+                                        lead.tier === 'Bas de gamme' && 'bg-red-600 hover:bg-red-700'
                                     )}>
                                         {lead.tier}
                                     </Badge>
