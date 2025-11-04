@@ -22,13 +22,13 @@ import {
   useMemoFirebase,
   useUser,
 } from '@/firebase';
-import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
+import type { Lead, Collaborator } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search, TrendingUp } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { LeadImportDialog, type ScoreRule } from './_components/lead-import-dialog';
+import { LeadImportDialog, type AllScoreRules } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -52,8 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { leadStatuses, leadTiers } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
+import { leadStatuses } from '@/lib/types';
 
 
 // Simple CSV parser
@@ -145,8 +144,8 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
-  const handleSaveLead = async (data: { fileContent: string; mapping: { [key: string]: string }, scoreColumn?: string, scoreRules?: ScoreRule[] }) => {
-    const { fileContent, mapping, scoreColumn, scoreRules } = data;
+  const handleSaveLead = async (data: { fileContent: string; mapping: { [key: string]: string }, scoreColumns: string[], allScoreRules: AllScoreRules }) => {
+    const { fileContent, mapping, scoreColumns, allScoreRules } = data;
     if (!firestore) return;
     
     try {
@@ -166,20 +165,32 @@ export default function DashboardPage() {
           }
       }
       
-      const scoreRulesMap = scoreRules ? scoreRules.reduce((acc, rule) => {
-        acc[rule.value] = rule.score;
-        return acc;
-      }, {} as {[key: string]: number}) : {};
+      // Convert AllScoreRules to a more efficient lookup map
+      const rulesLookup: { [column: string]: { [value: string]: number } } = {};
+      for (const column of scoreColumns) {
+        rulesLookup[column] = allScoreRules[column]?.reduce((acc, rule) => {
+          acc[rule.value] = rule.score;
+          return acc;
+        }, {} as {[key: string]: number}) || {};
+      }
 
 
       for (const row of rows) {
         const newLeadDocRef = doc(leadsColRef);
         
-        let score: number | null = null;
-        if(scoreColumn && scoreRules) {
-          const scoreValue = row[scoreColumn];
-          score = scoreValue ? (scoreRulesMap[scoreValue] || 0) : 0;
+        let totalScore = 0;
+        let scoreCount = 0;
+        
+        for (const column of scoreColumns) {
+            const value = row[column];
+            const columnRules = rulesLookup[column];
+            if (value && columnRules && columnRules[value] !== undefined) {
+                totalScore += columnRules[value];
+                scoreCount++;
+            }
         }
+        
+        const finalScore = scoreCount > 0 ? Math.round(totalScore / scoreCount) : null;
         
         const newLead: Omit<Lead, 'id'> = {
           name: row[invertedMapping['name']] || "Lead sans nom",
@@ -189,7 +200,7 @@ export default function DashboardPage() {
           username: null,
           status: 'New',
           tier: null,
-          score: score,
+          score: finalScore,
           leadData: JSON.stringify(row),
           assignedCollaboratorId: null,
         };
