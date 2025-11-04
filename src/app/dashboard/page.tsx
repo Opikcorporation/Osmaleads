@@ -436,7 +436,7 @@ export default function DashboardPage() {
                                 {lead.score !== null ? (
                                     <span className={cn("font-semibold",
                                         lead.score > 70 ? 'text-green-600' :
-                                        lead.score >= 40 ? 'text-orange-500' :
+                                        lead.score >= 40 ? 'text-amber-500' :
                                         'text-red-600'
                                     )}>
                                         {lead.score}%
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                                         'destructive'
                                     } className={cn(
                                         lead.tier === 'Excellent' && 'bg-green-600 hover:bg-green-700',
-                                        lead.tier === 'Moyen' && 'bg-orange-500 hover:bg-orange-600',
+                                        lead.tier === 'Moyen' && 'bg-amber-500 hover:bg-amber-600',
                                         lead.tier === 'Faible' && 'bg-red-600 hover:bg-red-700'
                                     )}>
                                         {lead.tier}
