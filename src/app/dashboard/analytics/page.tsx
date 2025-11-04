@@ -54,10 +54,10 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  const { collaborator, isLoading: isProfileLoading } = useFirebase();
+  const { collaborator } = useFirebase();
 
   const leadsQuery = useMemo(() => {
-    // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
+    // This is the definitive guard. The layout ensures `collaborator` is loaded.
     if (!collaborator) {
       return null;
     }

@@ -80,7 +80,7 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { collaborator, isLoading: isProfileLoading } = useFirebase();
+  const { collaborator } = useFirebase();
   const { toast } = useToast();
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -103,7 +103,7 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
-    // This is the definitive guard. The query is only built if the collaborator profile exists.
+    // THIS IS THE DEFINITIVE GUARD. The layout ensures `collaborator` is loaded.
     if (!collaborator) {
       return null;
     }

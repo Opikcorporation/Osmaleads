@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, onSnapshot, DocumentSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
+import { Firestore, doc, onSnapshot, DocumentSnapshot, DocumentData, FirestoreError, query, collection, where, Query } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import type { Collaborator } from '@/lib/types';
@@ -23,8 +23,8 @@ export interface FirebaseContextState {
   firestore: Firestore | null;
   auth: Auth | null;
   user: User | null;
-  collaborator: Collaborator | null; // Renamed from profile for consistency
-  isLoading: boolean; // The single source of truth for user context loading
+  collaborator: Collaborator | null;
+  isLoading: boolean; 
   error: Error | null;
 }
 
@@ -76,7 +76,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             },
             (profileError: FirestoreError) => {
                // A real error occurred trying to fetch the profile.
-               // We will not emit a global error here, as the component trying to access the data will.
                console.error("FirebaseProvider: Profile snapshot error:", profileError);
                setUserContext({ user: firebaseUser, collaborator: null, isLoading: false, error: profileError });
             }
