@@ -154,8 +154,9 @@ export default function DashboardPage() {
     );
   }, [leads, searchTerm]);
 
-  // Combined loading state. The UI should wait until the profile and initial data are loaded.
-  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  // The main layout now handles the primary loading state.
+  // We only need to worry about the loading of data specific to this page.
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true && filteredLeads) {

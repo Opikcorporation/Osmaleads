@@ -80,8 +80,9 @@ export default function AnalyticsPage() {
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaborators, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  // Combined loading state.
-  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  // The main layout already handles the profile loading state.
+  // We just need to wait for the data queries for this specific page.
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
   const getInitials = (name: string) => {

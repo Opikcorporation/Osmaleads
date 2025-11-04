@@ -66,9 +66,10 @@ export default function DashboardLayout({
     );
   }
   
+  // If we reach here, it means we have a logged-in user with a valid profile.
+  // We can safely render the layout and its children.
   if (!collaborator) {
-     // This case covers the brief moment before the useEffect redirect triggers,
-     // or if the user somehow lands here without being authenticated.
+     // This case covers the brief moment before the useEffect redirect triggers if the user is not logged in.
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <p>Redirection vers la page de connexion...</p>
@@ -80,7 +81,7 @@ export default function DashboardLayout({
   // If we get here, everything is loaded and valid.
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
-      <AppSidebar user={collaborator!} />
+      <AppSidebar user={collaborator} />
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 md:hidden">
           <Sheet>
@@ -91,7 +92,7 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col p-0">
-              <AppSidebar user={collaborator!} />
+              <AppSidebar user={collaborator} />
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
