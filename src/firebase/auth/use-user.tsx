@@ -18,5 +18,3 @@ export const useUser = (): UserAuthHookResult => {
   const { user, isLoading, error } = useFirebase(); // Leverages the main hook
   return { user, isUserLoading: isLoading, userError: error };
 };
-
-    

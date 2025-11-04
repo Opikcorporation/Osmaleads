@@ -1,6 +1,6 @@
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, onSnapshot, DocumentSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
@@ -164,5 +164,3 @@ export const useFirebaseApp = (): FirebaseApp => {
     if (!firebaseApp) throw new Error("FirebaseApp not available.");
     return firebaseApp;
 };
-
-    
