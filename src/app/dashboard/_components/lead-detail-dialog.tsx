@@ -98,17 +98,18 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     if (!lead?.leadData) return null;
     try {
         const data = JSON.parse(lead.leadData);
+        // Display values only, without technical keys.
         return (
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <ul className="space-y-1 text-sm text-muted-foreground">
                 {Object.entries(data).map(([key, value]) => (
-                    <li key={key} className="flex justify-between">
-                        <span className="font-semibold capitalize text-foreground">{key}:</span>
+                     <li key={key}>
                         <span>{String(value)}</span>
                     </li>
                 ))}
             </ul>
         )
     } catch(e) {
+        // Fallback for non-JSON data
         return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.leadData}</p>
     }
   }
@@ -118,9 +119,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-cols-1 md:grid-cols-3 gap-6">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Fiche de {lead?.name || 'Lead'}</DialogTitle>
-          <DialogDescription>Détails complets et historique des interactions pour ce lead.</DialogDescription>
+        <DialogHeader className="md:col-span-3">
+          <DialogTitle className="sr-only">Fiche de {lead?.name || 'Lead'}</DialogTitle>
+          <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
