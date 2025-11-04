@@ -10,6 +10,9 @@ const RequestBodySchema = z.object({
   groupId: z.string(),
 });
 
+/**
+ * Calculates how many leads have been assigned to each collaborator today.
+ */
 async function getTodaysAssignments(firestore: FirebaseFirestore.Firestore): Promise<{ [collaboratorId: string]: number }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -17,6 +20,7 @@ async function getTodaysAssignments(firestore: FirebaseFirestore.Firestore): Pro
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const assignmentsCount: { [collaboratorId: string]: number } = {};
+    // Query for leads that have an 'assignedAt' timestamp from today
     const leadsAssignedTodayQuery = firestore.collection('leads')
         .where('assignedAt', '>=', today)
         .where('assignedAt', '<', tomorrow);
@@ -32,6 +36,10 @@ async function getTodaysAssignments(firestore: FirebaseFirestore.Firestore): Pro
 };
 
 
+/**
+ * API route to distribute unassigned leads to a group of collaborators
+ * based on their settings (daily quota, lead tier) using a round-robin strategy.
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -44,7 +52,7 @@ export async function POST(request: Request) {
     const { groupId } = validation.data;
     const { firestore } = getFirebaseAdmin();
 
-    // 1. Get Group, Settings, and Collaborators
+    // 1. Get Group, its Distribution Setting, and Collaborator members
     const groupSnap = await firestore.collection('groups').doc(groupId).get();
     if (!groupSnap.exists) {
         return NextResponse.json({ error: `Group with ID ${groupId} not found.` }, { status: 404 });
@@ -53,7 +61,7 @@ export async function POST(request: Request) {
 
     const settingsSnap = await firestore.collection('distributionSettings').where('groupId', '==', groupId).limit(1).get();
     if (settingsSnap.empty) {
-        return NextResponse.json({ message: "No distribution setting found for this group." }, { status: 200 });
+        return NextResponse.json({ message: "No distribution setting found for this group. Cannot distribute leads." }, { status: 200 });
     }
     const setting = { ...settingsSnap.docs[0].data(), id: settingsSnap.docs[0].id } as DistributionSetting;
     
@@ -62,16 +70,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "No collaborators in this group to distribute to." }, { status: 200 });
     }
 
-    // 2. Determine how many leads to assign
+    // 2. Determine how many leads to assign to meet the daily quota
     const todaysAssignments = await getTodaysAssignments(firestore);
     const groupLeadsToday = eligibleCollaborators.reduce((sum, memberId) => sum + (todaysAssignments[memberId] || 0), 0);
     
     let leadsToAssignCount = setting.dailyQuota - groupLeadsToday;
     if (leadsToAssignCount <= 0) {
-        return NextResponse.json({ message: `Daily quota of ${setting.dailyQuota} already met for this group.` }, { status: 200 });
+        return NextResponse.json({ message: `Daily quota of ${setting.dailyQuota} already met for this group today.` }, { status: 200 });
     }
 
-    // 3. Get unassigned leads matching the tier
+    // 3. Get unassigned leads that match the group's tier criteria
     let unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '==', null);
     if (setting.leadTier !== 'Tous') {
         unassignedLeadsQuery = unassignedLeadsQuery.where('tier', '==', setting.leadTier);
@@ -83,17 +91,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "No unassigned leads matching the criteria." }, { status: 200 });
     }
     
-    // 4. Create assignment strategy (round-robin)
+    // 4. Create round-robin assignment strategy to ensure fair distribution
     const assignments: { leadId: string, collaboratorId: string }[] = [];
     const currentAssignmentsCount = { ...todaysAssignments };
     
+    // Sort collaborators by who has the fewest assignments today to start with them
     const sortedEligibleCollaborators = [...eligibleCollaborators].sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
 
     for (const lead of unassignedLeads) {
+        // The first collaborator in the sorted list is the one to get the next lead
         const collaboratorToAssignId = sortedEligibleCollaborators[0];
         if (collaboratorToAssignId) {
             assignments.push({ leadId: lead.id, collaboratorId: collaboratorToAssignId });
             
+            // Increment their count for this session
             currentAssignmentsCount[collaboratorToAssignId] = (currentAssignmentsCount[collaboratorToAssignId] || 0) + 1;
             // Re-sort to maintain balance for the next lead
             sortedEligibleCollaborators.sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
@@ -104,7 +115,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "No assignments could be made." }, { status: 200 });
     }
 
-    // 5. Execute batch write
+    // 5. Execute all assignments in a single atomic batch write
     const batch = firestore.batch();
     const serverTimestamp = FieldValue.serverTimestamp();
 
@@ -113,7 +124,7 @@ export async function POST(request: Request) {
       batch.update(leadRef, {
         assignedCollaboratorId: collaboratorId,
         status: 'New',
-        assignedAt: serverTimestamp,
+        assignedAt: serverTimestamp, // Add timestamp for tracking
       });
     }
 
