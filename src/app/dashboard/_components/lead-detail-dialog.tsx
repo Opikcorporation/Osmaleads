@@ -40,6 +40,24 @@ interface LeadDetailDialogProps {
   onClose: () => void;
 }
 
+const WhatsAppIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        <path d="M14.05 2.9A10 10 0 0 1 22 11.45" opacity="0.3"></path>
+        <path d="M14.05 6.4A6 6 0 0 1 19.6 11.95" opacity="0.3"></path>
+    </svg>
+);
+
+const isPhoneNumber = (value: string): boolean => {
+    if (typeof value !== 'string') return false;
+    const digits = value.replace(/\D/g, '');
+    return digits.length > 5;
+};
+
+const formatPhoneNumberForLink = (value: string): string => {
+    return value.replace(/\D/g, '');
+};
+
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
   const { user: authUser } = useUser();
@@ -100,12 +118,26 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         const data = JSON.parse(lead.leadData);
         // Display values only, without technical keys.
         return (
-            <ul className="space-y-1 text-sm text-foreground">
-                {Object.values(data).map((value, index) => (
-                     <li key={index}>
-                        <span>{String(value)}</span>
-                    </li>
-                ))}
+            <ul className="space-y-2 text-foreground">
+                {Object.entries(data).map(([key, value]) => {
+                    const stringValue = String(value);
+                    if (isPhoneNumber(stringValue)) {
+                        return (
+                             <li key={key}>
+                                <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                                    <WhatsAppIcon />
+                                    <span>{stringValue}</span>
+                                </a>
+                            </li>
+                        )
+                    }
+                     return (
+                         <li key={key}>
+                            <span className="font-medium text-muted-foreground">{key}: </span>
+                            <span>{stringValue}</span>
+                        </li>
+                     );
+                })}
             </ul>
         )
     } catch(e) {
@@ -230,3 +262,5 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+
+    
