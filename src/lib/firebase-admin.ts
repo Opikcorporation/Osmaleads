@@ -29,11 +29,18 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
   // Check if the app is already initialized by the Admin SDK.
   if (admin.apps.length === 0) {
     // If not, initialize it using Application Default Credentials.
-    // This is the recommended way for server environments like Cloud Run (used by Genkit).
-    admin.initializeApp({
-      credential: applicationDefault(),
-      projectId: process.env.GCLOUD_PROJECT,
-    });
+    // This is the recommended way for server environments like Cloud Run.
+    try {
+      admin.initializeApp({
+        credential: applicationDefault(),
+        projectId: process.env.GCLOUD_PROJECT,
+      });
+    } catch (e) {
+        console.error("Failed to initialize Firebase Admin SDK", e);
+        // This catch is crucial to understand why initialization might fail.
+        // It could be due to missing credentials or environment variables.
+        throw new Error("Could not initialize Firebase Admin SDK. Check server logs for details.");
+    }
   }
 
   const app = admin.apps[0]!;
