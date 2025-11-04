@@ -441,10 +441,7 @@ export default function DashboardPage() {
                     <TableHead>Nom</TableHead>
                     <TableHead>Contact</TableHead>
                     {collaborator?.role === 'admin' && (
-                      <>
                         <TableHead>Score</TableHead>
-                        <TableHead>Tier</TableHead>
-                      </>
                     )}
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -477,38 +474,19 @@ export default function DashboardPage() {
                                 </div>
                             </TableCell>
                             {collaborator?.role === 'admin' && (
-                                <>
-                                    <TableCell>
-                                        {lead.score !== null ? (
-                                            <span className={cn("font-semibold",
-                                                lead.score > 70 ? 'text-green-600' :
-                                                lead.score >= 40 ? 'text-amber-500' :
-                                                'text-red-600'
-                                            )}>
-                                                {lead.score}%
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">N/A</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {lead.tier ? (
-                                            <Badge variant={
-                                                lead.tier === 'Haut de gamme' ? 'default' :
-                                                lead.tier === 'Moyenne gamme' ? 'secondary' :
-                                                'destructive'
-                                            } className={cn(
-                                                lead.tier === 'Haut de gamme' && 'bg-green-600 hover:bg-green-700',
-                                                lead.tier === 'Moyenne gamme' && 'bg-amber-500 hover:bg-amber-600',
-                                                lead.tier === 'Bas de gamme' && 'bg-red-600 hover:bg-red-700'
-                                            )}>
-                                                {lead.tier}
-                                            </Badge>
-                                        ) : (
-                                            <span className="text-muted-foreground">N/A</span>
-                                        )}
-                                    </TableCell>
-                                </>
+                                <TableCell>
+                                    {lead.score !== null ? (
+                                        <span className={cn("font-semibold",
+                                            lead.score > 70 ? 'text-green-600' :
+                                            lead.score >= 40 ? 'text-amber-500' :
+                                            'text-red-600'
+                                        )}>
+                                            {lead.score}%
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                </TableCell>
                             )}
                             <TableCell>
                             <StatusBadge status={lead.status} />
