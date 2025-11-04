@@ -9,6 +9,7 @@ interface FirebaseAdminServices {
   auth: Auth;
 }
 
+// Use a singleton instance to prevent re-initialization
 let services: FirebaseAdminServices | null = null;
 
 /**
@@ -20,11 +21,12 @@ let services: FirebaseAdminServices | null = null;
  * @returns {FirebaseAdminServices} An object containing the initialized app, firestore, and auth services.
  */
 export function getFirebaseAdmin(): FirebaseAdminServices {
+  // If services are already initialized, return them immediately.
   if (services) {
     return services;
   }
 
-  // Check if the app is already initialized
+  // Check if the app is already initialized by the Admin SDK.
   if (admin.apps.length === 0) {
     // If not, initialize it using Application Default Credentials.
     // This is the recommended way for server environments like Cloud Run (used by Genkit).
@@ -38,6 +40,7 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
   const firestore = getFirestore(app);
   const auth = getAuth(app);
 
+  // Store the initialized services in the singleton instance.
   services = { app, firestore, auth };
 
   return services;
