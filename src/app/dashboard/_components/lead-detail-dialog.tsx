@@ -100,9 +100,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         const data = JSON.parse(lead.leadData);
         // Display values only, without technical keys.
         return (
-            <ul className="space-y-1 text-sm text-muted-foreground">
-                {Object.entries(data).map(([key, value]) => (
-                     <li key={key}>
+            <ul className="space-y-1 text-sm text-foreground">
+                {Object.values(data).map((value, index) => (
+                     <li key={index}>
                         <span>{String(value)}</span>
                     </li>
                 ))}
@@ -110,7 +110,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         )
     } catch(e) {
         // Fallback for non-JSON data
-        return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.leadData}</p>
+        return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>
     }
   }
 
