@@ -44,20 +44,20 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // Absolute safety guard: Do not proceed if the reference is not ready.
     if (!docRef) {
+      setIsLoading(false); // Not loading if there's no reference
       setData(null);
-      setIsLoading(false);
       setError(null);
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    // Optional: setData(null); // Clear previous data instantly
 
     const unsubscribe = onSnapshot(
       docRef,
@@ -65,10 +65,9 @@ export function useDoc<T = any>(
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
         } else {
-          // Document does not exist
           setData(null);
         }
-        setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
+        setError(null);
         setIsLoading(false);
       },
       (error: FirestoreError) => {
@@ -81,13 +80,12 @@ export function useDoc<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [docRef]); // Re-run if the docRef changes.
+  }, [docRef]);
 
   return { data, isLoading, error };
 }
