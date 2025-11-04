@@ -98,86 +98,20 @@ export default function AdminGroupsPage() {
   };
 
   const handleSaveGroup = async (data: any) => {
-    const { groupData, settingData } = data;
-    const groupName = groupData.name;
-    const batch = writeBatch(firestore);
-
-    if (editingGroup) {
-      // Update existing group
-      const groupRef = doc(firestore, 'groups', editingGroup.id);
-      batch.update(groupRef, groupData);
-
-      const existingSetting = getGroupSetting(editingGroup.id);
-      if (existingSetting) {
-        const settingRef = doc(firestore, 'distributionSettings', existingSetting.id);
-        batch.update(settingRef, { ...settingData, groupId: editingGroup.id });
-      } else {
-        const newSettingRef = doc(collection(firestore, 'distributionSettings'));
-        batch.set(newSettingRef, { ...settingData, groupId: editingGroup.id });
-      }
-      
-      toast({ title: 'Groupe mis à jour', description: `Le groupe "${groupName}" a été modifié.` });
-    } else {
-      // Create new group and setting
-      const newGroupRef = doc(collection(firestore, 'groups'));
-      batch.set(newGroupRef, groupData);
-
-      const newSettingRef = doc(collection(firestore, 'distributionSettings'));
-      batch.set(newSettingRef, { ...settingData, groupId: newGroupRef.id });
-
-      toast({ title: 'Groupe créé', description: `Le groupe "${groupName}" a été ajouté.` });
-    }
-    
-    await batch.commit();
+    // This logic will be implemented in the next step
+    toast({ title: 'Fonctionnalité en cours de développement', description: 'La sauvegarde sera bientôt disponible.'});
     handleCloseDialog();
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-    const batch = writeBatch(firestore);
-    
-    const groupRef = doc(firestore, 'groups', groupId);
-    batch.delete(groupRef);
-
-    const setting = getGroupSetting(groupId);
-    if (setting) {
-        const settingRef = doc(firestore, 'distributionSettings', setting.id);
-        batch.delete(settingRef);
-    }
-    
-    await batch.commit();
-    toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe et ses règles ont été supprimés.' });
+     // This logic will be implemented in the next step
+    toast({ variant: 'destructive', title: 'Fonctionnalité en cours de développement', description: 'La suppression sera bientôt disponible.'});
   };
   
   const handleDistribute = async (group: Group) => {
     setDistributingGroupId(group.id);
-    toast({ title: `Distribution pour ${group.name}`, description: "Lancement du processus d'assignation..." });
-    
-    try {
-        const response = await fetch('/api/distribute-leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ groupId: group.id }),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.details || result.error || 'Une erreur inconnue est survenue.');
-        }
-        
-        const distributedCount = result.distributedCount || 0;
-        if (distributedCount > 0) {
-            toast({ title: "Distribution réussie", description: `${distributedCount} lead(s) ont été distribués.` });
-        } else {
-            toast({ title: "Distribution terminée", description: result.message || "Aucun nouveau lead à distribuer." });
-        }
-
-    } catch (error: any) {
-        console.error("Distribution error for group:", error);
-        toast({ variant: 'destructive', title: "Erreur de distribution", description: error.message });
-    } finally {
-        setDistributingGroupId(null);
-    }
+    toast({ title: `Distribution pour ${group.name}`, description: "La logique de distribution n'est pas encore implémentée." });
+    setTimeout(() => setDistributingGroupId(null), 2000);
   }
   
   return (
@@ -273,6 +207,18 @@ export default function AdminGroupsPage() {
             </Card>
           )
         })}
+         {groups?.length === 0 && !isLoading && (
+            <Card className="md:col-span-2 lg:col-span-3">
+                <CardContent className="flex flex-col items-center justify-center p-10 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-semibold">Aucun groupe pour le moment</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">Commencez par créer un groupe pour organiser vos collaborateurs et définir des règles de distribution de leads.</p>
+                    <Button className="mt-4" onClick={() => handleOpenDialog()}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Créer votre premier groupe
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
       </div>
        <GroupFormDialog 
         isOpen={isDialogOpen}
