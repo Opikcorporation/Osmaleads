@@ -1,6 +1,8 @@
+'use server';
 import * as admin from 'firebase-admin';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
+import { applicationDefault } from 'firebase-admin/app';
 
 interface FirebaseAdminServices {
   app: admin.App;
@@ -25,9 +27,10 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
 
   // Check if the app is already initialized
   if (admin.apps.length === 0) {
-    // If not, initialize it.
-    // The SDK will automatically use Google Application Default Credentials when projectId is provided.
+    // If not, initialize it using Application Default Credentials.
+    // This is the recommended way for server environments like Cloud Run (used by Genkit).
     admin.initializeApp({
+      credential: applicationDefault(),
       projectId: process.env.GCLOUD_PROJECT,
     });
   }
