@@ -153,7 +153,7 @@ export default function AdminGroupsPage() {
   
   const handleDistribute = async (group: Group) => {
     setDistributingGroupId(group.id);
-    toast({ title: `Distribution pour ${group.name}`, description: "L'IA recherche des leads correspondants..." });
+    toast({ title: `Distribution pour ${group.name}`, description: "Recherche des leads correspondants..." });
     
     try {
         const result = await distributeLeadsForGroup({ groupId: group.id });
