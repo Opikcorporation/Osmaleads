@@ -80,6 +80,7 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
+  // The layout now guarantees that `collaborator` is available when this component renders.
   const { collaborator } = useFirebase();
   const { toast } = useToast();
   
@@ -103,24 +104,22 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
-    // THIS IS THE DEFINITIVE GUARD. The layout ensures `collaborator` is loaded.
-    if (!collaborator) {
-      return null;
-    }
+    // We can trust `collaborator` exists here because of the layout guard.
+    if (!collaborator) return null;
 
     let q = query(collection(firestore, 'leads'));
-
-    // If it's a collaborator, ALWAYS filter by their ID.
+    
+    // Apply role-based filtering first.
     if (collaborator.role === 'collaborator') {
-        q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
-    } 
-    // If it's an admin, apply the assignee filter from the UI.
-    else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
-        const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
-        q = query(q, where('assignedCollaboratorId', '==', assigneeId));
+      // Security rules enforce this, so the query MUST match.
+      q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
+    } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
+      // Admins can filter by assignee.
+      const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
+      q = query(q, where('assignedCollaboratorId', '==', assigneeId));
     }
     
-    // Apply other filters
+    // Apply other status/tier filters on top of the role-based query.
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }
@@ -141,8 +140,7 @@ export default function DashboardPage() {
   const { data: collaboratorsData, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
   
-  // The layout now handles the primary loading state.
-  // We only need to worry about the loading of data specific to this page.
+  // The page is only loading if its own data subscriptions are loading.
   const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const filteredLeads = useMemo(() => {
@@ -509,7 +507,7 @@ export default function DashboardPage() {
                     ) : (
                     <TableRow>
                         <TableCell colSpan={7} className="text-center h-24">
-                          {leads === null ? "Chargement..." : leads.length === 0 ? "Aucun lead. Commencez par en importer !" : "Aucun lead ne correspond à vos filtres."}
+                          {leads === null ? "Chargement..." : leads?.length === 0 ? "Aucun lead. Commencez par en importer !" : "Aucun lead ne correspond à vos filtres."}
                         </TableCell>
                     </TableRow>
                     )}

@@ -54,25 +54,25 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  // isFirebaseLoading is the new name for the unified loading state from the provider
-  const { collaborator, isLoading: isFirebaseLoading } = useFirebase();
+  // The layout now guarantees that `collaborator` is available when this component renders.
+  const { collaborator } = useFirebase();
 
   const leadsQuery = useMemo(() => {
-    // The layout ensures `collaborator` is loaded. This is the definitive guard.
-    if (!collaborator) {
-      return null;
-    }
+    // We can trust `collaborator` exists here because of the layout guard.
+    if (!collaborator) return null; 
 
     const leadsCollection = collection(firestore, 'leads');
-    // If user is a collaborator, the Firestore security rule will enforce
-    // that they can only list leads where their ID is in 'assignedCollaboratorId'.
-    // We MUST add the where clause here to comply with the rule.
-    if (collaborator.role === 'collaborator') {
-      return query(leadsCollection, where('assignedCollaboratorId', '==', collaborator.id));
+    
+    // For admins, no client-side filter is needed to see all leads.
+    // The security rule `isAdmin()` will allow this.
+    if (collaborator.role === 'admin') {
+      return query(leadsCollection);
     }
     
-    // For admins, no filter is needed at the query level to see all leads.
-    return query(leadsCollection);
+    // For collaborators, we MUST add the where clause.
+    // The security rule `request.query.where.assignedCollaboratorId == request.auth.uid`
+    // makes this query safe and permissible.
+    return query(leadsCollection, where('assignedCollaboratorId', '==', collaborator.id));
   }, [firestore, collaborator]);
 
   const collaboratorsQuery = useMemo(() => 
@@ -81,11 +81,10 @@ export default function AnalyticsPage() {
   );
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
-  const { data: collaborators, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
+  const { data: collaboratorsData, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  // Combine all loading states. The page is loading if the main context is loading,
-  // or if any of the page-specific data is loading.
-  const isLoading = isFirebaseLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  // The page is only loading if its own data subscriptions are loading.
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
   const getInitials = (name: string) => {
@@ -143,8 +142,8 @@ export default function AnalyticsPage() {
   }, [leads, collaborator]);
   
   const collaboratorPerformanceData = useMemo(() => {
-    if (!leads || !collaborators || collaborator?.role !== 'admin') return [];
-    return collaborators
+    if (!leads || !collaboratorsData || collaborator?.role !== 'admin') return [];
+    return collaboratorsData
         .filter(c => c.role === 'collaborator')
         .map(c => {
             const assignedLeads = leads.filter(l => l.assignedCollaboratorId === c.id);
@@ -158,7 +157,7 @@ export default function AnalyticsPage() {
             }
         })
         .sort((a,b) => b.signedCount - a.signedCount || b.conversionRate - a.conversionRate);
-  }, [leads, collaborators, collaborator]);
+  }, [leads, collaboratorsData, collaborator]);
 
   if (isLoading) {
     return (
