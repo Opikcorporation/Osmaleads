@@ -31,13 +31,17 @@
           "description": "The username or social media handle of the lead."
         },
         "tier": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "The quality tier of the lead.",
           "enum": [
             "Bas de gamme",
             "Moyenne gamme",
             "Haut de gamme"
           ]
+        },
+        "score": {
+          "type": ["number", "null"],
+          "description": "A numerical score representing the lead's quality."
         },
         "leadData": {
           "type": "string",
@@ -57,8 +61,7 @@
         "id",
         "name",
         "leadData",
-        "status",
-        "tier"
+        "status"
       ]
     },
     "Collaborator": {

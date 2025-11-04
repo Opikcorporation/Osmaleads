@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { readFileAsText } from '@/lib/file-utils';
 import { UploadCloud, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -21,21 +21,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { leadTiers, type LeadTier } from '@/lib/types';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { parseCSV } from '../page';
+import { leadTiers, LeadTier } from '@/lib/types';
 
-const parseCSVHeaders = (content: string): string[] => {
-  const firstLine = content.split('\n')[0];
-  if (!firstLine) return [];
-  const delimiter = firstLine.includes(';') ? ';' : ',';
-  return firstLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-};
-
+export type ScoreRule = { value: string; score: number };
 
 interface LeadImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { fileContent: string; mapping: { [key: string]: string }, tier: LeadTier }) => void;
+  onSave: (data: {
+    fileContent: string;
+    mapping: { [key: string]: string };
+    scoreColumn?: string;
+    scoreRules?: ScoreRule[];
+  }) => void;
 }
 
 export function LeadImportDialog({
@@ -48,7 +48,8 @@ export function LeadImportDialog({
   const [fileContent, setFileContent] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
-  const [tier, setTier] = useState<LeadTier | undefined>(undefined);
+  const [scoreColumn, setScoreColumn] = useState<string | undefined>();
+  const [scoreRules, setScoreRules] = useState<ScoreRule[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -58,7 +59,8 @@ export function LeadImportDialog({
     setFileContent('');
     setHeaders([]);
     setMapping({});
-    setTier(undefined);
+    setScoreColumn(undefined);
+    setScoreRules([]);
     setIsProcessing(false);
     onClose();
   };
@@ -89,7 +91,7 @@ export function LeadImportDialog({
     setIsProcessing(true);
     try {
       const content = await readFileAsText(file);
-      const parsedHeaders = parseCSVHeaders(content);
+      const { headers: parsedHeaders } = parseCSV(content);
       if (parsedHeaders.length === 0) {
         toast({ variant: 'destructive', title: 'Fichier invalide', description: 'Impossible de détecter les colonnes dans ce fichier.' });
         setIsProcessing(false);
@@ -112,31 +114,27 @@ export function LeadImportDialog({
     }
     setStep(3);
   }
-  
-  const handleMappingChange = (header: string, field: string) => {
-    setMapping(prev => ({ ...prev, [header]: field }));
-  };
 
+  const handleScoreColumnChange = (column: string) => {
+    setScoreColumn(column);
+  }
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tier) {
-        toast({ variant: 'destructive', title: 'Tier manquant', description: 'Veuillez sélectionner un tier pour ce lot de leads.' });
-        return;
-    }
-    onSave({ fileContent, mapping, tier });
+    onSave({ fileContent, mapping, scoreColumn, scoreRules });
     resetState();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={resetState}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Importer des Leads (Étape {step}/3)</DialogTitle>
             <DialogDescription>
               {step === 1 && 'Téléversez un fichier CSV contenant vos leads.'}
               {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination.'}
-              {step === 3 && 'Choisissez le tier de qualité pour ce lot de leads.'}
+              {step === 3 && 'Optionnel : Choisissez une colonne pour définir le score des leads.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -170,7 +168,7 @@ export function LeadImportDialog({
                 {headers.map(header => (
                     <div key={header} className="grid grid-cols-2 items-center gap-4">
                         <Label htmlFor={`header-${header}`} className="text-right font-medium truncate">{header}</Label>
-                        <Select onValueChange={value => handleMappingChange(header, value)}>
+                        <Select onValueChange={value => setMapping(prev => ({...prev, [header]: value}))}>
                             <SelectTrigger id={`header-${header}`}>
                                 <SelectValue placeholder="Ignorer cette colonne" />
                             </SelectTrigger>
@@ -187,23 +185,20 @@ export function LeadImportDialog({
              </div>
           )}
 
-          {step === 3 && (
-            <div className="py-6">
-              <RadioGroup onValueChange={(value) => setTier(value as LeadTier)} value={tier} className="grid grid-cols-1 gap-4">
-                {leadTiers.map((tierOption) => (
-                    <Label key={tierOption} htmlFor={tierOption} className="flex items-center gap-4 rounded-md border p-4 cursor-pointer hover:bg-accent has-[div:first-child:has([data-state=checked])]:border-primary">
-                        <RadioGroupItem value={tierOption} id={tierOption} />
-                        <div>
-                            <p className="font-semibold">{tierOption}</p>
-                            <p className="text-sm text-muted-foreground">
-                                {tierOption === 'Haut de gamme' && 'Pour vos leads les plus prometteurs.'}
-                                {tierOption === 'Moyenne gamme' && 'Pour les leads standards.'}
-                                {tierOption === 'Bas de gamme' && 'Pour les leads à faible priorité.'}
-                            </p>
-                        </div>
-                    </Label>
-                ))}
-              </RadioGroup>
+           {step === 3 && (
+            <div className="py-6 space-y-4">
+                <Label htmlFor='score-column' className="text-base font-semibold">Configuration du Score (Optionnel)</Label>
+                 <p className="text-sm text-muted-foreground">Sélectionnez la colonne qui déterminera le score du lead (ex: "Budget", "Type de bien"). Si vous ne sélectionnez rien, aucun score ne sera calculé.</p>
+                <Select onValueChange={handleScoreColumnChange} value={scoreColumn}>
+                    <SelectTrigger id="score-column">
+                        <SelectValue placeholder="Sélectionner une colonne pour le score" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {headers.map(header => (
+                            <SelectItem key={header} value={header}>{header}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
           )}
           
@@ -231,7 +226,9 @@ export function LeadImportDialog({
                     <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                     </Button>
-                    <Button type="submit" disabled={!tier}>Importer les Leads</Button>
+                    <Button type="submit">
+                       {scoreColumn ? 'Définir les Points' : 'Importer sans Score'} <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                 </>
             )}
           </DialogFooter>

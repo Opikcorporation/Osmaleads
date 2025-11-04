@@ -26,9 +26,9 @@ import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
+import { FileUp, Trash2, UserPlus, Search, TrendingUp } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { LeadImportDialog } from './_components/lead-import-dialog';
+import { LeadImportDialog, type ScoreRule } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -57,19 +57,22 @@ import { Badge } from '@/components/ui/badge';
 
 
 // Simple CSV parser
-const parseCSV = (content: string): { [key: string]: string }[] => {
-  const rows = content.trim().split('\n').map(row => row.trim()).filter(Boolean);
-  if (rows.length < 2) return [];
-  // Handles both comma and semicolon delimiters
-  const delimiter = rows[0].includes(';') ? ';' : ',';
-  const headers = rows[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
-  return rows.slice(1).map(rowStr => {
-    const values = rowStr.split(delimiter).map(v => v.trim().replace(/"/g, ''));
-    return headers.reduce((obj, header, index) => {
-      obj[header] = values[index];
-      return obj;
-    }, {} as { [key: string]: string });
-  });
+export const parseCSV = (content: string): { headers: string[], rows: { [key: string]: string }[] } => {
+    const lines = content.trim().split('\n').map(row => row.trim()).filter(Boolean);
+    if (lines.length < 1) return { headers: [], rows: [] };
+    const delimiter = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(delimiter).map(h => h.trim().replace(/"/g, ''));
+    
+    const rows = lines.slice(1).map(lineStr => {
+      // Basic split, doesn't handle quotes containing delimiters
+      const values = lineStr.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+      return headers.reduce((obj, header, index) => {
+        obj[header] = values[index];
+        return obj;
+      }, {} as { [key: string]: string });
+    });
+
+    return { headers, rows };
 };
 
 
@@ -142,12 +145,13 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
-  const handleSaveLead = async ({ fileContent, mapping, tier }: { fileContent: string; mapping: { [key: string]: string }, tier: LeadTier }) => {
+  const handleSaveLead = async (data: { fileContent: string; mapping: { [key: string]: string }, scoreColumn?: string, scoreRules?: ScoreRule[] }) => {
+    const { fileContent, mapping, scoreColumn, scoreRules } = data;
     if (!firestore) return;
     
     try {
-      const parsedData = parseCSV(fileContent);
-      if (parsedData.length === 0) {
+      const { rows } = parseCSV(fileContent);
+      if (rows.length === 0) {
         toast({ variant: 'destructive', title: 'Fichier vide', description: 'Aucune donnée à importer.' });
         return;
       }
@@ -161,9 +165,21 @@ export default function DashboardPage() {
              invertedMapping[mapping[key]] = key;
           }
       }
+      
+      const scoreRulesMap = scoreRules ? scoreRules.reduce((acc, rule) => {
+        acc[rule.value] = rule.score;
+        return acc;
+      }, {} as {[key: string]: number}) : {};
 
-      for (const row of parsedData) {
+
+      for (const row of rows) {
         const newLeadDocRef = doc(leadsColRef);
+        
+        let score: number | null = null;
+        if(scoreColumn) {
+          const scoreValue = row[scoreColumn];
+          score = scoreValue ? (scoreRulesMap[scoreValue] || 0) : 0;
+        }
         
         const newLead: Omit<Lead, 'id'> = {
           name: row[invertedMapping['name']] || "Lead sans nom",
@@ -172,7 +188,8 @@ export default function DashboardPage() {
           company: row[invertedMapping['company']] || null,
           username: null,
           status: 'New',
-          tier: tier,
+          tier: null,
+          score: score,
           leadData: JSON.stringify(row),
           assignedCollaboratorId: null,
         };
@@ -183,7 +200,7 @@ export default function DashboardPage() {
 
       toast({
         title: "Importation réussie !",
-        description: `${parsedData.length} lead(s) ont été créés avec le tier "${tier}".`,
+        description: `${rows.length} lead(s) ont été créés et scorés.`,
       });
 
     } catch (error) {
@@ -351,7 +368,7 @@ export default function DashboardPage() {
                         />
                     </TableHead>
                     <TableHead>Nom</TableHead>
-                    <TableHead>Tier</TableHead>
+                    <TableHead>Score</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -376,7 +393,14 @@ export default function DashboardPage() {
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
-                                {lead.tier ? <Badge variant="outline">{lead.tier}</Badge> : <span className="text-muted-foreground text-sm">N/A</span>}
+                                {lead.score !== null ? (
+                                    <div className="flex items-center gap-2 font-medium">
+                                        <TrendingUp className="h-4 w-4 text-primary" />
+                                        <span>{lead.score}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-muted-foreground">N/A</span>
+                                )}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
                             <TableCell>
