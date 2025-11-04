@@ -27,7 +27,7 @@ import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
+import { FileUp, Trash2, UserPlus, Search, Phone, Mail } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LeadImportDialog, type AllScoreRules } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -117,7 +117,7 @@ export default function DashboardPage() {
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }
-     if (tierFilter !== 'All') {
+     if (tierFilter !== 'All' && collaborator?.role === 'admin') {
       q = query(q, where('tier', '==', tierFilter));
     }
     // Only show assignee filter if user is an admin
@@ -354,17 +354,19 @@ export default function DashboardPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-             <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Filtrer par tier" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">Tous les tiers</SelectItem>
-                {leadTiers.map(tier => (
-                  <SelectItem key={tier} value={tier}>{tier}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+             {collaborator?.role === 'admin' && (
+                <Select value={tierFilter} onValueChange={setTierFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filtrer par tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">Tous les tiers</SelectItem>
+                    {leadTiers.map(tier => (
+                      <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+             )}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Filtrer par statut" />
@@ -437,8 +439,13 @@ export default function DashboardPage() {
                       </TableHead>
                     )}
                     <TableHead>Nom</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Tier</TableHead>
+                    <TableHead>Contact</TableHead>
+                    {collaborator?.role === 'admin' && (
+                      <>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Tier</TableHead>
+                      </>
+                    )}
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
@@ -464,35 +471,45 @@ export default function DashboardPage() {
                             )}
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
-                                {lead.score !== null ? (
-                                    <span className={cn("font-semibold",
-                                        lead.score > 70 ? 'text-green-600' :
-                                        lead.score >= 40 ? 'text-amber-500' :
-                                        'text-red-600'
-                                    )}>
-                                        {lead.score}%
-                                    </span>
-                                ) : (
-                                    <span className="text-muted-foreground">N/A</span>
-                                )}
+                                <div className='flex flex-col gap-1'>
+                                    {lead.email && <div className='flex items-center gap-1.5'><Mail className='w-3 h-3 text-muted-foreground'/> <span className='text-xs'>{lead.email}</span></div>}
+                                    {lead.phone && <div className='flex items-center gap-1.5'><Phone className='w-3 h-3 text-muted-foreground'/> <span className='text-xs'>{lead.phone}</span></div>}
+                                </div>
                             </TableCell>
-                            <TableCell>
-                                {lead.tier ? (
-                                    <Badge variant={
-                                        lead.tier === 'Haut de gamme' ? 'default' :
-                                        lead.tier === 'Moyenne gamme' ? 'secondary' :
-                                        'destructive'
-                                    } className={cn(
-                                        lead.tier === 'Haut de gamme' && 'bg-green-600 hover:bg-green-700',
-                                        lead.tier === 'Moyenne gamme' && 'bg-amber-500 hover:bg-amber-600',
-                                        lead.tier === 'Bas de gamme' && 'bg-red-600 hover:bg-red-700'
-                                    )}>
-                                        {lead.tier}
-                                    </Badge>
-                                ) : (
-                                    <span className="text-muted-foreground">N/A</span>
-                                )}
-                            </TableCell>
+                            {collaborator?.role === 'admin' && (
+                                <>
+                                    <TableCell>
+                                        {lead.score !== null ? (
+                                            <span className={cn("font-semibold",
+                                                lead.score > 70 ? 'text-green-600' :
+                                                lead.score >= 40 ? 'text-amber-500' :
+                                                'text-red-600'
+                                            )}>
+                                                {lead.score}%
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground">N/A</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {lead.tier ? (
+                                            <Badge variant={
+                                                lead.tier === 'Haut de gamme' ? 'default' :
+                                                lead.tier === 'Moyenne gamme' ? 'secondary' :
+                                                'destructive'
+                                            } className={cn(
+                                                lead.tier === 'Haut de gamme' && 'bg-green-600 hover:bg-green-700',
+                                                lead.tier === 'Moyenne gamme' && 'bg-amber-500 hover:bg-amber-600',
+                                                lead.tier === 'Bas de gamme' && 'bg-red-600 hover:bg-red-700'
+                                            )}>
+                                                {lead.tier}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-muted-foreground">N/A</span>
+                                        )}
+                                    </TableCell>
+                                </>
+                            )}
                             <TableCell>
                             <StatusBadge status={lead.status} />
                             </TableCell>
