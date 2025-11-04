@@ -21,9 +21,8 @@ import {
   useFirestore,
   useUser,
   useDoc,
-  addDocumentNonBlocking,
-  updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
@@ -133,8 +132,8 @@ export default function DashboardPage() {
   }, [user, firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
 
   const collaboratorsQuery = useMemo(
-    () => collection(firestore, 'collaborators'),
-    [firestore]
+    () => (collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null),
+    [firestore, collaborator]
   );
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
@@ -524,12 +523,12 @@ export default function DashboardPage() {
         />
       )}
       
-      {collaborator?.role === 'admin' && (
+      {collaborator?.role === 'admin' && collaborators && (
         <BulkAssignDialog
           isOpen={isAssignDialogOpen}
           onClose={() => setIsAssignDialogOpen(false)}
           onAssign={handleBulkAssign}
-          collaborators={collaborators || []}
+          collaborators={collaborators}
           isProcessing={isProcessing}
         />
       )}
