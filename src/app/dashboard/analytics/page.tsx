@@ -59,15 +59,17 @@ export default function AnalyticsPage() {
   const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
   const leadsQuery = useMemo(() => {
-    if (!user || !collaborator) return null;
+    if (!collaborator) {
+      return null;
+    }
 
     let q = query(collection(firestore, 'leads'));
     // If user is a collaborator, only show their leads
     if (collaborator.role === 'collaborator') {
-        q = query(q, where('assignedCollaboratorId', '==', user.uid));
+        q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
     }
     return q;
-  }, [user, firestore, collaborator]);
+  }, [firestore, collaborator]);
 
   const collaboratorsQuery = useMemo(() => 
     collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null,
@@ -313,7 +315,7 @@ export default function AnalyticsPage() {
                       </TableRow>
                   </TableHeader>
                   <TableBody>
-                      {collaboratorPerformanceData.map(data => (
+                      {collaboratorPerformanceData?.map(data => (
                           <TableRow key={data.collaborator.id}>
                               <TableCell>
                                   <div className="flex items-center gap-3">
@@ -339,7 +341,7 @@ export default function AnalyticsPage() {
                               </TableCell>
                           </TableRow>
                       ))}
-                      {collaboratorPerformanceData.length === 0 && (
+                      {collaboratorPerformanceData?.length === 0 && (
                           <TableRow>
                               <TableCell colSpan={4} className="text-center h-24">Aucun collaborateur à analyser.</TableCell>
                           </TableRow>
