@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
+import { leadTiers, type LeadTier } from '@/lib/types';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const parseCSVHeaders = (content: string): string[] => {
   const firstLine = content.split('\n')[0];
@@ -33,7 +35,7 @@ const parseCSVHeaders = (content: string): string[] => {
 interface LeadImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { fileContent: string; mapping: { [key: string]: string } }) => void;
+  onSave: (data: { fileContent: string; mapping: { [key: string]: string }, tier: LeadTier }) => void;
 }
 
 export function LeadImportDialog({
@@ -46,6 +48,7 @@ export function LeadImportDialog({
   const [fileContent, setFileContent] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
+  const [tier, setTier] = useState<LeadTier | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -55,6 +58,7 @@ export function LeadImportDialog({
     setFileContent('');
     setHeaders([]);
     setMapping({});
+    setTier(undefined);
     setIsProcessing(false);
     onClose();
   };
@@ -77,7 +81,7 @@ export function LeadImportDialog({
     }
   };
   
-  const handleNextStep = async () => {
+  const handleGoToStep2 = async () => {
     if (!file) {
       toast({ variant: 'destructive', title: 'Aucun fichier sélectionné' });
       return;
@@ -100,6 +104,14 @@ export function LeadImportDialog({
       setIsProcessing(false);
     }
   };
+
+  const handleGoToStep3 = () => {
+     if (Object.values(mapping).filter(v => v === 'name').length === 0) {
+      toast({ variant: 'destructive', title: 'Mappage incomplet', description: 'Veuillez mapper une colonne pour le champ "Nom".' });
+      return;
+    }
+    setStep(3);
+  }
   
   const handleMappingChange = (header: string, field: string) => {
     setMapping(prev => ({ ...prev, [header]: field }));
@@ -107,11 +119,11 @@ export function LeadImportDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-     if (Object.values(mapping).filter(v => v === 'name').length === 0) {
-      toast({ variant: 'destructive', title: 'Mappage incomplet', description: 'Veuillez mapper une colonne pour le champ "Nom".' });
-      return;
+    if (!tier) {
+        toast({ variant: 'destructive', title: 'Tier manquant', description: 'Veuillez sélectionner un tier pour ce lot de leads.' });
+        return;
     }
-    onSave({ fileContent, mapping });
+    onSave({ fileContent, mapping, tier });
     resetState();
   };
 
@@ -120,9 +132,11 @@ export function LeadImportDialog({
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Importer des Leads</DialogTitle>
+            <DialogTitle>Importer des Leads (Étape {step}/3)</DialogTitle>
             <DialogDescription>
-              {step === 1 ? 'Téléversez un fichier CSV contenant vos leads.' : 'Mappez les colonnes de votre fichier aux champs de destination.'}
+              {step === 1 && 'Téléversez un fichier CSV contenant vos leads.'}
+              {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination.'}
+              {step === 3 && 'Choisissez le tier de qualité pour ce lot de leads.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -152,7 +166,7 @@ export function LeadImportDialog({
 
           {step === 2 && (
              <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
-                <p className="text-sm text-muted-foreground">Indiquez quelle colonne de votre fichier correspond au Nom et au Téléphone.</p>
+                <p className="text-sm text-muted-foreground">Indiquez quelle colonne de votre fichier correspond aux champs de LeadFlowAI. Le champ "Nom" est obligatoire.</p>
                 {headers.map(header => (
                     <div key={header} className="grid grid-cols-2 items-center gap-4">
                         <Label htmlFor={`header-${header}`} className="text-right font-medium truncate">{header}</Label>
@@ -172,12 +186,32 @@ export function LeadImportDialog({
                 ))}
              </div>
           )}
+
+          {step === 3 && (
+            <div className="py-6">
+              <RadioGroup onValueChange={(value) => setTier(value as LeadTier)} value={tier} className="grid grid-cols-1 gap-4">
+                {leadTiers.map((tierOption) => (
+                    <Label key={tierOption} htmlFor={tierOption} className="flex items-center gap-4 rounded-md border p-4 cursor-pointer hover:bg-accent has-[div:first-child:has([data-state=checked])]:border-primary">
+                        <RadioGroupItem value={tierOption} id={tierOption} />
+                        <div>
+                            <p className="font-semibold">{tierOption}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {tierOption === 'Haut de gamme' && 'Pour vos leads les plus prometteurs.'}
+                                {tierOption === 'Moyenne gamme' && 'Pour les leads standards.'}
+                                {tierOption === 'Bas de gamme' && 'Pour les leads à faible priorité.'}
+                            </p>
+                        </div>
+                    </Label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
           
           <DialogFooter>
             {step === 1 && (
               <>
                 <Button type="button" variant="ghost" onClick={resetState}>Annuler</Button>
-                <Button type="button" onClick={handleNextStep} disabled={!file || isProcessing}>
+                <Button type="button" onClick={handleGoToStep2} disabled={!file || isProcessing}>
                     {isProcessing ? 'Analyse...' : 'Suivant'} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </>
@@ -187,8 +221,18 @@ export function LeadImportDialog({
                 <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                 </Button>
-                <Button type="submit">Importer les Leads</Button>
+                <Button type="button" onClick={handleGoToStep3}>
+                    Suivant <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </>
+            )}
+            {step === 3 && (
+                <>
+                    <Button type="button" variant="ghost" onClick={() => setStep(2)}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
+                    </Button>
+                    <Button type="submit" disabled={!tier}>Importer les Leads</Button>
+                </>
             )}
           </DialogFooter>
         </form>

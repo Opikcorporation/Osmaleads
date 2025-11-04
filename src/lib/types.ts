@@ -46,7 +46,7 @@ export type Lead = {
   company: string | null;
   username: string | null;
   status: LeadStatus;
-  score: number | null;
+  tier: LeadTier;
   leadData: string; // Raw CSV row data as JSON
   assignedCollaboratorId: string | null;
 };

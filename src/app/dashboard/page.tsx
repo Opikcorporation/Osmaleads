@@ -22,11 +22,11 @@ import {
   useMemoFirebase,
   useUser,
 } from '@/firebase';
-import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus, Search, CircleHelp } from 'lucide-react';
+import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +52,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { leadStatuses } from '@/lib/types';
+import { leadStatuses, leadTiers } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 
 // Simple CSV parser
@@ -141,7 +142,7 @@ export default function DashboardPage() {
     return collaborators?.find((c) => c.id === collaboratorId);
   };
   
-  const handleSaveLead = async ({ fileContent, mapping }: { fileContent: string; mapping: { [key: string]: string } }) => {
+  const handleSaveLead = async ({ fileContent, mapping, tier }: { fileContent: string; mapping: { [key: string]: string }, tier: LeadTier }) => {
     if (!firestore) return;
     
     try {
@@ -153,7 +154,6 @@ export default function DashboardPage() {
       
       const batch = writeBatch(firestore);
       const leadsColRef = collection(firestore, 'leads');
-      const newLeadIds: string[] = [];
       
       const invertedMapping: { [key: string]: string } = {};
       for (const key in mapping) {
@@ -172,34 +172,19 @@ export default function DashboardPage() {
           company: row[invertedMapping['company']] || null,
           username: null,
           status: 'New',
-          score: null, // AI will populate this
+          tier: tier,
           leadData: JSON.stringify(row),
           assignedCollaboratorId: null,
         };
         batch.set(newLeadDocRef, newLead);
-        newLeadIds.push(newLeadDocRef.id);
       }
 
       await batch.commit();
 
       toast({
         title: "Importation réussie !",
-        description: `${parsedData.length} lead(s) ont été créés.`,
+        description: `${parsedData.length} lead(s) ont été créés avec le tier "${tier}".`,
       });
-
-      // Trigger background AI scoring
-      if (newLeadIds.length > 0) {
-        toast({
-          title: "Analyse IA en cours...",
-          description: "L'IA analyse vos nouveaux leads pour leur attribuer un score."
-        });
-        // No need to await, let it run in the background
-        fetch('/api/score-lead', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leadIds: newLeadIds }), // Send all IDs at once
-        });
-      }
 
     } catch (error) {
       console.error("Failed to parse or save leads:", error);
@@ -366,7 +351,7 @@ export default function DashboardPage() {
                         />
                     </TableHead>
                     <TableHead>Nom</TableHead>
-                    <TableHead>Score</TableHead>
+                    <TableHead>Tier</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -391,11 +376,7 @@ export default function DashboardPage() {
                             </TableCell>
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
-                                {lead.score !== null ? (
-                                    <span className="font-mono text-sm">{lead.score}</span>
-                                ) : (
-                                    <span className="text-muted-foreground text-sm">...</span>
-                                )}
+                                {lead.tier ? <Badge variant="outline">{lead.tier}</Badge> : <span className="text-muted-foreground text-sm">N/A</span>}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
                             <TableCell>
