@@ -22,13 +22,12 @@ import {
   useMemoFirebase,
   useUser,
   useDoc,
-  writeBatch,
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search, Phone, Mail } from 'lucide-react';
