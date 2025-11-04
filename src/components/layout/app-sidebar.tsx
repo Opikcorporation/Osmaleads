@@ -47,12 +47,6 @@ export default function AppSidebar({ user }: AppSidebarProps) {
         icon: UserPlus,
         roles: ['admin'],
     },
-    {
-        href: '/dashboard/admin/groups',
-        label: 'Groupes',
-        icon: Users,
-        roles: ['admin'],
-    }
   ]
 
   return (

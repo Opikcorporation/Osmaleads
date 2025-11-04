@@ -28,7 +28,7 @@ service cloud.firestore {
     // Leads collection can be listed by admins. Individual leads can be read/updated
     // by admins or the assigned collaborator.
     match /leads/{leadId} {
-      allow list: if isAdmin(); // Allows admins to query the whole collection
+      allow list: if isAdmin();
       allow read, update: if isAdmin() || isAssigned(leadId);
       allow create, delete: if isAdmin();
 
@@ -36,14 +36,6 @@ service cloud.firestore {
       match /notes/{noteId} {
         allow read, write: if isAdmin() || isAssigned(leadId);
       }
-    }
-
-    match /groups/{groupId} {
-      allow read, write: if isAdmin();
-    }
-    
-    match /distributionSettings/{settingId} {
-       allow read, write: if isAdmin();
     }
   }
 }

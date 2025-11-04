@@ -4,100 +4,107 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, type User } from 'firebase/auth';
 import { useEffect, useState, useCallback }from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { getRandomColor } from '@/lib/colors';
 
-export default function LoginPage() {
+// --- Configuration du Compte Admin Cible ---
+const ADMIN_USERNAME = 'alessio_opik';
+const ADMIN_EMAIL = `${ADMIN_USERNAME}@example.com`;
+const ADMIN_PASSWORD = 'password123';
+// ---------------------------------------------
+
+export default function ForceAdminLoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const { toast } = useToast();
   
-  const [status, setStatus] = useState('Chargement...'); 
+  const [status, setStatus] = useState('Démarrage...'); 
   const [error, setError] = useState<string | null>(null);
 
-  // This function ensures the admin profile exists and is valid.
-  const ensureAdminProfile = useCallback(async (firebaseUser: User) => {
-    if (!firestore) return;
-    setStatus('Vérification du profil admin...');
-    const adminRef = doc(firestore, 'collaborators', firebaseUser.uid);
-    
-    try {
-        const docSnap = await getDoc(adminRef);
-        let profileData: Collaborator;
-
-        if (!docSnap.exists() || !docSnap.data()?.role) {
-            // Profile is missing or broken, we create/overwrite it.
-            setStatus('Profil admin manquant. Création...');
-            profileData = {
-                id: firebaseUser.uid,
-                name: 'Admin',
-                username: 'admin01',
-                email: 'admin01@example.com',
-                role: 'admin',
-                avatarColor: getRandomColor(),
-            };
-            await setDoc(adminRef, profileData);
-        } else {
-            // Profile exists, we just use it.
-            profileData = docSnap.data() as Collaborator;
-        }
-        
-        setStatus('Connexion réussie. Redirection...');
-        router.push('/dashboard');
-
-    } catch (e: any) {
-        console.error("Error ensuring admin profile:", e);
-        setError(`Erreur lors de la vérification du profil : ${e.message}`);
-        setStatus('Échec de la vérification');
-    }
-  }, [firestore, router]);
-
-
-  useEffect(() => {
-    // If a user is already logged in, ensure their profile is good.
-    if (!isUserLoading && user) {
-        if(user.email === 'admin01@example.com') {
-            ensureAdminProfile(user);
-        } else {
-             // For other users, we just redirect. The layout will handle profile checks.
-            router.push('/dashboard');
-        }
+  const ensureAdminAccount = useCallback(async () => {
+    if (!auth || !firestore) {
+      setStatus('En attente des services Firebase...');
       return;
     }
 
-    // If no user, attempt auto-login as admin.
-    if (!isUserLoading && !user && auth) {
-      const autoLogin = async () => {
-        setStatus('Connexion automatique au compte admin...');
-        setError(null);
-        
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, 'admin01@example.com', 'password123');
-          // On success, the user object will update, and this effect will re-run,
-          // which will then call ensureAdminProfile.
-        } catch (err: any) {
-          console.error('Auto-login Error:', err);
-          let errorMessage = 'La connexion automatique a échoué.';
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            errorMessage = "Le compte admin par défaut n'existe pas ou les identifiants sont incorrects. Il faut le créer via le dashboard.";
-          }
-          setError(errorMessage);
-setStatus('Échec de la connexion');
-        }
-      };
+    setStatus(`Préparation du compte admin "${ADMIN_USERNAME}"...`);
+    let adminUser: User;
 
-      autoLogin();
+    try {
+      // 1. Essayer de connecter l'admin
+      setStatus('Tentative de connexion...');
+      const userCredential = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD);
+      adminUser = userCredential.user;
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        // 2. Si l'utilisateur n'existe pas, le créer
+        setStatus('Compte admin non trouvé. Création en cours...');
+        try {
+          const newUserCredential = await createUserWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD);
+          adminUser = newUserCredential.user;
+        } catch (creationError: any) {
+          setError(`Erreur critique lors de la création du compte : ${creationError.message}`);
+          setStatus('Échec de la création');
+          return;
+        }
+      } else {
+        // Autre erreur de connexion
+        setError(`Erreur de connexion : ${err.message}`);
+        setStatus('Échec de la connexion');
+        return;
+      }
     }
-  }, [isUserLoading, user, auth, ensureAdminProfile, router]);
+
+    // 3. À ce stade, nous avons un utilisateur authentifié (créé ou connecté).
+    // On vérifie et répare son profil Firestore.
+    setStatus('Vérification et réparation du profil de la base de données...');
+    const adminRef = doc(firestore, 'collaborators', adminUser.uid);
+    
+    try {
+        const docSnap = await getDoc(adminRef);
+        
+        const profileData: Collaborator = {
+            id: adminUser.uid,
+            name: 'Alessio Opik',
+            username: ADMIN_USERNAME,
+            email: ADMIN_EMAIL,
+            role: 'admin',
+            avatarColor: docSnap.exists() ? docSnap.data().avatarColor || getRandomColor() : getRandomColor(),
+        };
+
+        // Écraser le profil pour s'assurer qu'il est correct et complet.
+        await setDoc(adminRef, profileData);
+        
+        setStatus('Profil admin validé. Redirection vers le tableau de bord...');
+        router.push('/dashboard');
+
+    } catch (e: any) {
+        setError(`Erreur lors de la synchronisation du profil : ${e.message}`);
+        setStatus('Échec de la synchronisation');
+    }
+  }, [auth, firestore, router]);
+
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+        // Un utilisateur est déjà connecté, on le redirige.
+        setStatus('Utilisateur déjà connecté. Redirection...');
+        router.push('/dashboard');
+        return;
+    }
+
+    if (!isUserLoading && !user) {
+        // Personne n'est connecté, on lance le processus de connexion forcée.
+        ensureAdminAccount();
+    }
+  }, [isUserLoading, user, ensureAdminAccount, router]);
 
   
-  // Show a loading screen while checking auth state or attempting login.
+  // Affichage pendant que le processus est en cours
   if (!error) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -109,7 +116,7 @@ setStatus('Échec de la connexion');
     );
   }
   
-   // If auto-login fails, show an error and a way to retry.
+   // En cas d'erreur bloquante, on l'affiche.
   if (error) {
      return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -117,11 +124,10 @@ setStatus('Échec de la connexion');
                  <div className="inline-block">
                     <Logo className="mx-auto h-12 w-12 text-destructive" />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight mt-4 text-foreground">Connexion Échouée</h1>
+                <h1 className="text-2xl font-bold tracking-tight mt-4 text-foreground">Une Erreur Est Survenue</h1>
                 <p className="text-muted-foreground mt-2">
-                    {error}
+                    {status}: {error}
                 </p>
-                 <p className="text-sm text-muted-foreground mt-2">Cela peut arriver si les identifiants ont été modifiés. Essayez de recharger.</p>
                 <Button onClick={() => window.location.reload()} className="mt-6">
                     Réessayer
                 </Button>
@@ -130,10 +136,5 @@ setStatus('Échec de la connexion');
      )
   }
 
-  // This content is a fallback and should ideally not be reached if redirection works correctly.
-  return (
-     <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Redirection en cours...</p>
-      </div>
-  );
+  return null; // Rien à afficher pendant la redirection finale
 }

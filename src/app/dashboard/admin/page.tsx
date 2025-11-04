@@ -11,12 +11,6 @@ const adminSections = [
     href: '/dashboard/admin/collaborators',
     icon: UserPlus,
   },
-  {
-    title: 'Gérer les Groupes',
-    description: 'Créer des équipes et définir leurs règles de distribution.',
-    href: '/dashboard/admin/groups',
-    icon: Users,
-  },
 ];
 
 export default function AdminDashboardPage() {
@@ -26,7 +20,7 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord Administrateur</h1>
       </div>
       <p className="text-muted-foreground">
-        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs et les groupes.
+        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs.
       </p>
       
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
