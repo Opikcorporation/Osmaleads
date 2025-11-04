@@ -54,6 +54,7 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
+  // isFirebaseLoading is the new name for the unified loading state from the provider
   const { collaborator, isLoading: isFirebaseLoading } = useFirebase();
 
   const leadsQuery = useMemo(() => {
