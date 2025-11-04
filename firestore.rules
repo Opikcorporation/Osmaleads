@@ -39,5 +39,14 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isAssigned(leadId);
       }
     }
+    
+    // Groups and their settings are managed by admins
+    match /groups/{groupId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /distributionSettings/{settingId} {
+        allow read, write: if isAdmin();
+    }
   }
 }
