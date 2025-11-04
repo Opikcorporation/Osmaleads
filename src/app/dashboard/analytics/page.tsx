@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
 import {
   Bar,
@@ -352,5 +352,3 @@ export default function AnalyticsPage() {
     </>
   );
 }
-
-    
