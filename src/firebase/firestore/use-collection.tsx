@@ -38,17 +38,26 @@ export interface InternalQuery extends Query<DocumentData> {
 }
 
 /**
+ * Gets a stable string representation of a Firestore query.
+ * @param query The Firestore query.
+ * @returns A string that uniquely identifies the query.
+ */
+function getQueryString(query: Query | CollectionReference): string {
+    if (query.type === 'collection') {
+        return (query as CollectionReference).path;
+    }
+    // Accessing internal but stable property to get a unique query identifier
+    return (query as unknown as InternalQuery)._query.path.canonicalString() + JSON.stringify(query);
+}
+
+
+/**
  * React hook to subscribe to a Firestore collection or query in real-time.
- * Handles nullable references/queries.
- * 
+ * Handles nullable references/queries robustly.
  *
- * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
- * references
- *  
  * @template T Optional type for document data. Defaults to any.
  * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
+ * The Firestore CollectionReference or Query. If null/undefined, it waits.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
@@ -58,28 +67,23 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading true
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
-  const queryRef = useRef(targetRefOrQuery);
+  // Store a string representation of the query to detect actual changes
+  const queryMemo = targetRefOrQuery ? getQueryString(targetRefOrQuery) : null;
   
   useEffect(() => {
-    // Absolute safety guard: If the query is not ready, reset state and stop.
-    // This prevents stale data or invalid queries from being used during re-renders.
+    // **THE ULTIMATE GUARD**
+    // If there is no query, reset the state completely and stop.
+    // This prevents any stale data or errors from persisting during re-renders
+    // where the query is temporarily unavailable.
     if (!targetRefOrQuery) {
-      setIsLoading(false); 
       setData(null);
       setError(null);
+      setIsLoading(true); // Set to true because we are "waiting" for a valid query
       return;
     }
-    
-    // Only re-subscribe if the query has actually changed.
-    if (queryRef.current === targetRefOrQuery && data !== null) {
-      setIsLoading(false);
-      return;
-    }
-    
-    queryRef.current = targetRefOrQuery;
 
     setIsLoading(true);
     setError(null);
@@ -95,7 +99,7 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (snapshotError: FirestoreError) => {
         const path: string =
           targetRefOrQuery.type === 'collection'
             ? (targetRefOrQuery as CollectionReference).path
@@ -114,8 +118,10 @@ export function useCollection<T = any>(
       }
     );
 
+    // This cleanup function will be called when the component unmounts
+    // OR when the dependencies of the useEffect hook change (i.e., queryMemo).
     return () => unsubscribe();
-  }, [targetRefOrQuery, data]);
+  }, [queryMemo]); // The effect now ONLY re-runs if the query string itself changes.
 
   return { data, isLoading, error };
 }

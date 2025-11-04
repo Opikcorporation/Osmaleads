@@ -26,16 +26,11 @@ export interface UseDocResult<T> {
 
 /**
  * React hook to subscribe to a single Firestore document in real-time.
- * Handles nullable references.
- * 
- * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
- * references
- *
+ * Handles nullable references robustly.
  *
  * @template T Optional type for document data. Defaults to any.
  * @param {DocumentReference<DocumentData> | null | undefined} docRef -
- * The Firestore DocumentReference. Waits if null/undefined.
+ * The Firestore DocumentReference. If null/undefined, it waits.
  * @returns {UseDocResult<T>} Object with data, isLoading, error.
  */
 export function useDoc<T = any>(
@@ -44,26 +39,21 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading true
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
   
-  const docRefRef = useRef(docRef);
+  // Store the path to detect if the reference actually changes.
+  const docPath = docRef ? docRef.path : null;
 
   useEffect(() => {
-    // Absolute safety guard: If the reference is not ready, reset state and stop.
+    // **THE ULTIMATE GUARD**
+    // If there is no reference, reset the state completely and stop.
     if (!docRef) {
-      setIsLoading(false);
       setData(null);
       setError(null);
+      setIsLoading(true); // We are "waiting" for a valid reference.
       return;
     }
-    
-    if (docRefRef.current === docRef && data !== null) {
-      setIsLoading(false);
-      return;
-    }
-    
-    docRefRef.current = docRef;
 
     setIsLoading(true);
     setError(null);
@@ -74,12 +64,13 @@ export function useDoc<T = any>(
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
         } else {
+          // Document does not exist. This is not an error state.
           setData(null);
         }
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (snapshotError: FirestoreError) => {
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: docRef.path,
@@ -93,8 +84,10 @@ export function useDoc<T = any>(
       }
     );
 
+    // This cleanup function will be called when the component unmounts
+    // OR when the docPath dependency changes.
     return () => unsubscribe();
-  }, [docRef, data]);
+  }, [docPath]); // Effect ONLY re-runs if the document path changes.
 
   return { data, isLoading, error };
 }

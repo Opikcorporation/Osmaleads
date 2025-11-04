@@ -76,10 +76,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             },
             (profileError: FirestoreError) => {
                // A real error occurred trying to fetch the profile.
-               const contextualError = new FirestorePermissionError({ operation: 'get', path: profileRef.path });
-               console.error("FirebaseProvider: Profile snapshot error:", contextualError);
-               setUserContext({ user: firebaseUser, collaborator: null, isLoading: false, error: contextualError });
-               errorEmitter.emit('permission-error', contextualError);
+               // We will not emit a global error here, as the component trying to access the data will.
+               console.error("FirebaseProvider: Profile snapshot error:", profileError);
+               setUserContext({ user: firebaseUser, collaborator: null, isLoading: false, error: profileError });
             }
           );
           // Return a cleanup function that unsubscribes from the profile listener when the user logs out.
