@@ -42,7 +42,7 @@ export type Collaborator = {
   id: string;
   name: string;
   username: string;
-  email: string | null;
+  email: string;
   role: 'admin' | 'collaborator';
   avatarColor: string;
 };
