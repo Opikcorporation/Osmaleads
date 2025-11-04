@@ -31,7 +31,10 @@
           "description": "The username or social media handle of the lead."
         },
         "tier": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "The quality tier of the lead.",
           "enum": [
             "Bas de gamme",
@@ -40,7 +43,10 @@
           ]
         },
         "score": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "A numerical score representing the lead's quality."
         },
         "leadData": {
@@ -145,6 +151,69 @@
         "timestamp",
         "content"
       ]
+    },
+    "Group": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Group",
+      "type": "object",
+      "description": "Represents a group or team of collaborators.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Group entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the group."
+        },
+        "collaboratorIds": {
+          "type": "array",
+          "description": "List of collaborator IDs who are members of this group.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "DistributionSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DistributionSetting",
+      "type": "object",
+      "description": "Defines the lead distribution rules for a specific group.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DistributionSetting entity."
+        },
+        "groupId": {
+          "type": "string",
+          "description": "Reference to the Group these settings apply to."
+        },
+        "dailyQuota": {
+          "type": "number",
+          "description": "The maximum number of leads to distribute to the group per day."
+        },
+        "leadTier": {
+          "type": "string",
+          "description": "The target lead tier for distribution.",
+          "enum": [
+            "Tous",
+            "Haut de gamme",
+            "Moyenne gamme",
+            "Bas de gamme"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "groupId",
+        "dailyQuota",
+        "leadTier"
+      ]
     }
   },
   "auth": {
@@ -183,6 +252,26 @@
             "$ref": "#/backend/entities/Note"
           },
           "description": "Stores notes for each lead. The assigned collaborator or admins can manage notes."
+        }
+      },
+      {
+        "path": "/groups/{groupId}",
+        "definition": {
+          "entityName": "Group",
+          "schema": {
+            "$ref": "#/backend/entities/Group"
+          },
+          "description": "Stores group information. Managed by admins."
+        }
+      },
+      {
+        "path": "/distributionSettings/{settingId}",
+        "definition": {
+          "entityName": "DistributionSetting",
+          "schema": {
+            "$ref": "#/backend/entities/DistributionSetting"
+          },
+          "description": "Stores lead distribution settings for groups. Managed by admins."
         }
       }
     ]
