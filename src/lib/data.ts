@@ -1,4 +1,4 @@
-import type { User, Group, Lead, Note, Collaborator } from './types';
+import type { User, Lead, Note, Collaborator } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { type Firestore } from 'firebase/firestore';
@@ -39,11 +39,4 @@ export const getUserById = async (db: Firestore, id: string): Promise<Collaborat
      if(docSnap.exists()){
       return docSnap.data() as Collaborator;
     }
-}
-
-export const getGroups = async (db: Firestore): Promise<Group[]> => {
-  const groupsCol = collection(db, 'groups');
-  const groupSnapshot = await getDocs(groupsCol);
-  const groupList = groupSnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as Group));
-  return groupList;
 }

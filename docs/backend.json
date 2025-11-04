@@ -110,34 +110,6 @@
         "avatarUrl"
       ]
     },
-    "Group": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Group",
-      "type": "object",
-      "description": "Represents a group of collaborators.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Group entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the group."
-        },
-        "collaboratorIds": {
-          "type": "array",
-          "description": "References to Collaborators within this group. (Relationship: Group 1:N Collaborator)",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "collaboratorIds"
-      ]
-    },
     "Note": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Note",
@@ -173,42 +145,6 @@
         "timestamp",
         "content"
       ]
-    },
-    "DistributionSetting": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DistributionSetting",
-      "type": "object",
-      "description": "Stores distribution settings for a group.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the DistributionSetting entity."
-        },
-        "groupId": {
-          "type": "string",
-          "description": "Reference to the Group this setting applies to."
-        },
-        "dailyQuota": {
-          "type": "number",
-          "description": "Maximum number of leads to distribute per day to this group."
-        },
-        "leadTier": {
-          "type": "string",
-          "description": "The quality tier of leads this group is configured to handle.",
-          "enum": [
-            "Bas de gamme",
-            "Moyenne gamme",
-            "Haut de gamme",
-            "Tous"
-          ]
-        }
-      },
-      "required": [
-        "id",
-        "groupId",
-        "dailyQuota",
-        "leadTier"
-      ]
     }
   },
   "auth": {
@@ -230,16 +166,6 @@
         }
       },
       {
-        "path": "/groups/{groupId}",
-        "definition": {
-          "entityName": "Group",
-          "schema": {
-            "$ref": "#/backend/entities/Group"
-          },
-          "description": "Stores group information. Admins can create/modify groups."
-        }
-      },
-      {
         "path": "/leads/{leadId}",
         "definition": {
           "entityName": "Lead",
@@ -257,16 +183,6 @@
             "$ref": "#/backend/entities/Note"
           },
           "description": "Stores notes for each lead. The assigned collaborator or admins can manage notes."
-        }
-      },
-      {
-        "path": "/distributionSettings/{settingId}",
-        "definition": {
-          "entityName": "DistributionSetting",
-          "schema": {
-            "$ref": "#/backend/entities/DistributionSetting"
-          },
-          "description": "Stores lead distribution settings for groups. Only admins can manage these settings."
         }
       }
     ]

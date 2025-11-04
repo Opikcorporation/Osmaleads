@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowRight, Users, UserPlus } from 'lucide-react';
+import { ArrowRight, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 
 const adminSections = [
@@ -10,12 +10,6 @@ const adminSections = [
     description: 'Ajouter, modifier ou supprimer des comptes utilisateurs.',
     href: '/dashboard/admin/collaborators',
     icon: UserPlus,
-  },
-  {
-    title: 'Gérer les Groupes & la Distribution',
-    description: "Créer des équipes, assigner des collaborateurs et définir les règles de distribution.",
-    href: '/dashboard/admin/groups',
-    icon: Users,
   },
 ];
 
@@ -26,7 +20,7 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord Administrateur</h1>
       </div>
       <p className="text-muted-foreground">
-        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs et les groupes de l'application.
+        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs de l'application.
       </p>
       
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">

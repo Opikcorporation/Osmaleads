@@ -8,17 +8,10 @@ export type User = {
   email: string | null;
   role: 'admin' | 'collaborator';
   avatarColor: string;
-  groupId?: string;
 };
 
 export const leadTiers = ['Haut de gamme', 'Moyenne gamme', 'Bas de gamme'] as const;
 export type LeadTier = (typeof leadTiers)[number];
-
-export type Group = {
-  id:string;
-  name: string;
-  collaboratorIds: string[];
-};
 
 export type Note = {
   id: string;
@@ -68,12 +61,4 @@ export type Collaborator = {
   email: string | null;
   role: 'admin' | 'collaborator';
   avatarColor: string;
-  groupId?: string;
-};
-
-export type DistributionSetting = {
-  id: string;
-  groupId: string;
-  dailyQuota: number;
-  leadTier: LeadTier | 'Tous';
 };
