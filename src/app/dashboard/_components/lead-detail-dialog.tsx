@@ -27,7 +27,7 @@ import {
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, type FirestoreNote } from '@/lib/types';
 import { CalendarIcon, Info } from 'lucide-react';
 import { format } from 'date-fns';
-import { useDoc, useCollection, useFirestore, useUser } from '@/firebase';
+import { useDoc, useCollection, useFirestore, useUserProfile } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState, useEffect, useMemo } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -62,7 +62,7 @@ const formatPhoneNumberForLink = (value: string): string => {
 
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
-  const { user: authUser } = useUser();
+  const { user: authUser } = useUserProfile();
   const { toast } = useToast();
 
   const leadRef = useMemo(() => doc(firestore, 'leads', leadId), [firestore, leadId]);

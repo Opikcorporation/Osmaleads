@@ -7,42 +7,26 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useDoc, useFirestore } from '@/firebase';
-import { useEffect, useState, useMemo } from 'react';
+import { useUserProfile } from '@/firebase';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Collaborator } from '@/lib/types';
-import { doc } from 'firebase/firestore';
-import { getRandomColor } from '@/lib/colors';
-
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
+  const { user, collaborator, isLoading } = useUserProfile();
   const router = useRouter();
-  const firestore = useFirestore();
 
-  // Use useDoc to get the collaborator profile based on the authenticated user's UID
-  const collaboratorRef = useMemo(
-    () => (user ? doc(firestore, 'collaborators', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
-
-  // This is the simplest, most robust check.
-  // We wait for auth to be ready, then redirect if no user is found.
+  // Redirect if loading is finished and there's no user.
   useEffect(() => {
-    if (!isUserLoading && !user) {
+    if (!isLoading && !user) {
       router.push('/login');
     }
-  }, [isUserLoading, user, router]);
+  }, [isLoading, user, router]);
 
-  // While loading auth OR the user profile, show a clear loading message.
-  const isLoading = isUserLoading || (user && isProfileLoading);
-
-
+  // While loading, show a clear loading message.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -52,7 +36,6 @@ export default function DashboardLayout({
   }
   
   // After loading, if there's a user but no profile, it's a critical state.
-  // Let's guide them back to login instead of trying to auto-repair.
   if (user && !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -67,7 +50,6 @@ export default function DashboardLayout({
   }
   
   // If we reach here, it means we have a logged-in user with a valid profile.
-  // We can safely render the layout and its children.
   if (!collaborator) {
      // This case covers the brief moment before the useEffect redirect triggers if the user is not logged in.
      return (

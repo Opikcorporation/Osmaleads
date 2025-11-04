@@ -19,8 +19,7 @@ import { StatusBadge } from '@/components/status-badge';
 import {
   useCollection,
   useFirestore,
-  useUser,
-  useDoc,
+  useUserProfile,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
 } from '@/firebase';
@@ -81,12 +80,9 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { collaborator } = useUserProfile(); // Use the new safe hook
   const { toast } = useToast();
   
-  const collaboratorRef = useMemo(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
-  const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
-
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [viewingLeadId, setViewingLeadId] = useState<string | null>(null);
@@ -107,7 +103,7 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemo(() => {
-    // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
+    // This is the definitive guard. The query is only built if the collaborator profile exists.
     if (!collaborator) {
       return null;
     }
@@ -142,9 +138,13 @@ export default function DashboardPage() {
   );
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
-  const { data: collaborators, isLoading: collaboratorsLoading } =
+  const { data: collaboratorsData, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
   
+  // The layout now handles the primary loading state.
+  // We only need to worry about the loading of data specific to this page.
+  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
     if (!searchTerm) return leads;
@@ -153,10 +153,6 @@ export default function DashboardPage() {
       (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [leads, searchTerm]);
-
-  // The main layout now handles the primary loading state.
-  // We only need to worry about the loading of data specific to this page.
-  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true && filteredLeads) {
@@ -175,8 +171,8 @@ export default function DashboardPage() {
   };
   
   const getAssignee = (collaboratorId: string | null) => {
-    if (!collaboratorId || !collaborators) return null;
-    return collaborators.find((c) => c.id === collaboratorId);
+    if (!collaboratorId || !collaboratorsData) return null;
+    return collaboratorsData.find((c) => c.id === collaboratorId);
   };
   
   const handleSaveLead = async (data: { fileContent: string; mapping: { [key: string]: string }, scoreColumns: string[], allScoreRules: AllScoreRules }) => {
@@ -377,7 +373,7 @@ export default function DashboardPage() {
                 <SelectContent>
                   <SelectItem value="All">Toutes les personnes</SelectItem>
                   <SelectItem value="Unassigned">Non assigné</SelectItem>
-                  {collaborators?.map(c => (
+                  {collaboratorsData?.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -528,12 +524,12 @@ export default function DashboardPage() {
         />
       )}
       
-      {collaborator?.role === 'admin' && collaborators && (
+      {collaborator?.role === 'admin' && collaboratorsData && (
         <BulkAssignDialog
           isOpen={isAssignDialogOpen}
           onClose={() => setIsAssignDialogOpen(false)}
           onAssign={handleBulkAssign}
-          collaborators={collaborators}
+          collaborators={collaboratorsData}
           isProcessing={isProcessing}
         />
       )}

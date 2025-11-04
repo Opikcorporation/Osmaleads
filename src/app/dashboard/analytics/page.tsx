@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUserProfile } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -54,9 +54,7 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
-  const collaboratorRef = useMemo(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
-  const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
+  const { collaborator } = useUserProfile();
 
   const leadsQuery = useMemo(() => {
     // This is the definitive guard. Do not construct the query until the collaborator profile is loaded.
