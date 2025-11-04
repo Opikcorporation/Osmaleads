@@ -25,6 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { parseCSV } from '../page';
 import { leadTiers, LeadTier } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export type ScoreRule = { value: string; score: number };
 
@@ -49,7 +50,7 @@ export function LeadImportDialog({
   const [fileContent, setFileContent] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
-  const [scoreColumn, setScoreColumn] = useState<string | undefined>();
+  const [scoreColumns, setScoreColumns] = useState<string[]>([]);
   const [scoreRules, setScoreRules] = useState<ScoreRule[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uniqueScoreValues, setUniqueScoreValues] = useState<string[]>([]);
@@ -61,7 +62,7 @@ export function LeadImportDialog({
     setFileContent('');
     setHeaders([]);
     setMapping({});
-    setScoreColumn(undefined);
+    setScoreColumns([]);
     setScoreRules([]);
     setUniqueScoreValues([]);
     setIsProcessing(false);
@@ -119,19 +120,25 @@ export function LeadImportDialog({
   }
   
   const handleGoToStep4 = () => {
-    if (!scoreColumn) {
+    if (scoreColumns.length === 0) {
         handleSubmit(); // If no score column, just submit
         return;
     }
     const { rows } = parseCSV(fileContent);
-    const values = new Set(rows.map(row => row[scoreColumn]).filter(Boolean));
+    // For now, we only handle the first selected column for the UI. This will be updated.
+    const firstScoreColumn = scoreColumns[0];
+    const values = new Set(rows.map(row => row[firstScoreColumn]).filter(Boolean));
     setUniqueScoreValues(Array.from(values));
     setScoreRules(Array.from(values).map(value => ({ value, score: 0 })));
     setStep(4);
   }
 
-  const handleScoreColumnChange = (column: string) => {
-    setScoreColumn(column);
+  const handleScoreColumnToggle = (column: string) => {
+    setScoreColumns(prev => 
+      prev.includes(column) 
+        ? prev.filter(c => c !== column)
+        : [...prev, column]
+    );
   }
 
   const handleScoreRuleChange = (value: string, score: number) => {
@@ -142,11 +149,13 @@ export function LeadImportDialog({
   
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    onSave({ fileContent, mapping, scoreColumn, scoreRules });
+    // This will be updated later to handle multiple score columns data
+    onSave({ fileContent, mapping, scoreColumn: scoreColumns[0], scoreRules });
     resetState();
   };
 
-  const totalSteps = scoreColumn ? 4: 3;
+  const totalSteps = scoreColumns.length > 0 ? 4 : 3;
+  const currentScoreColumnForStep4 = scoreColumns[0]; // Temporary for display
 
   return (
     <Dialog open={isOpen} onOpenChange={resetState}>
@@ -157,8 +166,8 @@ export function LeadImportDialog({
             <DialogDescription>
               {step === 1 && 'Téléversez un fichier CSV contenant vos leads.'}
               {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination.'}
-              {step === 3 && 'Optionnel : Choisissez une colonne pour définir le score des leads.'}
-              {step === 4 && `Attribuez des points pour chaque valeur de la colonne "${scoreColumn}".`}
+              {step === 3 && 'Optionnel : Choisissez une ou plusieurs colonnes pour définir le score des leads.'}
+              {step === 4 && `Attribuez des points pour chaque valeur de la colonne "${currentScoreColumnForStep4}".`}
             </DialogDescription>
           </DialogHeader>
 
@@ -210,19 +219,23 @@ export function LeadImportDialog({
           )}
 
            {step === 3 && (
-            <div className="py-6 space-y-4">
-                <Label htmlFor='score-column' className="text-base font-semibold">Configuration du Score (Optionnel)</Label>
-                 <p className="text-sm text-muted-foreground">Sélectionnez la colonne qui déterminera le score du lead (ex: "Budget", "Type de bien"). Si vous ne sélectionnez rien, aucun score ne sera calculé.</p>
-                <Select onValueChange={handleScoreColumnChange} value={scoreColumn}>
-                    <SelectTrigger id="score-column">
-                        <SelectValue placeholder="Sélectionner une colonne pour le score" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {headers.map(header => (
-                            <SelectItem key={header} value={header}>{header}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+            <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+                <Label className="text-base font-semibold">Configuration du Score (Optionnel)</Label>
+                 <p className="text-sm text-muted-foreground">Sélectionnez les colonnes qui détermineront le score du lead. Le score final sera la moyenne des points de chaque colonne sélectionnée.</p>
+                <div className="space-y-3 rounded-md border p-4">
+                    {headers.map(header => (
+                        <div key={header} className="flex items-center space-x-3">
+                            <Checkbox
+                                id={`score-col-${header}`}
+                                onCheckedChange={() => handleScoreColumnToggle(header)}
+                                checked={scoreColumns.includes(header)}
+                            />
+                            <Label htmlFor={`score-col-${header}`} className="font-normal truncate">
+                                {header}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
             </div>
           )}
 
@@ -269,7 +282,7 @@ export function LeadImportDialog({
                         <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                     </Button>
                     <Button type="button" onClick={handleGoToStep4}>
-                       {scoreColumn ? 'Définir les Points' : 'Importer sans Score'} <ArrowRight className="ml-2 h-4 w-4" />
+                       {scoreColumns.length > 0 ? 'Définir les Points' : 'Importer sans Score'} <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </>
             )}
