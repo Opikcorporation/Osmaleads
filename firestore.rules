@@ -29,11 +29,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Leads collection can be listed by admins. Individual leads can be read/updated
-    // by admins or the assigned collaborator.
+    // Leads collection can be listed by admins, or by collaborators if they are querying their own leads.
+    // Individual leads can be read/updated by admins or the assigned collaborator.
     match /leads/{leadId} {
-      allow list: if isAdmin();
-      allow read, update: if isAdmin() || isAssigned(leadId);
+      allow list: if isAdmin() || request.query.where.assignedCollaboratorId == request.auth.uid;
+      allow get, read, update: if isAdmin() || isAssigned(leadId);
       allow create, delete: if isAdmin();
 
       // Notes can be managed by the assigned collaborator or an admin.

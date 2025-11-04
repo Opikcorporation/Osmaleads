@@ -54,20 +54,24 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  const { collaborator } = useFirebase();
+  const { collaborator, isLoading: isFirebaseLoading } = useFirebase();
 
   const leadsQuery = useMemo(() => {
-    // This is the definitive guard. The layout ensures `collaborator` is loaded.
+    // The layout ensures `collaborator` is loaded. This is the definitive guard.
     if (!collaborator) {
       return null;
     }
 
-    let q = query(collection(firestore, 'leads'));
-    // If user is a collaborator, only show their leads
+    const leadsCollection = collection(firestore, 'leads');
+    // If user is a collaborator, the Firestore security rule will enforce
+    // that they can only list leads where their ID is in 'assignedCollaboratorId'.
+    // We MUST add the where clause here to comply with the rule.
     if (collaborator.role === 'collaborator') {
-        q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
+      return query(leadsCollection, where('assignedCollaboratorId', '==', collaborator.id));
     }
-    return q;
+    
+    // For admins, no filter is needed at the query level to see all leads.
+    return query(leadsCollection);
   }, [firestore, collaborator]);
 
   const collaboratorsQuery = useMemo(() => 
@@ -78,9 +82,9 @@ export default function AnalyticsPage() {
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaborators, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  // The main layout already handles the profile loading state.
-  // We just need to wait for the data queries for this specific page.
-  const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+  // Combine all loading states. The page is loading if the main context is loading,
+  // or if any of the page-specific data is loading.
+  const isLoading = isFirebaseLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
   const getInitials = (name: string) => {
@@ -271,7 +275,7 @@ export default function AnalyticsPage() {
               <CardHeader>
                 <CardTitle>Répartition par Qualité</CardTitle>
                 <CardDescription>Nombre de leads pour chaque tier de qualité.</CardDescription>
-              </CardHeader>
+              </Header>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={leadsByTierData}>
