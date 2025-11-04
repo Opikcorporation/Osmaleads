@@ -26,7 +26,8 @@ export default function DashboardLayout({
     }
   }, [isLoading, user, router]);
 
-  // While loading, show a clear loading message.
+  // While loading auth state OR the user profile, show a clear loading message.
+  // This is the main guard to prevent children from rendering prematurely.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -35,7 +36,8 @@ export default function DashboardLayout({
     );
   }
   
-  // After loading, if there's a user but no profile, it's a critical state.
+  // After loading, if there's an auth user but NO matching collaborator profile,
+  // it's a critical error state. We must stop rendering here.
   if (user && !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -49,9 +51,9 @@ export default function DashboardLayout({
     );
   }
   
-  // If we reach here, it means we have a logged-in user with a valid profile.
-  if (!collaborator) {
-     // This case covers the brief moment before the useEffect redirect triggers if the user is not logged in.
+  // This case covers the brief moment before the useEffect redirect triggers
+  // if the user is not logged in at all.
+  if (!user || !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <p>Redirection vers la page de connexion...</p>
@@ -60,7 +62,7 @@ export default function DashboardLayout({
   }
 
 
-  // If we get here, everything is loaded and valid.
+  // If we get here, everything is loaded and valid. Render the full layout.
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[256px_1fr]">
       <AppSidebar user={collaborator} />
