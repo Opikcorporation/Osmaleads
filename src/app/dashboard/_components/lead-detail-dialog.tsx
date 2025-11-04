@@ -50,8 +50,10 @@ const WhatsAppIcon = () => (
 
 const isPhoneNumber = (value: string): boolean => {
     if (typeof value !== 'string') return false;
-    const digits = value.replace(/\D/g, '');
-    return digits.length > 5;
+    // Regex to check for a string that is mostly numbers, possibly with a leading +, and some common phone characters.
+    // This is more strict to avoid matching on IDs or other numerical data.
+    const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
+    return phoneRegex.test(value);
 };
 
 const formatPhoneNumberForLink = (value: string): string => {
@@ -119,11 +121,11 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         // Display values only, without technical keys.
         return (
             <ul className="space-y-2 text-foreground">
-                {Object.entries(data).map(([key, value]) => {
+                {Object.values(data).map((value, index) => {
                     const stringValue = String(value);
                     if (isPhoneNumber(stringValue)) {
                         return (
-                             <li key={key}>
+                             <li key={index}>
                                 <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
                                     <WhatsAppIcon />
                                     <span>{stringValue}</span>
@@ -132,9 +134,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                         )
                     }
                      return (
-                         <li key={key}>
-                            <span className="font-medium text-muted-foreground">{key}: </span>
-                            <span>{stringValue}</span>
+                         <li key={index} className="text-foreground">
+                            {stringValue}
                         </li>
                      );
                 })}
@@ -262,5 +263,3 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
-
-    
