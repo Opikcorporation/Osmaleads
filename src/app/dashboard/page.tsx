@@ -444,7 +444,9 @@ export default function DashboardPage() {
                         <TableHead>Score</TableHead>
                     )}
                     <TableHead>Statut</TableHead>
-                    <TableHead>Assigné à</TableHead>
+                    {collaborator?.role === 'admin' && (
+                        <TableHead>Assigné à</TableHead>
+                    )}
                     <TableHead className="text-right">
                         <span className="sr-only">Actions</span>
                     </TableHead>
@@ -491,18 +493,20 @@ export default function DashboardPage() {
                             <TableCell>
                             <StatusBadge status={lead.status} />
                             </TableCell>
-                            <TableCell>
-                            {assignee ? (
-                                <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarFallback style={{backgroundColor: assignee.avatarColor}} className="text-white font-bold">{getInitials(assignee.name)}</AvatarFallback>
-                                </Avatar>
-                                <span className="hidden sm:inline">{assignee.name}</span>
-                                </div>
-                            ) : (
-                                <span className="text-muted-foreground">Non assigné</span>
+                            {collaborator?.role === 'admin' && (
+                                <TableCell>
+                                {assignee ? (
+                                    <div className="flex items-center gap-2">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarFallback style={{backgroundColor: assignee.avatarColor}} className="text-white font-bold">{getInitials(assignee.name)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="hidden sm:inline">{assignee.name}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-muted-foreground">Non assigné</span>
+                                )}
+                                </TableCell>
                             )}
-                            </TableCell>
                             <TableCell className="text-right">
                             <Button onClick={() => setViewingLeadId(lead.id)} variant="outline" size="sm">
                                 Voir
