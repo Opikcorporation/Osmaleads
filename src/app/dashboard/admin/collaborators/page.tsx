@@ -12,7 +12,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   useCollection,
   useFirestore,
-  useMemoFirebase,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
   setDocumentNonBlocking,
@@ -24,7 +23,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { CollaboratorFormDialog } from './_components/collaborator-form-dialog';
 import {
   AlertDialog,
@@ -48,7 +47,7 @@ export default function AdminCollaboratorsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
 
-  const collaboratorsQuery = useMemoFirebase(
+  const collaboratorsQuery = useMemo(
     () => collection(firestore, 'collaborators'),
     [firestore]
   );

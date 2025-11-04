@@ -19,7 +19,6 @@ import { StatusBadge } from '@/components/status-badge';
 import {
   useCollection,
   useFirestore,
-  useMemoFirebase,
   useUser,
   useDoc,
   addDocumentNonBlocking,
@@ -86,7 +85,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const collaboratorRef = useMemoFirebase(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
+  const collaboratorRef = useMemo(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
   const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -108,7 +107,7 @@ export default function DashboardPage() {
       .join('');
   }
 
-  const leadsQuery = useMemoFirebase(() => {
+  const leadsQuery = useMemo(() => {
     if (!user || !collaborator) return null;
     let q = query(collection(firestore, 'leads'));
 
@@ -131,7 +130,7 @@ export default function DashboardPage() {
     return q;
   }, [user, firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
 
-  const collaboratorsQuery = useMemoFirebase(
+  const collaboratorsQuery = useMemo(
     () => collection(firestore, 'collaborators'),
     [firestore]
   );

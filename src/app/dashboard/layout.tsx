@@ -7,8 +7,8 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useDoc, useFirestore, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useUser, useDoc, useFirestore } from '@/firebase';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Collaborator } from '@/lib/types';
 import { doc } from 'firebase/firestore';
@@ -25,7 +25,7 @@ export default function DashboardLayout({
   const firestore = useFirestore();
 
   // Use useDoc to get the collaborator profile based on the authenticated user's UID
-  const collaboratorRef = useMemoFirebase(
+  const collaboratorRef = useMemo(
     () => (user ? doc(firestore, 'collaborators', user.uid) : null),
     [user, firestore]
   );

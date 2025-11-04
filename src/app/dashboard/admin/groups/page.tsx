@@ -12,11 +12,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
   useFirestore,
-  useMemoFirebase,
 } from "@/firebase";
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import type { Group, Collaborator, DistributionSetting } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { GroupFormDialog } from './_components/group-form-dialog';
 import {
   AlertDialog,
@@ -38,15 +37,15 @@ export default function AdminGroupsPage() {
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [distributingGroupId, setDistributingGroupId] = useState<string | null>(null);
 
-  const groupsQuery = useMemoFirebase(
+  const groupsQuery = useMemo(
     () => collection(firestore, 'groups'),
     [firestore]
   );
-  const usersQuery = useMemoFirebase(
+  const usersQuery = useMemo(
     () => collection(firestore, 'collaborators'),
     [firestore]
   );
-  const settingsQuery = useMemoFirebase(
+  const settingsQuery = useMemo(
     () => collection(firestore, 'distributionSettings'),
     [firestore]
   );

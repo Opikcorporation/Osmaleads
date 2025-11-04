@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -55,10 +55,10 @@ const statusColors: Record<LeadStatus, string> = {
 export default function AnalyticsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
-  const collaboratorRef = useMemoFirebase(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
+  const collaboratorRef = useMemo(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
   const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
-  const leadsQuery = useMemoFirebase(() => {
+  const leadsQuery = useMemo(() => {
     if (!user || !collaborator) return null;
 
     let q = query(collection(firestore, 'leads'));
@@ -69,7 +69,7 @@ export default function AnalyticsPage() {
     return q;
   }, [user, firestore, collaborator]);
 
-  const collaboratorsQuery = useMemoFirebase(() => 
+  const collaboratorsQuery = useMemo(() => 
     collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null,
     [firestore, collaborator]
   );

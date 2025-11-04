@@ -27,9 +27,9 @@ import {
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, type FirestoreNote } from '@/lib/types';
 import { CalendarIcon, Info } from 'lucide-react';
 import { format } from 'date-fns';
-import { useDoc, useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useDoc, useCollection, useFirestore, useUser } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/status-badge';
@@ -65,16 +65,16 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const { user: authUser } = useUser();
   const { toast } = useToast();
 
-  const leadRef = useMemoFirebase(() => doc(firestore, 'leads', leadId), [firestore, leadId]);
+  const leadRef = useMemo(() => doc(firestore, 'leads', leadId), [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
-  const assignedUserRef = useMemoFirebase(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
+  const assignedUserRef = useMemo(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
   const { data: assignedUser, isLoading: assignedUserLoading } = useDoc<Collaborator>(assignedUserRef);
 
-  const notesRef = useMemoFirebase(() => query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')), [firestore, leadId]);
+  const notesRef = useMemo(() => query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')), [firestore, leadId]);
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
   
-  const allUsersRef = useMemoFirebase(() => collection(firestore, 'collaborators'), [firestore]);
+  const allUsersRef = useMemo(() => collection(firestore, 'collaborators'), [firestore]);
   const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
 
   const [newNote, setNewNote] = useState('');
