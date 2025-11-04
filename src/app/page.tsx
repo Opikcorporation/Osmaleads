@@ -88,7 +88,7 @@ export default function LoginPage() {
             errorMessage = "Le compte admin par défaut n'existe pas ou les identifiants sont incorrects. Il faut le créer via le dashboard.";
           }
           setError(errorMessage);
-          setStatus('Échec de la connexion');
+setStatus('Échec de la connexion');
         }
       };
 
