@@ -13,68 +13,58 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true); // Start in loading state for auto-login attempt
+  
+  // Start with a loading state that reflects the auto-login attempt
+  const [isLoggingIn, setIsLoggingIn] = useState(true); 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If a user is already logged in, redirect to dashboard
-    if (user && !isUserLoading) {
+    // If a user session already exists, redirect immediately.
+    if (!isUserLoading && user) {
       router.push('/dashboard');
+      return;
     }
-  }, [user, isUserLoading, router]);
 
-
-  useEffect(() => {
-    // Only attempt auto-login if not loading user and not logged in yet
+    // If there's no user, attempt auto-login.
     if (!isUserLoading && !user) {
       const autoLogin = async () => {
-        setIsLoading(true);
+        setIsLoggingIn(true);
         setError(null);
-        const email = `admin01@example.com`;
-        const password = 'password123';
-
+        
         try {
-          await signInWithEmailAndPassword(auth, email, password);
-          toast({
-            title: 'Connexion automatique réussie',
-            description: 'Bienvenue, Admin !',
-          });
-          // The other useEffect will handle the redirect
+          // Use the default admin credentials
+          await signInWithEmailAndPassword(auth, 'admin01@example.com', 'password123');
+          // On success, the first useEffect will catch the user change and redirect.
+          // No need to call router.push here to avoid race conditions.
         } catch (err: any) {
           console.error('Auto-login Error:', err);
-          let errorMessage = 'La connexion automatique a échoué. Veuillez réessayer.';
+          let errorMessage = 'La connexion automatique a échoué.';
           if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            errorMessage = "Les identifiants automatiques sont incorrects ou le compte admin n'existe pas.";
+            errorMessage = "Le compte admin par défaut n'existe pas ou les identifiants sont incorrects.";
           }
           setError(errorMessage);
-          toast({
-            variant: 'destructive',
-            title: 'Erreur de connexion automatique',
-            description: errorMessage,
-          });
-          setIsLoading(false);
+          setIsLoggingIn(false); // Stop loading on error
         }
       };
 
       autoLogin();
     }
-  }, [isUserLoading, user, auth, router, toast]);
+  }, [isUserLoading, user, auth, router]);
 
   
-  // Show a loading screen during auth check and login attempt.
-  // Do not show the login form until we know auto-login has failed.
-  if (isUserLoading || isLoading) {
+  // Show a loading screen while checking auth state or attempting login.
+  if (isUserLoading || isLoggingIn) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="text-center space-y-4">
             <Logo className="mx-auto h-12 w-12 animate-pulse text-foreground" />
-            <p className="font-semibold">Tentative de connexion auto...</p>
+            <p className="font-semibold">Connexion au compte admin...</p>
         </div>
       </div>
     );
   }
   
-   // If auto-login failed, show an error and a retry button
+   // If auto-login fails, show an error and a way to retry.
   if (error) {
      return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -86,6 +76,7 @@ export default function LoginPage() {
                 <p className="text-muted-foreground mt-2">
                     {error}
                 </p>
+                 <p className="text-sm text-muted-foreground mt-2">Veuillez vérifier que le compte admin a bien été créé.</p>
                 <Button onClick={() => window.location.reload()} className="mt-6">
                     Réessayer
                 </Button>
@@ -94,10 +85,10 @@ export default function LoginPage() {
      )
   }
 
-  // Fallback content in case user is not redirected, though this should ideally not be reached.
+  // This content is a fallback and should ideally not be reached if redirection works correctly.
   return (
      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Redirection en cours...</p>
+        <p>Redirection vers le tableau de bord...</p>
       </div>
   );
 }
