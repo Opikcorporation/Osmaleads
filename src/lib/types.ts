@@ -1,6 +1,5 @@
 'use client';
-import { type } from "os";
-import { FieldValue, serverTimestamp } from "firebase/firestore";
+import { FieldValue } from "firebase/firestore";
 
 export type User = {
   id: string;
@@ -25,7 +24,7 @@ export type Note = {
   id: string;
   content: string;
   createdAt: string; // ISO date string
-  author: Pick<User, 'id' | 'name', 'avatarColor'>;
+  author: Pick<User, 'id' | 'name' | 'avatarColor'>;
 };
 
 export const leadStatuses = [
