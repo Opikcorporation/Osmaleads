@@ -34,8 +34,8 @@ export default function LoginPage() {
         try {
           // Use the default admin credentials
           await signInWithEmailAndPassword(auth, 'admin01@example.com', 'password123');
-          // On success, the first useEffect will catch the user change and redirect.
-          // No need to call router.push here to avoid race conditions.
+          // On success, the user object will update, and the effect will re-run,
+          // triggering the redirect to /dashboard.
         } catch (err: any) {
           console.error('Auto-login Error:', err);
           let errorMessage = 'La connexion automatique a échoué.';
