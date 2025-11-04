@@ -2,30 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
-import { useAuth, useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
-import { useEffect, useState, useCallback } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import type { Collaborator } from '@/lib/types';
-import { getRandomColor } from '@/lib/colors';
+import { useAuth, useUser } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
-// --- Configuration du Compte Admin Cible ---
-const ADMIN_USERNAME = 'alessio_opik';
-const ADMIN_EMAIL = `${ADMIN_USERNAME}@example.com`;
-const ADMIN_PASSWORD = 'password123';
-// ---------------------------------------------
-
 export default function LoginPage() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -33,61 +20,8 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState('Démarrage...');
-  const [error, setError] = useState<string | null>(null);
 
-  const ensureAdminAccount = useCallback(async () => {
-    if (!auth || !firestore) {
-      setStatus('En attente des services Firebase...');
-      return;
-    }
-
-    setStatus(`Vérification du compte admin "${ADMIN_USERNAME}"...`);
-
-    try {
-      // On essaye de créer l'utilisateur. Si l'email est déjà utilisé,
-      // c'est que le compte existe déjà, ce qui est notre but.
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        ADMIN_EMAIL,
-        ADMIN_PASSWORD
-      );
-      
-      // Si la création réussit (le compte n'existait pas), on crée son profil
-      setStatus('Compte admin non trouvé. Création en cours...');
-      const adminUser = userCredential.user;
-      const adminRef = doc(firestore, 'collaborators', adminUser.uid);
-      const profileData: Collaborator = {
-        id: adminUser.uid,
-        name: 'Alessio Opik',
-        username: ADMIN_USERNAME,
-        email: ADMIN_EMAIL,
-        role: 'admin',
-        avatarColor: getRandomColor(),
-      };
-      setDocumentNonBlocking(adminRef, profileData, { merge: true });
-      setStatus('Compte admin initialisé.');
-
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        // C'est le cas normal, le compte existe déjà, on ne fait rien.
-        setStatus('Compte admin prêt.');
-      } else {
-        // Une autre erreur inattendue
-        setError(`Erreur critique lors de l'initialisation : ${err.message}`);
-        setStatus('Échec de l\'initialisation');
-      }
-    }
-  }, [auth, firestore]);
-
-  // Exécuter la vérification du compte admin une seule fois au chargement
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-        ensureAdminAccount();
-    }
-  }, [isUserLoading, user, ensureAdminAccount]);
-  
-  // Rediriger si l'utilisateur est déjà connecté
+  // Redirect if the user is already logged in
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/dashboard');
@@ -99,6 +33,7 @@ export default function LoginPage() {
     if (!auth) return;
 
     setIsSubmitting(true);
+    // The convention is to create emails from usernames for the password provider
     const emailToLogin = `${username}@example.com`;
 
     try {
@@ -107,11 +42,11 @@ export default function LoginPage() {
         title: 'Connexion réussie',
         description: 'Bienvenue !',
       });
-      // La redirection est gérée par le useEffect qui surveille `user`
+      // The useEffect above will handle the redirection to the dashboard
     } catch (error: any) {
-      console.error(error);
+      console.error("Login failed:", error);
       let errorMessage = "Le nom d'utilisateur ou le mot de passe est incorrect.";
-      if (error.code === 'auth/invalid-credential') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
           errorMessage = "Le nom d'utilisateur ou le mot de passe est incorrect.";
       }
       toast({
@@ -124,7 +59,7 @@ export default function LoginPage() {
     }
   };
 
-  // Affichage pendant que le chargement initial ou la redirection a lieu
+  // Show a loading screen while auth state is being determined or if already logged in
   if (isUserLoading || user) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -136,6 +71,7 @@ export default function LoginPage() {
     );
   }
 
+  // Render the login form if not loading and no user is logged in
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
