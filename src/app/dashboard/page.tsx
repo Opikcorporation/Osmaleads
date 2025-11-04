@@ -22,9 +22,13 @@ import {
   useMemoFirebase,
   useUser,
   useDoc,
+  writeBatch,
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search, Phone, Mail } from 'lucide-react';
@@ -175,6 +179,7 @@ export default function DashboardPage() {
     const { fileContent, mapping, scoreColumns, allScoreRules } = data;
     if (!firestore) return;
     
+    setIsProcessing(true);
     try {
       const { rows } = parseCSV(fileContent);
       if (rows.length === 0) {
@@ -260,65 +265,47 @@ export default function DashboardPage() {
         title: "Erreur lors de l'importation",
         description: "La lecture du CSV ou la sauvegarde a échoué. Vérifiez le format du fichier et la console.",
       });
+    } finally {
+        setIsProcessing(false);
     }
   };
   
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedLeads.length === 0 || !firestore) return;
     setIsProcessing(true);
-    const batch = writeBatch(firestore);
+    
     selectedLeads.forEach(leadId => {
       const leadRef = doc(firestore, 'leads', leadId);
-      batch.delete(leadRef);
+      deleteDocumentNonBlocking(leadRef);
     });
-    try {
-      await batch.commit();
-      toast({
+
+    toast({
         variant: 'destructive',
         title: `${selectedLeads.length} lead(s) supprimé(s)`,
-        description: "Les leads sélectionnés ont été supprimés.",
-      });
-      setSelectedLeads([]);
-    } catch (error) {
-      console.error("Bulk delete failed:", error);
-      toast({
-        variant: 'destructive',
-        title: "Erreur de suppression",
-        description: "La suppression groupée a échoué.",
-      });
-    } finally {
-        setIsProcessing(false);
-    }
+        description: "La suppression des leads sélectionnés a été initiée.",
+    });
+    setSelectedLeads([]);
+    setIsProcessing(false);
   }
   
-  const handleBulkAssign = async (collaboratorId: string) => {
+  const handleBulkAssign = (collaboratorId: string) => {
     if (selectedLeads.length === 0 || !firestore) return;
     setIsProcessing(true);
-    const batch = writeBatch(firestore);
+
     selectedLeads.forEach(leadId => {
       const leadRef = doc(firestore, 'leads', leadId);
-      batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New' });
+      updateDocumentNonBlocking(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New' });
     });
     
-    try {
-      await batch.commit();
-      const assignee = getAssignee(collaboratorId);
-      toast({
-        title: "Assignation réussie",
-        description: `${selectedLeads.length} lead(s) assigné(s) à ${assignee?.name}.`,
-      });
-      setSelectedLeads([]);
-      setIsAssignDialogOpen(false);
-    } catch (error) {
-        console.error("Bulk assign failed:", error);
-        toast({
-            variant: 'destructive',
-            title: "Erreur d'assignation",
-            description: "L'assignation groupée a échoué.",
-        });
-    } finally {
-        setIsProcessing(false);
-    }
+    const assignee = getAssignee(collaboratorId);
+    toast({
+        title: "Assignation initiée",
+        description: `${selectedLeads.length} lead(s) en cours d'assignation à ${assignee?.name}.`,
+    });
+
+    setSelectedLeads([]);
+    setIsAssignDialogOpen(false);
+    setIsProcessing(false);
   }
 
 

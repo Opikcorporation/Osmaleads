@@ -15,11 +15,13 @@ import {
   useMemoFirebase,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
+  setDocumentNonBlocking,
+  errorEmitter,
+  FirestorePermissionError,
 } from '@/firebase';
 import {
   collection,
   doc,
-  setDoc,
 } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { useState } from 'react';
@@ -68,11 +70,12 @@ export default function AdminCollaboratorsPage() {
     // Editing an existing collaborator
     if (editingCollaborator) {
       const collaboratorRef = doc(firestore, 'collaborators', editingCollaborator.id);
-      updateDocumentNonBlocking(collaboratorRef, { 
+      const updatedData = { 
           name: data.name, 
           role: data.role,
-          avatarColor: data.avatarColor, // Ensure avatarColor is included in the update
-      });
+          avatarColor: data.avatarColor,
+      };
+      updateDocumentNonBlocking(collaboratorRef, updatedData);
       toast({
           title: 'Collaborateur mis à jour',
           description: `Le profil de ${data.name} a été mis à jour.`,
@@ -101,8 +104,9 @@ export default function AdminCollaboratorsPage() {
           avatarColor: data.avatarColor || getRandomColor(), // Ensure avatarColor is saved
         };
 
-        // Atomically set the complete document in Firestore
-        await setDoc(doc(firestore, 'collaborators', firebaseUser.uid), newCollaborator);
+        // Use non-blocking set with custom error handling
+        const collaboratorRef = doc(firestore, 'collaborators', firebaseUser.uid);
+        setDocumentNonBlocking(collaboratorRef, newCollaborator, {});
 
         toast({
           title: 'Collaborateur créé',
@@ -110,7 +114,15 @@ export default function AdminCollaboratorsPage() {
         });
         handleCloseDialog();
       } catch (error: any) {
+        // This catches auth errors (like email-in-use) or other sync errors
         console.error('Error creating collaborator:', error);
+        
+        // Check if it's a Firestore permission error that bubbled up
+        if (error instanceof FirestorePermissionError) {
+             errorEmitter.emit('permission-error', error);
+             return;
+        }
+
         let errorMessage = "Impossible de créer le collaborateur.";
         if (error.code === 'auth/email-already-in-use') {
             errorMessage = "Ce nom d'utilisateur est déjà utilisé.";

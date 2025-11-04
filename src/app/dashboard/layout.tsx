@@ -7,11 +7,11 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Collaborator } from '@/lib/types';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { getRandomColor } from '@/lib/colors';
 
 
@@ -37,7 +37,7 @@ export default function DashboardLayout({
   // We wait for auth to be ready, then redirect if no user is found.
   useEffect(() => {
     if (!isUserLoading && !user) {
-      router.push('/');
+      router.push('/login');
     }
   }, [isUserLoading, user, router]);
 
@@ -49,7 +49,7 @@ export default function DashboardLayout({
     // If done loading, a user is authenticated, but no profile exists...
     if (!isLoading && user && !collaborator && !isRepairing) {
       // ...start the repair process.
-      const repairProfile = async () => {
+      const repairProfile = () => {
         setIsRepairing(true);
         console.log(`Repairing profile for user ${user.uid}...`);
         
@@ -63,15 +63,12 @@ export default function DashboardLayout({
             avatarColor: getRandomColor(),
         };
 
-        try {
-          await setDoc(doc(firestore, 'collaborators', user.uid), adminProfile);
-          console.log('Profile repaired. Reloading...');
-          // Reload the page to force a re-fetch of the now-existing profile.
-          window.location.reload();
-        } catch (error) {
-          console.error("Critical error: Failed to repair profile.", error);
-          setIsRepairing(false); // Stop if repair fails.
-        }
+        const docRef = doc(firestore, 'collaborators', user.uid);
+        setDocumentNonBlocking(docRef, adminProfile, { merge: true });
+
+        console.log('Profile repair initiated. Reloading...');
+        // Optimistically reload. The listener will catch permission errors.
+        setTimeout(() => window.location.reload(), 1000);
       };
 
       repairProfile();
@@ -104,7 +101,7 @@ export default function DashboardLayout({
         <div className="text-center">
             <h1 className="text-xl font-semibold text-destructive">Erreur Critique</h1>
             <p className="text-muted-foreground">La réparation du profil a échoué. Impossible de continuer.</p>
-             <Button onClick={() => router.push('/')} className="mt-4">Retour à la connexion</Button>
+             <Button onClick={() => router.push('/login')} className="mt-4">Retour à la connexion</Button>
         </div>
       </div>
     );

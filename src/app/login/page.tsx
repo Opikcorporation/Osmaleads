@@ -2,14 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   type User,
 } from 'firebase/auth';
 import { useEffect, useState, useCallback } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { getRandomColor } from '@/lib/colors';
 import { Button } from '@/components/ui/button';
@@ -92,12 +92,14 @@ export default function LoginPage() {
           : getRandomColor(),
       };
 
-      // Écraser le profil pour s'assurer qu'il est correct et complet.
-      await setDoc(adminRef, profileData, { merge: true });
+      // Utilise la fonction non-bloquante pour la mise à jour
+      setDocumentNonBlocking(adminRef, profileData, { merge: true });
 
       setStatus('Profil admin validé. Redirection vers le tableau de bord...');
       // La redirection est gérée par le useEffect principal qui surveille `user`
     } catch (e: any) {
+      // Ce bloc ne sera probablement pas atteint car l'erreur est gérée dans setDocumentNonBlocking
+      // Mais on le garde comme sécurité
       setError(`Erreur lors de la synchronisation du profil : ${e.message}`);
       setStatus('Échec de la synchronisation');
     }
