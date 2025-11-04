@@ -1,10 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -16,78 +13,91 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [username, setUsername] = useState('Admin01');
-  const [password, setPassword] = useState('password123');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start in loading state for auto-login attempt
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // If a user is already logged in, redirect to dashboard
     if (user && !isUserLoading) {
       router.push('/dashboard');
     }
   }, [user, isUserLoading, router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    const email = `${username}@example.com`; // Transform username to email for Firebase
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Connexion réussie",
-        description: "Bienvenue !",
-      });
-      router.push('/dashboard');
-    } catch (error: any) {
-      console.error("Login Error:", error);
-      let errorMessage = "Une erreur est survenue lors de la connexion.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Nom d'utilisateur ou mot de passe incorrect.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Erreur de connexion",
-        description: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  if (isUserLoading || user) {
+  useEffect(() => {
+    // Only attempt auto-login if not loading user and not logged in yet
+    if (!isUserLoading && !user) {
+      const autoLogin = async () => {
+        setIsLoading(true);
+        setError(null);
+        const email = `admin01@example.com`;
+        const password = 'password123';
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          toast({
+            title: 'Connexion automatique réussie',
+            description: 'Bienvenue, Admin !',
+          });
+          // The other useEffect will handle the redirect
+        } catch (err: any) {
+          console.error('Auto-login Error:', err);
+          let errorMessage = 'La connexion automatique a échoué. Veuillez réessayer.';
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+            errorMessage = "Les identifiants automatiques sont incorrects ou le compte admin n'existe pas.";
+          }
+          setError(errorMessage);
+          toast({
+            variant: 'destructive',
+            title: 'Erreur de connexion automatique',
+            description: errorMessage,
+          });
+          setIsLoading(false);
+        }
+      };
+
+      autoLogin();
+    }
+  }, [isUserLoading, user, auth, router, toast]);
+
+  
+  // Show a loading screen during auth check and login attempt.
+  // Do not show the login form until we know auto-login has failed.
+  if (isUserLoading || isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Chargement...</p>
+        <div className="text-center space-y-4">
+            <Logo className="mx-auto h-12 w-12 animate-pulse text-foreground" />
+            <p className="font-semibold">Tentative de connexion auto...</p>
+        </div>
       </div>
     );
   }
-
-  return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background">
-      <div className="w-full max-w-sm p-4">
-        <div className="text-center mb-8">
-            <div className="inline-block">
-              <Logo className="mx-auto h-12 w-12 text-foreground" />
+  
+   // If auto-login failed, show an error and a retry button
+  if (error) {
+     return (
+        <div className="flex min-h-screen w-full items-center justify-center bg-background">
+            <div className="w-full max-w-sm p-4 text-center">
+                 <div className="inline-block">
+                    <Logo className="mx-auto h-12 w-12 text-destructive" />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight mt-4 text-foreground">Connexion Échouée</h1>
+                <p className="text-muted-foreground mt-2">
+                    {error}
+                </p>
+                <Button onClick={() => window.location.reload()} className="mt-6">
+                    Réessayer
+                </Button>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight mt-4 text-foreground">LeadFlowAI</h1>
-            <p className="text-muted-foreground mt-2">
-              Connectez-vous à votre tableau de bord
-            </p>
         </div>
-        
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Nom d'utilisateur</Label>
-            <Input id="username" type="text" placeholder="Admin01" required value={username} onChange={e => setUsername(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
-            <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
-          </div>
-          <Button type="submit" className="w-full text-base font-semibold" disabled={isLoading}>
-            {isLoading ? 'Connexion en cours...' : 'Se connecter'}
-          </Button>
-        </form>
+     )
+  }
+
+  // Fallback content in case user is not redirected, though this should ideally not be reached.
+  return (
+     <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <p>Redirection en cours...</p>
       </div>
-    </div>
   );
 }
