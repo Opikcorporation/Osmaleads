@@ -176,7 +176,7 @@ export default function DashboardPage() {
         const newLeadDocRef = doc(leadsColRef);
         
         let score: number | null = null;
-        if(scoreColumn) {
+        if(scoreColumn && scoreRules) {
           const scoreValue = row[scoreColumn];
           score = scoreValue ? (scoreRulesMap[scoreValue] || 0) : 0;
         }
@@ -200,7 +200,7 @@ export default function DashboardPage() {
 
       toast({
         title: "Importation réussie !",
-        description: `${rows.length} lead(s) ont été créés et scorés.`,
+        description: `${rows.length} lead(s) ont été importés.`,
       });
 
     } catch (error) {

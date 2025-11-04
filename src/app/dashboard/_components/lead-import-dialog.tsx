@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { readFileAsText } from '@/lib/file-utils';
 import { UploadCloud, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { parseCSV } from '../page';
 import { leadTiers, LeadTier } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 export type ScoreRule = { value: string; score: number };
 
@@ -51,6 +52,7 @@ export function LeadImportDialog({
   const [scoreColumn, setScoreColumn] = useState<string | undefined>();
   const [scoreRules, setScoreRules] = useState<ScoreRule[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uniqueScoreValues, setUniqueScoreValues] = useState<string[]>([]);
   const { toast } = useToast();
 
   const resetState = () => {
@@ -61,6 +63,7 @@ export function LeadImportDialog({
     setMapping({});
     setScoreColumn(undefined);
     setScoreRules([]);
+    setUniqueScoreValues([]);
     setIsProcessing(false);
     onClose();
   };
@@ -114,27 +117,48 @@ export function LeadImportDialog({
     }
     setStep(3);
   }
+  
+  const handleGoToStep4 = () => {
+    if (!scoreColumn) {
+        handleSubmit(); // If no score column, just submit
+        return;
+    }
+    const { rows } = parseCSV(fileContent);
+    const values = new Set(rows.map(row => row[scoreColumn]).filter(Boolean));
+    setUniqueScoreValues(Array.from(values));
+    setScoreRules(Array.from(values).map(value => ({ value, score: 0 })));
+    setStep(4);
+  }
 
   const handleScoreColumnChange = (column: string) => {
     setScoreColumn(column);
   }
+
+  const handleScoreRuleChange = (value: string, score: number) => {
+    setScoreRules(prev => 
+        prev.map(rule => rule.value === value ? { ...rule, score } : rule)
+    );
+  }
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     onSave({ fileContent, mapping, scoreColumn, scoreRules });
     resetState();
   };
+
+  const totalSteps = scoreColumn ? 4: 3;
 
   return (
     <Dialog open={isOpen} onOpenChange={resetState}>
       <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Importer des Leads (Étape {step}/3)</DialogTitle>
+            <DialogTitle>Importer des Leads (Étape {step}/{totalSteps})</DialogTitle>
             <DialogDescription>
               {step === 1 && 'Téléversez un fichier CSV contenant vos leads.'}
               {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination.'}
               {step === 3 && 'Optionnel : Choisissez une colonne pour définir le score des leads.'}
+              {step === 4 && `Attribuez des points pour chaque valeur de la colonne "${scoreColumn}".`}
             </DialogDescription>
           </DialogHeader>
 
@@ -201,6 +225,24 @@ export function LeadImportDialog({
                 </Select>
             </div>
           )}
+
+          {step === 4 && (
+            <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
+                 <p className="text-sm text-muted-foreground">Plus le nombre de points est élevé, meilleur est le lead.</p>
+                 {uniqueScoreValues.map(value => (
+                    <div key={value} className="grid grid-cols-3 items-center gap-4">
+                        <Badge variant="secondary" className="justify-center truncate">{value}</Badge>
+                        <Input
+                            type="number"
+                            placeholder="Points"
+                            className="col-span-2"
+                            onChange={(e) => handleScoreRuleChange(value, parseInt(e.target.value, 10) || 0)}
+                            defaultValue={0}
+                        />
+                    </div>
+                ))}
+            </div>
+          )}
           
           <DialogFooter>
             {step === 1 && (
@@ -226,8 +268,18 @@ export function LeadImportDialog({
                     <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                     </Button>
-                    <Button type="submit">
+                    <Button type="button" onClick={handleGoToStep4}>
                        {scoreColumn ? 'Définir les Points' : 'Importer sans Score'} <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </>
+            )}
+            {step === 4 && (
+                <>
+                     <Button type="button" variant="ghost" onClick={() => setStep(3)}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
+                    </Button>
+                    <Button type="submit">
+                        Importer et Calculer les Scores
                     </Button>
                 </>
             )}
