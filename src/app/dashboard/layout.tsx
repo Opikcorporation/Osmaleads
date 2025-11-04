@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Collaborator } from '@/lib/types';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
+import { getRandomColor } from '@/lib/colors';
 
 
 export default function DashboardLayout({
@@ -22,6 +23,8 @@ export default function DashboardLayout({
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
+
+  const [isRepairing, setIsRepairing] = useState(false);
 
   // Use useDoc to get the collaborator profile based on the authenticated user's UID
   const collaboratorRef = useMemoFirebase(
@@ -40,6 +43,41 @@ export default function DashboardLayout({
 
   // While loading auth OR the user profile, show a clear loading message.
   const isLoading = isUserLoading || (user && isProfileLoading);
+
+  // NEW: Repair logic
+  useEffect(() => {
+    // If done loading, a user is authenticated, but no profile exists...
+    if (!isLoading && user && !collaborator && !isRepairing) {
+      // ...start the repair process.
+      const repairProfile = async () => {
+        setIsRepairing(true);
+        console.log(`Repairing profile for user ${user.uid}...`);
+        
+        // This is a failsafe. It ensures the admin user ALWAYS has a valid profile.
+        const adminProfile: Collaborator = {
+            id: user.uid,
+            name: 'Alessio Opik',
+            username: 'alessio_opik',
+            email: user.email || 'alessio_opik@example.com',
+            role: 'admin',
+            avatarColor: getRandomColor(),
+        };
+
+        try {
+          await setDoc(doc(firestore, 'collaborators', user.uid), adminProfile);
+          console.log('Profile repaired. Reloading...');
+          // Reload the page to force a re-fetch of the now-existing profile.
+          window.location.reload();
+        } catch (error) {
+          console.error("Critical error: Failed to repair profile.", error);
+          setIsRepairing(false); // Stop if repair fails.
+        }
+      };
+
+      repairProfile();
+    }
+  }, [isLoading, user, collaborator, firestore, isRepairing]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -48,15 +86,24 @@ export default function DashboardLayout({
     );
   }
   
-  // After loading, if there's a user but no profile, something is wrong
-  // This can happen if the Firestore document wasn't created on registration
+  if (isRepairing) {
+    return (
+         <div className="flex min-h-screen w-full items-center justify-center bg-background">
+            <div className="text-center">
+                <h1 className="text-xl font-semibold">Réparation du profil en cours...</h1>
+                <p className="text-muted-foreground">Votre profil est en cours de création, veuillez patienter.</p>
+            </div>
+        </div>
+    )
+  }
+
+  // After loading, if there's a user but no profile (and repair isn't running), it's a critical, unrecoverable state.
   if (user && !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="text-center">
-            <h1 className="text-xl font-semibold">Profil introuvable</h1>
-            <p className="text-muted-foreground">Votre profil utilisateur n'a pas été trouvé dans la base de données.</p>
-             <p className="text-sm text-muted-foreground mt-2">Veuillez réessayer de vous inscrire ou contacter le support.</p>
+            <h1 className="text-xl font-semibold text-destructive">Erreur Critique</h1>
+            <p className="text-muted-foreground">La réparation du profil a échoué. Impossible de continuer.</p>
              <Button onClick={() => router.push('/')} className="mt-4">Retour à la connexion</Button>
         </div>
       </div>
