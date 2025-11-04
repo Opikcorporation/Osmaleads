@@ -98,17 +98,15 @@ export async function POST(request: Request) {
     // Sort collaborators by who has the fewest assignments today to start with them
     const sortedEligibleCollaborators = [...eligibleCollaborators].sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
 
+    let collaboratorIndex = 0;
     for (const lead of unassignedLeads) {
-        // The first collaborator in the sorted list is the one to get the next lead
-        const collaboratorToAssignId = sortedEligibleCollaborators[0];
-        if (collaboratorToAssignId) {
-            assignments.push({ leadId: lead.id, collaboratorId: collaboratorToAssignId });
-            
-            // Increment their count for this session
-            currentAssignmentsCount[collaboratorToAssignId] = (currentAssignmentsCount[collaboratorToAssignId] || 0) + 1;
-            // Re-sort to maintain balance for the next lead
-            sortedEligibleCollaborators.sort((a,b) => (currentAssignmentsCount[a] || 0) - (currentAssignmentsCount[b] || 0));
-        }
+        // Find the next collaborator in the round-robin sequence
+        const collaboratorToAssignId = sortedEligibleCollaborators[collaboratorIndex % sortedEligibleCollaborators.length];
+        
+        assignments.push({ leadId: lead.id, collaboratorId: collaboratorToAssignId });
+        
+        // Increment the index for the next lead
+        collaboratorIndex++;
     }
 
     if (assignments.length === 0) {

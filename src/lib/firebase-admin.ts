@@ -16,7 +16,7 @@ let services: FirebaseAdminServices | null = null;
  * Initializes the Firebase Admin SDK and returns the services.
  * It ensures that initialization only happens once (singleton pattern).
  *
- * This function should only be called in a server-side context (e.g., Genkit flows).
+ * This function should only be called in a server-side context.
  *
  * @returns {FirebaseAdminServices} An object containing the initialized app, firestore, and auth services.
  */
