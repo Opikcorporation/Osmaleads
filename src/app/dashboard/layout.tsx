@@ -24,8 +24,6 @@ export default function DashboardLayout({
   const router = useRouter();
   const firestore = useFirestore();
 
-  const [isRepairing, setIsRepairing] = useState(false);
-
   // Use useDoc to get the collaborator profile based on the authenticated user's UID
   const collaboratorRef = useMemoFirebase(
     () => (user ? doc(firestore, 'collaborators', user.uid) : null),
@@ -44,39 +42,6 @@ export default function DashboardLayout({
   // While loading auth OR the user profile, show a clear loading message.
   const isLoading = isUserLoading || (user && isProfileLoading);
 
-  // NEW: Repair logic
-  useEffect(() => {
-    // If done loading, a user is authenticated, but no profile exists...
-    if (!isLoading && user && !collaborator && !isRepairing) {
-      // ...start the repair process.
-      const repairProfile = async () => {
-        setIsRepairing(true);
-        console.log(`Repairing profile for user ${user.uid}...`);
-        
-        // This is a failsafe. It ensures the admin user ALWAYS has a valid profile.
-        const adminProfile: Collaborator = {
-            id: user.uid,
-            name: 'Alessio Opik',
-            username: 'alessio_opik',
-            email: 'alessio_opik@example.com',
-            role: 'admin',
-            avatarColor: getRandomColor(),
-        };
-
-        const docRef = doc(firestore, 'collaborators', user.uid);
-        // Use non-blocking write. The useDoc hook will pick up the change.
-        setDocumentNonBlocking(docRef, adminProfile, { merge: true });
-        console.log('Profile repair write initiated.');
-        
-        // No more window.location.reload()
-        // The component will re-render when `useDoc` gets the new data.
-        // We can set isRepairing to false after a short delay if needed, 
-        // but the loading state change should handle the UI update.
-      };
-
-      repairProfile();
-    }
-  }, [isLoading, user, collaborator, firestore, isRepairing]);
 
   if (isLoading) {
     return (
@@ -86,29 +51,29 @@ export default function DashboardLayout({
     );
   }
   
-  if (isRepairing && !collaborator) { // Show repair message only if repair is running AND profile isn't loaded yet
-    return (
-         <div className="flex min-h-screen w-full items-center justify-center bg-background">
-            <div className="text-center">
-                <h1 className="text-xl font-semibold">Réparation du profil en cours...</h1>
-                <p className="text-muted-foreground">Votre profil est en cours de création, veuillez patienter.</p>
-            </div>
-        </div>
-    )
-  }
-
-  // After loading, if there's a user but no profile (and repair isn't running), it's a critical, unrecoverable state.
+  // After loading, if there's a user but no profile, it's a critical state.
+  // Let's guide them back to login instead of trying to auto-repair.
   if (user && !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <div className="text-center">
-            <h1 className="text-xl font-semibold text-destructive">Erreur Critique</h1>
-            <p className="text-muted-foreground">La réparation du profil a échoué. Impossible de continuer.</p>
+        <div className="text-center space-y-4">
+            <h1 className="text-xl font-semibold text-destructive">Profil non trouvé</h1>
+            <p className="text-muted-foreground">Votre compte utilisateur existe, mais nous n'avons pas trouvé de profil associé.</p>
+            <p className="text-sm text-muted-foreground">Veuillez contacter un administrateur.</p>
              <Button onClick={() => router.push('/login')} className="mt-4">Retour à la connexion</Button>
         </div>
       </div>
     );
   }
+  
+  if (!collaborator) {
+     return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <p>Redirection vers la page de connexion...</p>
+      </div>
+    );
+  }
+
 
   // If we get here, everything is loaded and valid.
   return (
