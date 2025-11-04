@@ -15,6 +15,6 @@ export interface UserAuthHookResult {
  * @returns {UserAuthHookResult} Object with user, isUserLoading, userError.
  */
 export const useUser = (): UserAuthHookResult => {
-  const { user, isUserLoading, userError } = useFirebase(); // Leverages the main hook
-  return { user, isUserLoading, userError };
+  const { user, isLoading, error } = useFirebase(); // Leverages the main hook
+  return { user, isUserLoading: isLoading, userError: error };
 };

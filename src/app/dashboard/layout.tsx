@@ -7,7 +7,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useUserProfile } from '@/firebase';
+import { useFirebase } from '@/firebase'; // Use the main firebase hook
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -16,18 +16,19 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, collaborator, isLoading } = useUserProfile();
+  // useFirebase is now the single source of truth for auth and profile state
+  const { user, collaborator, isLoading, error } = useFirebase();
   const router = useRouter();
 
-  // Redirect if loading is finished and there's no user.
   useEffect(() => {
+    // If loading is done and there is no authenticated user, redirect to login.
     if (!isLoading && !user) {
       router.push('/login');
     }
   }, [isLoading, user, router]);
 
-  // While loading auth state OR the user profile, show a clear loading message.
-  // This is the main guard to prevent children from rendering prematurely.
+  // THIS IS THE PRIMARY GUARD.
+  // While the provider is figuring out the auth state OR the profile, show a loading screen.
   if (isLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
@@ -35,7 +36,7 @@ export default function DashboardLayout({
       </div>
     );
   }
-  
+
   // After loading, if there's an auth user but NO matching collaborator profile,
   // it's a critical error state. We must stop rendering here.
   if (user && !collaborator) {

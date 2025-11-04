@@ -62,7 +62,7 @@ export default function LoginPage() {
     }
   };
 
-  // While waiting for auth state, show loading.
+  // While waiting for auth state, or if the user is already logged in and about to be redirected.
   if (isUserLoading || user) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
