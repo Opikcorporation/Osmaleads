@@ -25,16 +25,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Groups can only be managed by admins
-    match /groups/{groupId} {
-      allow read, write: if isAdmin();
-    }
-    
-    // Distribution settings can only be managed by admins
-    match /distributionSettings/{settingId} {
-        allow read, write: if isAdmin();
-    }
-
     // Leads can be read by admins or the assigned collaborator.
     // They can only be created or deleted by admins.
     match /leads/{leadId} {
