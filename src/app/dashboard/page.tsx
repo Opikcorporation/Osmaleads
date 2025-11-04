@@ -29,7 +29,7 @@ import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search, Phone, Mail } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { LeadImportDialog, type AllScoreRules } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -154,10 +154,11 @@ export default function DashboardPage() {
     );
   }, [leads, searchTerm]);
 
-  const isLoading = leadsLoading || collaboratorsLoading || isProfileLoading;
+  // Combined loading state. The UI should wait until the profile and initial data are loaded.
+  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
-    if (checked === true) {
+    if (checked === true && filteredLeads) {
       setSelectedLeads(filteredLeads.map(l => l.id));
     } else {
       setSelectedLeads([]);
@@ -173,8 +174,8 @@ export default function DashboardPage() {
   };
   
   const getAssignee = (collaboratorId: string | null) => {
-    if (!collaboratorId) return null;
-    return collaborators?.find((c) => c.id === collaboratorId);
+    if (!collaboratorId || !collaborators) return null;
+    return collaborators.find((c) => c.id === collaboratorId);
   };
   
   const handleSaveLead = async (data: { fileContent: string; mapping: { [key: string]: string }, scoreColumns: string[], allScoreRules: AllScoreRules }) => {
@@ -412,7 +413,7 @@ export default function DashboardPage() {
              </div>
           )}
           {isLoading ? (
-            <div className="text-center">Chargement des leads...</div>
+            <div className="text-center p-8">Chargement des leads...</div>
           ) : (
             <div className="overflow-x-auto">
                 <Table>
@@ -421,7 +422,7 @@ export default function DashboardPage() {
                     {collaborator?.role === 'admin' && (
                       <TableHead padding="checkbox" className="w-12">
                           <Checkbox
-                          checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
+                          checked={filteredLeads && filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
                           onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                           aria-label="Select all"
                           />

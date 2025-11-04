@@ -59,6 +59,7 @@ export default function AnalyticsPage() {
   const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
 
   const leadsQuery = useMemo(() => {
+    // Crucially, wait until the collaborator profile is loaded to know their role.
     if (!collaborator) {
       return null;
     }
@@ -79,7 +80,9 @@ export default function AnalyticsPage() {
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaborators, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  const isLoading = leadsLoading || collaboratorsLoading || isProfileLoading;
+  // Combined loading state.
+  const isLoading = isProfileLoading || leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
+
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -155,14 +158,14 @@ export default function AnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+      <div className="flex w-full items-center justify-center p-8">
         <p>Chargement des analyses...</p>
       </div>
     );
   }
 
   if (!kpiData) {
-     return <div className="text-center">Aucune donnée de lead à analyser.</div>
+     return <div className="text-center p-8">Aucune donnée de lead à analyser.</div>
   }
 
   return (
@@ -227,7 +230,7 @@ export default function AnalyticsPage() {
       
       {/* Charts */}
       <div className={cn("mt-6 grid gap-6 md:grid-cols-1", collaborator?.role === 'admin' && "lg:grid-cols-5")}>
-        <Card className={cn(collaborator?.role === 'admin' && "lg:col-span-2")}>
+        <Card className={cn(collaborator?.role === 'admin' ? "lg:col-span-2" : "col-span-full")}>
            <CardHeader>
             <CardTitle>Répartition par Statut</CardTitle>
              <CardDescription>Distribution des leads à travers leur cycle de vie.</CardDescription>
