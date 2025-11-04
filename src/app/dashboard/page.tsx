@@ -21,6 +21,7 @@ import {
   useFirestore,
   useMemoFirebase,
   useUser,
+  useDoc,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
@@ -81,6 +82,10 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  
+  const collaboratorRef = useMemoFirebase(() => user ? doc(firestore, 'collaborators', user.uid) : null, [user, firestore]);
+  const { data: collaborator, isLoading: isProfileLoading } = useDoc<Collaborator>(collaboratorRef);
+
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [viewingLeadId, setViewingLeadId] = useState<string | null>(null);
@@ -101,20 +106,27 @@ export default function DashboardPage() {
   }
 
   const leadsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !collaborator) return null;
     let q = query(collection(firestore, 'leads'));
+
+    // If user is a collaborator, only show their leads
+    if (collaborator.role === 'collaborator') {
+        q = query(q, where('assignedCollaboratorId', '==', user.uid));
+    }
+
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }
      if (tierFilter !== 'All') {
       q = query(q, where('tier', '==', tierFilter));
     }
-    if (assigneeFilter !== 'All') {
+    // Only show assignee filter if user is an admin
+    if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
       const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
       q = query(q, where('assignedCollaboratorId', '==', assigneeId));
     }
     return q;
-  }, [user, firestore, statusFilter, assigneeFilter, tierFilter]);
+  }, [user, firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
 
   const collaboratorsQuery = useMemoFirebase(
     () => collection(firestore, 'collaborators'),
@@ -134,7 +146,7 @@ export default function DashboardPage() {
     );
   }, [leads, searchTerm]);
 
-  const isLoading = leadsLoading || collaboratorsLoading;
+  const isLoading = leadsLoading || collaboratorsLoading || isProfileLoading;
   
   const leadIds = useMemo(() => filteredLeads?.map(l => l.id) || [], [filteredLeads]);
 
@@ -314,16 +326,20 @@ export default function DashboardPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord des Leads</h1>
-         <Button onClick={() => setIsImportDialogOpen(true)}>
-          <FileUp className="mr-2 h-4 w-4" /> Importer des Leads
-        </Button>
+        {collaborator?.role === 'admin' && (
+          <Button onClick={() => setIsImportDialogOpen(true)}>
+            <FileUp className="mr-2 h-4 w-4" /> Importer des Leads
+          </Button>
+        )}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tous les Leads</CardTitle>
+          <CardTitle>
+            {collaborator?.role === 'admin' ? 'Tous les Leads' : 'Mes Leads'}
+          </CardTitle>
           <CardDescription>
-            Voici la liste de tous les leads dans le système.
+            {collaborator?.role === 'admin' ? 'Voici la liste de tous les leads dans le système.' : 'Voici la liste de vos leads assignés.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -360,20 +376,22 @@ export default function DashboardPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-full lg:col-start-4">
-                <SelectValue placeholder="Filtrer par assigné" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">Toutes les personnes</SelectItem>
-                <SelectItem value="Unassigned">Non assigné</SelectItem>
-                {collaborators?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {collaborator?.role === 'admin' && (
+              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <SelectTrigger className="w-full lg:col-start-4">
+                  <SelectValue placeholder="Filtrer par assigné" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">Toutes les personnes</SelectItem>
+                  <SelectItem value="Unassigned">Non assigné</SelectItem>
+                  {collaborators?.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          {selectedLeads.length > 0 && (
+          {selectedLeads.length > 0 && collaborator?.role === 'admin' && (
              <div className="mb-4 flex items-center justify-between rounded-lg border bg-muted/50 p-3">
                  <p className="text-sm font-medium">{selectedLeads.length} lead(s) sélectionné(s)</p>
                  <div className="flex items-center gap-2">
@@ -409,13 +427,15 @@ export default function DashboardPage() {
                 <Table>
                 <TableHeader>
                     <TableRow>
-                    <TableHead padding="checkbox" className="w-12">
-                        <Checkbox
-                        checked={leadIds.length > 0 && selectedLeads.length === leadIds.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
-                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                        aria-label="Select all"
-                        />
-                    </TableHead>
+                    {collaborator?.role === 'admin' && (
+                      <TableHead padding="checkbox" className="w-12">
+                          <Checkbox
+                          checked={leadIds.length > 0 && selectedLeads.length === leadIds.length ? true : selectedLeads.length > 0 ? 'indeterminate' : false}
+                          onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                          aria-label="Select all"
+                          />
+                      </TableHead>
+                    )}
                     <TableHead>Nom</TableHead>
                     <TableHead>Score</TableHead>
                     <TableHead>Tier</TableHead>
@@ -433,13 +453,15 @@ export default function DashboardPage() {
                         const isSelected = selectedLeads.includes(lead.id);
                         return (
                         <TableRow key={lead.id} data-state={isSelected ? "selected" : ""}>
-                            <TableCell padding="checkbox">
-                                <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={(checked) => handleSelectLead(lead.id, !!checked)}
-                                    aria-label="Select row"
-                                />
-                            </TableCell>
+                            {collaborator?.role === 'admin' && (
+                              <TableCell padding="checkbox">
+                                  <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => handleSelectLead(lead.id, !!checked)}
+                                      aria-label="Select row"
+                                  />
+                              </TableCell>
+                            )}
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
                                 {lead.score !== null ? (
@@ -508,19 +530,23 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       
-      <LeadImportDialog
-        isOpen={isImportDialogOpen}
-        onClose={() => setIsImportDialogOpen(false)}
-        onSave={handleSaveLead}
-      />
+      {collaborator?.role === 'admin' && (
+        <LeadImportDialog
+          isOpen={isImportDialogOpen}
+          onClose={() => setIsImportDialogOpen(false)}
+          onSave={handleSaveLead}
+        />
+      )}
       
-      <BulkAssignDialog
-        isOpen={isAssignDialogOpen}
-        onClose={() => setIsAssignDialogOpen(false)}
-        onAssign={handleBulkAssign}
-        collaborators={collaborators || []}
-        isProcessing={isProcessing}
-      />
+      {collaborator?.role === 'admin' && (
+        <BulkAssignDialog
+          isOpen={isAssignDialogOpen}
+          onClose={() => setIsAssignDialogOpen(false)}
+          onAssign={handleBulkAssign}
+          collaborators={collaborators || []}
+          isProcessing={isProcessing}
+        />
+      )}
 
       {viewingLeadId && (
         <LeadDetailDialog 
