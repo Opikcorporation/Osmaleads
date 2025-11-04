@@ -97,15 +97,70 @@ export default function AdminGroupsPage() {
     setEditingGroup(null);
   };
 
-  const handleSaveGroup = async (data: any) => {
-    // This logic will be implemented in the next step
-    toast({ title: 'Fonctionnalité en cours de développement', description: 'La sauvegarde sera bientôt disponible.'});
-    handleCloseDialog();
+  const handleSaveGroup = async (data: {
+    groupData: { name: string; collaboratorIds: string[] };
+    settingData: { dailyQuota: number; leadTier: any };
+  }) => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+
+    try {
+      if (editingGroup) {
+        // Update mode
+        const groupRef = doc(firestore, 'groups', editingGroup.id);
+        batch.update(groupRef, data.groupData);
+
+        const currentSetting = getGroupSetting(editingGroup.id);
+        if (currentSetting) {
+          const settingRef = doc(firestore, 'distributionSettings', currentSetting.id);
+          batch.update(settingRef, { ...data.settingData, groupId: editingGroup.id });
+        } else {
+            // Failsafe: if for some reason a setting doesn't exist, create it.
+            const newSettingRef = doc(collection(firestore, 'distributionSettings'));
+            batch.set(newSettingRef, { ...data.settingData, groupId: editingGroup.id });
+        }
+        
+        toast({ title: 'Groupe mis à jour', description: `Le groupe "${data.groupData.name}" a été mis à jour.`});
+      } else {
+        // Create mode
+        const newGroupRef = doc(collection(firestore, 'groups'));
+        batch.set(newGroupRef, data.groupData);
+
+        const newSettingRef = doc(collection(firestore, 'distributionSettings'));
+        batch.set(newSettingRef, { ...data.settingData, groupId: newGroupRef.id });
+
+        toast({ title: 'Groupe créé', description: `Le groupe "${data.groupData.name}" a été créé avec succès.`});
+      }
+      
+      await batch.commit();
+      handleCloseDialog();
+    } catch (error) {
+      console.error("Error saving group:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Une erreur est survenue lors de la sauvegarde du groupe."});
+    }
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-     // This logic will be implemented in the next step
-    toast({ variant: 'destructive', title: 'Fonctionnalité en cours de développement', description: 'La suppression sera bientôt disponible.'});
+     if (!firestore) return;
+     const batch = writeBatch(firestore);
+
+     try {
+        const groupRef = doc(firestore, 'groups', groupId);
+        batch.delete(groupRef);
+
+        const settingToDelete = getGroupSetting(groupId);
+        if(settingToDelete) {
+            const settingRef = doc(firestore, 'distributionSettings', settingToDelete.id);
+            batch.delete(settingRef);
+        }
+
+        await batch.commit();
+        toast({ variant: 'destructive', title: 'Groupe supprimé', description: 'Le groupe et ses paramètres ont été supprimés.'});
+
+     } catch(error) {
+        console.error("Error deleting group: ", error);
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le groupe.' });
+     }
   };
   
   const handleDistribute = async (group: Group) => {
