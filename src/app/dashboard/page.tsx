@@ -22,11 +22,11 @@ import {
   useMemoFirebase,
   useUser,
 } from '@/firebase';
-import type { Lead, Collaborator } from '@/lib/types';
+import type { Lead, Collaborator, LeadTier } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { FileUp, Trash2, UserPlus, Search, TrendingUp } from 'lucide-react';
+import { FileUp, Trash2, UserPlus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { LeadImportDialog, type AllScoreRules } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +52,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { leadStatuses } from '@/lib/types';
+import { leadStatuses, leadTiers } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 
 // Simple CSV parser
@@ -87,6 +89,7 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [tierFilter, setTierFilter] = useState<string>('All');
 
   const leadsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -94,12 +97,15 @@ export default function DashboardPage() {
     if (statusFilter !== 'All') {
       q = query(q, where('status', '==', statusFilter));
     }
+     if (tierFilter !== 'All') {
+      q = query(q, where('tier', '==', tierFilter));
+    }
     if (assigneeFilter !== 'All') {
       const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
       q = query(q, where('assignedCollaboratorId', '==', assigneeId));
     }
     return q;
-  }, [user, firestore, statusFilter, assigneeFilter]);
+  }, [user, firestore, statusFilter, assigneeFilter, tierFilter]);
 
   const collaboratorsQuery = useMemoFirebase(
     () => collection(firestore, 'collaborators'),
@@ -165,32 +171,44 @@ export default function DashboardPage() {
           }
       }
       
-      // Convert AllScoreRules to a more efficient lookup map
       const rulesLookup: { [column: string]: { [value: string]: number } } = {};
+      let maxTotalScore = 0;
+      
       for (const column of scoreColumns) {
+        let maxColumnScore = 0;
         rulesLookup[column] = allScoreRules[column]?.reduce((acc, rule) => {
           acc[rule.value] = rule.score;
+          if (rule.score > maxColumnScore) {
+            maxColumnScore = rule.score;
+          }
           return acc;
         }, {} as {[key: string]: number}) || {};
+        maxTotalScore += maxColumnScore;
       }
 
 
       for (const row of rows) {
         const newLeadDocRef = doc(leadsColRef);
         
-        let totalScore = 0;
-        let scoreCount = 0;
-        
-        for (const column of scoreColumns) {
-            const value = row[column];
-            const columnRules = rulesLookup[column];
-            if (value && columnRules && columnRules[value] !== undefined) {
-                totalScore += columnRules[value];
-                scoreCount++;
-            }
+        let leadTotalScore = 0;
+        if(scoreColumns.length > 0) {
+          for (const column of scoreColumns) {
+              const value = row[column];
+              const columnRules = rulesLookup[column];
+              if (value && columnRules && columnRules[value] !== undefined) {
+                  leadTotalScore += columnRules[value];
+              }
+          }
         }
         
-        const finalScore = scoreCount > 0 ? Math.round(totalScore / scoreCount) : null;
+        const finalScore = (scoreColumns.length > 0 && maxTotalScore > 0) ? Math.round((leadTotalScore / maxTotalScore) * 100) : null;
+        
+        let tier: LeadTier | null = null;
+        if (finalScore !== null) {
+          if (finalScore > 70) tier = 'Excellent';
+          else if (finalScore >= 40) tier = 'Moyen';
+          else tier = 'Faible';
+        }
         
         const newLead: Omit<Lead, 'id'> = {
           name: row[invertedMapping['name']] || "Lead sans nom",
@@ -199,7 +217,7 @@ export default function DashboardPage() {
           company: row[invertedMapping['company']] || null,
           username: null,
           status: 'New',
-          tier: null,
+          tier: tier,
           score: finalScore,
           leadData: JSON.stringify(row),
           assignedCollaboratorId: null,
@@ -300,19 +318,30 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="relative lg:col-span-2">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Rechercher par nom ou email..."
-                className="pl-8 sm:w-full"
+                className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+             <Select value={tierFilter} onValueChange={setTierFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filtrer par tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">Tous les tiers</SelectItem>
+                {leadTiers.map(tier => (
+                  <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Filtrer par statut" />
               </SelectTrigger>
               <SelectContent>
@@ -323,7 +352,7 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
             <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full lg:col-start-4">
                 <SelectValue placeholder="Filtrer par assigné" />
               </SelectTrigger>
               <SelectContent>
@@ -380,7 +409,7 @@ export default function DashboardPage() {
                     </TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead>Score</TableHead>
-                    <TableHead className="hidden md:table-cell">Téléphone</TableHead>
+                    <TableHead>Tier</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
@@ -405,15 +434,34 @@ export default function DashboardPage() {
                             <TableCell className="font-medium">{lead.name}</TableCell>
                             <TableCell>
                                 {lead.score !== null ? (
-                                    <div className="flex items-center gap-2 font-medium">
-                                        <TrendingUp className="h-4 w-4 text-primary" />
-                                        <span>{lead.score}</span>
-                                    </div>
+                                    <span className={cn("font-semibold",
+                                        lead.score > 70 ? 'text-green-600' :
+                                        lead.score >= 40 ? 'text-orange-500' :
+                                        'text-red-600'
+                                    )}>
+                                        {lead.score}%
+                                    </span>
                                 ) : (
                                     <span className="text-muted-foreground">N/A</span>
                                 )}
                             </TableCell>
-                            <TableCell className="hidden md:table-cell">{lead.phone || 'N/A'}</TableCell>
+                            <TableCell>
+                                {lead.tier ? (
+                                    <Badge variant={
+                                        lead.tier === 'Excellent' ? 'default' :
+                                        lead.tier === 'Moyen' ? 'secondary' :
+                                        'destructive'
+                                    } className={cn(
+                                        lead.tier === 'Excellent' && 'bg-green-600 hover:bg-green-700',
+                                        lead.tier === 'Moyen' && 'bg-orange-500 hover:bg-orange-600',
+                                        lead.tier === 'Faible' && 'bg-red-600 hover:bg-red-700'
+                                    )}>
+                                        {lead.tier}
+                                    </Badge>
+                                ) : (
+                                    <span className="text-muted-foreground">N/A</span>
+                                )}
+                            </TableCell>
                             <TableCell>
                             <StatusBadge status={lead.status} />
                             </TableCell>

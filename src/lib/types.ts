@@ -12,7 +12,7 @@ export type User = {
   groupId?: string;
 };
 
-export const leadTiers = ['Bas de gamme', 'Moyenne gamme', 'Haut de gamme'] as const;
+export const leadTiers = ['Excellent', 'Moyen', 'Faible'] as const;
 export type LeadTier = (typeof leadTiers)[number];
 
 export type Group = {
