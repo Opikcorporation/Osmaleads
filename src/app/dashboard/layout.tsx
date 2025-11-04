@@ -49,7 +49,7 @@ export default function DashboardLayout({
     // If done loading, a user is authenticated, but no profile exists...
     if (!isLoading && user && !collaborator && !isRepairing) {
       // ...start the repair process.
-      const repairProfile = () => {
+      const repairProfile = async () => {
         setIsRepairing(true);
         console.log(`Repairing profile for user ${user.uid}...`);
         
@@ -64,11 +64,14 @@ export default function DashboardLayout({
         };
 
         const docRef = doc(firestore, 'collaborators', user.uid);
+        // Use non-blocking write. The useDoc hook will pick up the change.
         setDocumentNonBlocking(docRef, adminProfile, { merge: true });
-
-        console.log('Profile repair initiated. Reloading...');
-        // Optimistically reload. The listener will catch permission errors.
-        setTimeout(() => window.location.reload(), 1000);
+        console.log('Profile repair write initiated.');
+        
+        // No more window.location.reload()
+        // The component will re-render when `useDoc` gets the new data.
+        // We can set isRepairing to false after a short delay if needed, 
+        // but the loading state change should handle the UI update.
       };
 
       repairProfile();
@@ -83,7 +86,7 @@ export default function DashboardLayout({
     );
   }
   
-  if (isRepairing) {
+  if (isRepairing && !collaborator) { // Show repair message only if repair is running AND profile isn't loaded yet
     return (
          <div className="flex min-h-screen w-full items-center justify-center bg-background">
             <div className="text-center">
