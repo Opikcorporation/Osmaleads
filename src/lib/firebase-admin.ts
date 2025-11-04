@@ -1,3 +1,5 @@
+'use server';
+
 import * as admin from 'firebase-admin';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
@@ -26,8 +28,10 @@ export function getFirebaseAdmin(): FirebaseAdminServices {
   // Check if the app is already initialized
   if (admin.apps.length === 0) {
     // If not, initialize it.
-    // The SDK will automatically use Google Application Default Credentials.
-    admin.initializeApp();
+    // The SDK will automatically use Google Application Default Credentials when projectId is provided.
+    admin.initializeApp({
+      projectId: process.env.GCLOUD_PROJECT,
+    });
   }
 
   const app = admin.apps[0]!;
