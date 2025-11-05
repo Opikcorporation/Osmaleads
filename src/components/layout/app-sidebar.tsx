@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
-import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart } from 'lucide-react';
 import { Logo } from '../logo';
 import { useUser } from '@/firebase';
 
@@ -26,28 +26,24 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       roles: ['admin', 'collaborator'],
     },
     {
-        href: '/dashboard/admin',
-        label: 'Admin',
-        icon: Settings,
-        roles: ['admin'],
+      href: '/dashboard', // Placeholder href
+      label: 'Analyse',
+      icon: LineChart,
+      roles: ['admin'],
+    },
+    {
+      href: '/dashboard/admin/collaborators',
+      label: 'Collaborateurs',
+      icon: UserPlus,
+      roles: ['admin'],
+    },
+    {
+      href: '/dashboard/admin/groups',
+      label: 'Groupes',
+      icon: Users,
+      roles: ['admin'],
     },
   ];
-
-  // We derive the admin specific links from the main admin page link
-  const adminNavItems = [
-     {
-        href: '/dashboard/admin/collaborators',
-        label: 'Collaborateurs',
-        icon: UserPlus,
-        roles: ['admin'],
-    },
-     {
-        href: '/dashboard/admin/groups',
-        label: 'Groupes',
-        icon: Users,
-        roles: ['admin'],
-    },
-  ]
 
   return (
     <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
@@ -66,30 +62,13 @@ export default function AppSidebar({ user }: AppSidebarProps) {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/dashboard/admin') || pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                (pathname.startsWith(item.href) && item.href !== '/dashboard') || pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />
               {item.label}
             </Link>
           ))}
-        {user?.role === 'admin' && pathname.startsWith('/dashboard/admin') && (
-          <div className="ml-7 border-l pl-4 space-y-2 py-2">
-            {adminNavItems.map((item) => (
-               <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  pathname.startsWith(item.href) ? 'bg-sidebar-accent/80' : ''
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        )}
       </nav>
       <div className="mt-auto p-4 space-y-4">
         <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
