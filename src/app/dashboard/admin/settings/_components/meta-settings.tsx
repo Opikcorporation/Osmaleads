@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import type { IntegrationSetting } from '@/lib/types';
@@ -32,14 +32,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-
-// Placeholder data for campaigns. In a real app, this would be fetched from the Meta API.
-const MOCK_CAMPAIGNS = [
-    { id: 'CAMPAGNE_VENTE_A', name: 'Campagne de Vente - Hiver 2024' },
-    { id: 'CAMPAGNE_VENTE_B', name: 'Offre Spéciale - Printemps 2024' },
-    { id: 'CAMPAGNE_RECRUTEMENT_A', name: 'Recrutement - Développeurs' },
-    { id: 'CAMPAGNE_NOTORIETE', name: 'Notoriété - Marque France' },
-];
 
 export function MetaSettings() {
   const firestore = useFirestore();
@@ -187,37 +179,11 @@ export function MetaSettings() {
                 <Separator />
                 <div>
                   <h3 className="text-lg font-semibold">
-                    Étape 2 : Configuration des Campagnes
+                    Configuration des Campagnes
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Cochez les campagnes dont vous souhaitez importer les leads. Seuls les leads des campagnes sélectionnées seront ajoutés.
+                    La sélection des campagnes n'est pas encore disponible. Toutes les campagnes sont actuellement synchronisées.
                   </p>
-                  <div className="mt-4 rounded-lg border p-6 space-y-4">
-                    {settingsLoading ? (
-                         <div className="space-y-4">
-                            <Skeleton className="h-6 w-3/4" />
-                            <Skeleton className="h-6 w-1/2" />
-                         </div>
-                    ) : metaSettings ? (
-                        MOCK_CAMPAIGNS.map(campaign => (
-                            <div key={campaign.id} className="flex items-center space-x-3">
-                                <Checkbox
-                                    id={`campaign-${campaign.id}`}
-                                    checked={metaSettings?.enabledCampaignIds?.includes(campaign.id) || false}
-                                    onCheckedChange={() => handleCampaignToggle(campaign.id)}
-                                    disabled={!metaSettings}
-                                />
-                                <Label htmlFor={`campaign-${campaign.id}`} className="font-normal text-sm">
-                                    {campaign.name} <span className="text-xs text-muted-foreground">({campaign.id})</span>
-                                </Label>
-                            </div>
-                        ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center">
-                        Une erreur est survenue lors du chargement des paramètres.
-                      </p>
-                    )}
-                  </div>
                 </div>
             </>
         )}
@@ -237,7 +203,6 @@ export function MetaSettings() {
                         <AlertDialogTitle>Êtes-vous sûr de vouloir vous déconnecter ?</AlertDialogTitle>
                         <AlertDialogDescription>
                             La synchronisation automatique des leads sera arrêtée. Vous devrez fournir un nouveau jeton pour la réactiver.
-                            Vos campagnes sélectionnées seront conservées mais inactives.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
