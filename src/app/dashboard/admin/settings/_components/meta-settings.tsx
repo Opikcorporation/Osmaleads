@@ -12,14 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
-import { useCollection, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import type { IntegrationSetting } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,31 +103,6 @@ export function MetaSettings() {
     }
   }
 
-  const handleCampaignToggle = async (campaignId: string) => {
-    if (!firestore || !metaSettings) return;
-
-    const currentlyEnabled = metaSettings.enabledCampaignIds || [];
-    const isEnabled = currentlyEnabled.includes(campaignId);
-    
-    const updatedCampaignIds = isEnabled
-        ? currentlyEnabled.filter(id => id !== campaignId)
-        : [...currentlyEnabled, campaignId];
-
-    try {
-        const settingRef = doc(firestore, 'integrationSettings', metaSettings.id);
-        updateDocumentNonBlocking(settingRef, { enabledCampaignIds: updatedCampaignIds });
-
-        toast({
-            title: `Campagne ${isEnabled ? 'désactivée' : 'activée'}`,
-            description: `Les leads de cette campagne seront ${isEnabled ? 'ignorés' : 'synchronisés'}.`
-        });
-
-    } catch (error) {
-         toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la campagne.' });
-    }
-  }
-
-
   return (
     <Card>
       <CardHeader>
@@ -187,7 +160,6 @@ export function MetaSettings() {
                 </div>
             </>
         )}
-
 
       </CardContent>
       {metaSettings && (
