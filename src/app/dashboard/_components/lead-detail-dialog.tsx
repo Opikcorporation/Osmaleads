@@ -159,6 +159,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   // The main loading state only depends on the essential data needed to render the shell.
   const isLoading = leadLoading || allUsersLoading;
+  const isAdmin = authUser?.role === 'admin';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -212,13 +213,13 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                                 </SelectContent>
                             </Select>
                         </div>
-                        {lead.tier && (
+                        {isAdmin && lead.tier && (
                             <div className="flex items-center gap-2">
                                <Gem className="h-4 w-4 text-primary" />
                                <Badge variant="secondary">{lead.tier}</Badge>
                            </div>
                         )}
-                        {lead.score !== null && typeof lead.score !== 'undefined' && (
+                        {isAdmin && lead.score !== null && typeof lead.score !== 'undefined' && (
                              <div className="flex items-center gap-2">
                                 <TrendingUp className="h-4 w-4 text-primary" />
                                 <Badge variant="outline">Score: {lead.score}</Badge>

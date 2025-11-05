@@ -386,7 +386,7 @@ export default function DashboardPage() {
                     )}
                     <TableHead>Nom</TableHead>
                     <TableHead>Téléphone</TableHead>
-                    <TableHead>Score</TableHead>
+                    {isAdmin && <TableHead>Score</TableHead>}
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
@@ -420,9 +420,11 @@ export default function DashboardPage() {
                         )}
                         <TableCell className="font-medium">{lead.name}</TableCell>
                         <TableCell>{lead.phone || '-'}</TableCell>
-                        <TableCell>
-                          <ScoreBadge score={lead.score} />
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <ScoreBadge score={lead.score} />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <StatusBadge status={lead.status} />
                         </TableCell>
@@ -450,7 +452,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 7 : 6} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 6 : 5} className="text-center h-24">
                         Aucun lead à afficher pour ce filtre.
                       </TableCell>
                     </TableRow>
@@ -488,5 +490,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
