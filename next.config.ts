@@ -30,6 +30,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    buildActivity: false,
+  },
+  experimental: {
+    // This allows all cross-origin requests in development.
+    // Ideal for environments like Firebase Studio where the origin is dynamic.
+    allowedDevOrigins: ['*'],
+  },
 };
 
 export default nextConfig;
