@@ -7,12 +7,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ArrowRight, Plug } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -25,6 +23,8 @@ import {
 import type { IntegrationSetting } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { MetaConnectDialog } from './meta-connect-dialog';
+
 
 type MetaCampaign = {
   id: string;
@@ -35,8 +35,8 @@ type MetaCampaign = {
 export function MetaSettings() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [accessToken, setAccessToken] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
@@ -91,8 +91,7 @@ export function MetaSettings() {
   }, [isConnected]);
 
 
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConnect = async (accessToken: string) => {
     if (!accessToken.trim()) {
       toast({
         variant: 'destructive',
@@ -113,7 +112,7 @@ export function MetaSettings() {
         title: 'Connecté !',
         description: "L'intégration Meta a été activée avec succès.",
       });
-      setAccessToken('');
+      setIsConnectDialogOpen(false); // Close dialog on success
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -169,41 +168,20 @@ export function MetaSettings() {
   }
 
   return (
+    <>
     <div className="space-y-8">
       {!isConnected ? (
          <Card>
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Pour commencer, vous devez fournir un jeton d'accès de votre application Meta.
+                   Cliquez sur le bouton ci-dessous pour fournir un jeton d'accès et activer la synchronisation des leads.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleConnect} className="space-y-4">
-                    <div>
-                    <Label htmlFor="meta-token" className="font-semibold">
-                        Jeton d'accès de l'API Graph
-                    </Label>
-                    <p className="text-sm text-muted-foreground mt-1 mb-3">
-                        Générez un jeton depuis votre application dans le 
-                        <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline hover:text-primary/80">
-                           Graph API Explorer de Meta
-                        </Link>
-                         et collez-le ici.
-                    </p>
-                    <Input
-                        id="meta-token"
-                        type="password"
-                        placeholder="Collez votre jeton d'accès ici"
-                        value={accessToken}
-                        onChange={(e) => setAccessToken(e.target.value)}
-                    />
-                    </div>
-                    <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
-                        {isSaving ? 'Connexion...' : "Enregistrer et Connecter"}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </form>
+                <Button onClick={() => setIsConnectDialogOpen(true)}>
+                    <Plug className="mr-2 h-4 w-4" /> Connecter mon compte Meta
+                </Button>
             </CardContent>
          </Card>
       ) : (
@@ -264,5 +242,12 @@ export function MetaSettings() {
         </>
       )}
     </div>
+    <MetaConnectDialog 
+        isOpen={isConnectDialogOpen}
+        onClose={() => setIsConnectDialogOpen(false)}
+        onSave={handleConnect}
+        isSaving={isSaving}
+    />
+    </>
   );
 }
