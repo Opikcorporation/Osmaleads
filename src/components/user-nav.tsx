@@ -23,8 +23,10 @@ export function UserNav({ user }: { user: Collaborator }) {
   const router = useRouter();
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
-    router.push('/');
+    // Redirect directly to the login page for a cleaner experience.
+    router.push('/login');
   };
 
   const getInitials = (name: string) => {
