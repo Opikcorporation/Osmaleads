@@ -72,7 +72,7 @@ export function CollaboratorFormDialog({
             });
             return;
         }
-        // In edit mode, we don't send password or username as they are not editable here.
+        // In edit mode, we only update editable fields
         onSave({ name, role, avatarColor });
     } else {
         if (!name) {
@@ -163,6 +163,11 @@ export function CollaboratorFormDialog({
                     </SelectContent>
                 </Select>
             </div>
+             {!isEditMode && (
+              <p className="text-sm text-muted-foreground col-span-4 text-center pt-2">
+                Un nom d'utilisateur et un mot de passe seront générés et affichés après l'enregistrement.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>

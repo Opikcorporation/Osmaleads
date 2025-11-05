@@ -21,6 +21,7 @@ import {
 import type { Collaborator } from '@/lib/types';
 import { useState, useMemo } from 'react';
 import { CollaboratorFormDialog } from './_components/collaborator-form-dialog';
+import { CollaboratorCreatedDialog } from './_components/collaborator-created-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,8 +38,12 @@ import { useToast } from '@/hooks/use-toast';
 export default function AdminCollaboratorsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
+
+  const [isCreatedDialogOpen, setIsCreatedDialogOpen] = useState(false);
+  const [newlyCreatedData, setNewlyCreatedData] = useState<{ profile: Collaborator, password_generated: string } | null>(null);
+
 
   const collaboratorsQuery = useMemo(
     () => collection(firestore, 'collaborators'),
@@ -48,18 +53,23 @@ export default function AdminCollaboratorsPage() {
   const { data: collaborators, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
 
-  const handleOpenDialog = (collaborator: Collaborator | null = null) => {
+  const handleOpenFormDialog = (collaborator: Collaborator | null = null) => {
     setEditingCollaborator(collaborator);
-    setIsDialogOpen(true);
+    setIsFormDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
+  const handleCloseFormDialog = () => {
+    setIsFormDialogOpen(false);
     setEditingCollaborator(null);
   };
+  
+  const handleCloseCreatedDialog = () => {
+    setIsCreatedDialogOpen(false);
+    setNewlyCreatedData(null);
+  }
 
   const handleSaveCollaborator = async (data: any) => {
-    handleCloseDialog();
+    handleCloseFormDialog();
     
     // --- MODE ÉDITION ---
     if (editingCollaborator) {
@@ -93,8 +103,12 @@ export default function AdminCollaboratorsPage() {
 
             toast({
                 title: 'Collaborateur créé',
-                description: `${data.name} a été ajouté avec succès.`,
+                description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
+            // Stocker les données pour le dialogue de succès et l'ouvrir
+            setNewlyCreatedData({ profile: result.profile, password_generated: result.generatedPassword });
+            setIsCreatedDialogOpen(true);
+
         } catch (error: any) {
             console.error('Error creating collaborator:', error);
             toast({
@@ -114,33 +128,35 @@ export default function AdminCollaboratorsPage() {
         body: JSON.stringify({ uid: collaboratorId }),
       });
       
-      if (!response.ok) {
-        // Attempt to parse error from server if possible
-        try {
-          const result = await response.json();
-          throw new Error(result.error || `Erreur HTTP ${response.status}`);
-        } catch (jsonError) {
-          // Fallback if parsing error JSON fails
-          throw new Error(`Erreur HTTP ${response.status}`);
+      // La réponse est-elle un succès (2xx) ?
+      if (response.ok) {
+        let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
+        
+        // Tentons de lire le corps de la réponse uniquement s'il y en a un.
+        const text = await response.text();
+        if(text){
+          const result = JSON.parse(text);
+          resultMessage = result.message || resultMessage;
         }
+
+        toast({
+          variant: 'destructive',
+          title: 'Collaborateur supprimé',
+          description: resultMessage,
+        });
+
+      } else {
+        // Gérer les erreurs HTTP (4xx, 5xx)
+        let errorDetails = `Erreur HTTP ${response.status}`;
+        try {
+          const errorResult = await response.json();
+          errorDetails = errorResult.error || errorResult.details || errorDetails;
+        } catch (e) {
+          // Si le corps de l'erreur n'est pas du JSON, on utilise le message de statut.
+          errorDetails = response.statusText;
+        }
+        throw new Error(errorDetails);
       }
-
-      // Handle successful but possibly empty response
-      let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
-      try {
-        const result = await response.json();
-        resultMessage = result.message || resultMessage;
-      } catch (e) {
-        // This is fine, it just means the response body was empty.
-        // We can proceed with the default success message.
-      }
-
-      toast({
-        variant: 'destructive',
-        title: 'Collaborateur supprimé',
-        description: resultMessage,
-      });
-
     } catch (error: any) {
       console.error('Error deleting user:', error);
        toast({
@@ -168,7 +184,7 @@ export default function AdminCollaboratorsPage() {
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Collaborateurs</h1>
-        <Button onClick={() => handleOpenDialog()}>
+        <Button onClick={() => handleOpenFormDialog()}>
           <PlusCircle className="mr-2 h-4 w-4" /> Créer un Collaborateur
         </Button>
       </div>
@@ -200,7 +216,7 @@ export default function AdminCollaboratorsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                    <span className="text-sm font-medium capitalize bg-muted px-2 py-1 rounded-md">{c.role}</span>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(c)}>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenFormDialog(c)}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">Modifier</span>
                   </Button>
@@ -235,11 +251,19 @@ export default function AdminCollaboratorsPage() {
       </Card>
 
       <CollaboratorFormDialog
-        isOpen={isDialogOpen}
-        onClose={handleCloseDialog}
+        isOpen={isFormDialogOpen}
+        onClose={handleCloseFormDialog}
         onSave={handleSaveCollaborator}
         collaborator={editingCollaborator}
       />
+      {newlyCreatedData && (
+        <CollaboratorCreatedDialog
+            isOpen={isCreatedDialogOpen}
+            onClose={handleCloseCreatedDialog}
+            profile={newlyCreatedData.profile}
+            generatedPassword={newlyCreatedData.password_generated}
+        />
+      )}
     </>
   );
 }
