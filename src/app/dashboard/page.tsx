@@ -50,6 +50,7 @@ export const parseCSV = (
   return { headers, rows };
 };
 
+
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -116,7 +117,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
             <div>
               <CardTitle>
                 {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
@@ -127,15 +128,15 @@ export default function DashboardPage() {
                   : 'Voici la liste des leads qui vous ont été assignés.'}
               </CardDescription>
             </div>
-             <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
-                <TabsList>
-                  <TabsTrigger value="All">Tous</TabsTrigger>
-                  {leadStatuses.map(status => (
-                    <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
-                  ))}
-                </TabsList>
-            </Tabs>
           </div>
+           <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All" className="pt-4">
+              <TabsList>
+                <TabsTrigger value="All">Tous</TabsTrigger>
+                {leadStatuses.map(status => (
+                  <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
+                ))}
+              </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent>
           {leadsLoading ? (
