@@ -1,9 +1,8 @@
-'use server';
+{'use server';
 
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
-import type { Lead } from '@/lib/types';
-import { collection, addDoc } from 'firebase/firestore';
+import type { Lead, IntegrationSetting } from '@/lib/types';
 
 // This is a secret token that we will configure in Meta's Developer Dashboard.
 // It ensures that the requests are coming from Meta and not from a malicious third party.
@@ -44,10 +43,27 @@ export async function POST(request: Request) {
 
     // Meta sends data in an 'entry' array. We process each entry.
     if (body.object === 'page' && body.entry) {
+      
+        // --- Get Meta Integration Settings ---
+        const settingsSnap = await firestore.collection('integrationSettings').where('integrationName', '==', 'meta').limit(1).get();
+        if (settingsSnap.empty) {
+            console.log("Meta integration not configured. Ignoring webhook.");
+            // We return 200 OK to prevent Meta from retrying.
+            return NextResponse.json({ message: 'Integration not configured, lead ignored.' }, { status: 200 });
+        }
+        const metaSettings = settingsSnap.docs[0].data() as IntegrationSetting;
+        const allowedCampaigns = metaSettings.enabledCampaignIds || [];
+
         for (const entry of body.entry) {
             for (const change of entry.changes) {
                 if (change.field === 'leadgen') {
                     const leadData = change.value;
+
+                    // --- FILTERING LOGIC ---
+                    if (allowedCampaigns.length > 0 && !allowedCampaigns.includes(leadData.campaign_id)) {
+                        console.log(`Lead from campaign ${leadData.campaign_id} ignored as it's not in the allowed list.`);
+                        continue; // Skip to the next lead
+                    }
                     
                     // --- Map Meta fields to our Lead structure ---
                     const mappedData: {[key: string]: string} = {};
@@ -72,17 +88,14 @@ export async function POST(request: Request) {
                         campaignId: leadData.campaign_id,
                         campaignName: leadData.campaign_name,
                     };
-                    
-                    // We don't implement campaign filtering yet, but we have the data.
-                    // For now, all leads are added.
 
                     // Add the new lead to our Firestore 'leads' collection.
-                    await addDoc(collection(firestore, 'leads'), newLead);
+                    await firestore.collection('leads').add(newLead);
                 }
             }
         }
         
-        console.log("Successfully processed and saved leads from Meta webhook.");
+        console.log("Successfully processed leads from Meta webhook.");
         return NextResponse.json({ message: 'Lead received' }, { status: 200 });
     }
 

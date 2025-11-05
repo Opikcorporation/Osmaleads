@@ -223,6 +223,45 @@
         }
       }
     },
+    "IntegrationSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "IntegrationSetting",
+      "type": "object",
+      "description": "Stores settings for a third-party integration, e.g., Meta.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the setting."
+        },
+        "integrationName": {
+          "type": "string",
+          "description": "The name of the integration (e.g., 'meta').",
+          "enum": [
+            "meta"
+          ]
+        },
+        "enabledCampaignIds": {
+          "type": "array",
+          "description": "List of campaign IDs from which to import leads.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accessToken": {
+          "type": "string",
+          "description": "The access token for the integration's API."
+        },
+        "lastSync": {
+          "type": "string",
+          "description": "Timestamp of the last successful sync.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "integrationName"
+      ]
+    },
     "required": [
       "id",
       "groupId",
@@ -286,6 +325,16 @@
             "$ref": "#/backend/entities/DistributionSetting"
           },
           "description": "Stores lead distribution settings for groups. Managed by admins."
+        }
+      },
+      {
+        "path": "/integrationSettings/{settingId}",
+        "definition": {
+          "entityName": "IntegrationSetting",
+          "schema": {
+            "$ref": "#/backend/entities/IntegrationSetting"
+          },
+          "description": "Stores settings for third-party integrations. Managed by admins."
         }
       }
     ]

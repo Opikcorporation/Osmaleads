@@ -61,3 +61,11 @@ export type DistributionSetting = {
     dailyQuota: number;
     leadTier: LeadTier | 'Tous';
 }
+
+export type IntegrationSetting = {
+  id: string;
+  integrationName: 'meta';
+  enabledCampaignIds: string[];
+  accessToken: string;
+  lastSync?: FieldValue;
+};
