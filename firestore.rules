@@ -19,18 +19,21 @@ service cloud.firestore {
 
     // --- Collaborators Rules ---
     match /collaborators/{userId} {
-      // ANY authenticated user can read the list of collaborators.
-      // This is needed to display names, assign leads, etc.
       allow read: if isAuth();
-
-      // ONLY admins can create new collaborators.
       allow create: if isAdmin();
-      
-      // Users can update their OWN profile, and admins can update ANY profile.
       allow update: if isOwner(userId) || isAdmin();
-      
-      // ONLY admins can delete collaborators.
       allow delete: if isAdmin();
+    }
+    
+    // --- Leads Rules ---
+    match /leads/{leadId} {
+      // Admins can read any lead.
+      // Collaborators can only read leads assigned to them.
+      // This rule implicitly forces 'list' queries for non-admins to have a 'where' clause on their ID.
+      allow read: if isAdmin() || resource.data.assignedCollaboratorId == request.auth.uid;
+
+      // Write rules will be secured in the next step. For now, any auth user can write.
+      allow write: if isAuth();
     }
 
     // WARNING: TEMPORARY RULE - OPEN ACCESS FOR DEBUGGING
