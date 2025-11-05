@@ -7,9 +7,10 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { useFirebase } from '@/firebase'; // Use the main firebase hook
+import { useFirebase, useAuth } from '@/firebase'; // Use the main firebase hook
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
 
 export default function DashboardLayout({
   children,
@@ -18,6 +19,7 @@ export default function DashboardLayout({
 }) {
   // useFirebase is now the single source of truth for auth and profile state
   const { user, collaborator, isLoading, error } = useFirebase();
+  const auth = useAuth(); // Get auth instance
   const router = useRouter();
 
   useEffect(() => {
@@ -26,6 +28,13 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isLoading, user, router]);
+
+  const handleForceLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+    }
+    router.push('/login');
+  };
 
   // THIS IS THE PRIMARY GUARD.
   // While the provider is figuring out the auth state OR the profile, show a loading screen.
@@ -46,7 +55,7 @@ export default function DashboardLayout({
             <h1 className="text-xl font-semibold text-destructive">Profil non trouvé</h1>
             <p className="text-muted-foreground">Votre compte utilisateur existe, mais nous n'avons pas trouvé de profil associé.</p>
             <p className="text-sm text-muted-foreground">Veuillez contacter un administrateur.</p>
-             <Button onClick={() => router.push('/login')} className="mt-4">Retour à la connexion</Button>
+             <Button onClick={handleForceLogout} className="mt-4">Retour à la connexion</Button>
         </div>
       </div>
     );
