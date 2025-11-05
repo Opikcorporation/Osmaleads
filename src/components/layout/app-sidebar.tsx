@@ -43,6 +43,12 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       icon: Users,
       roles: ['admin'],
     },
+    {
+      href: '/dashboard/admin/settings',
+      label: 'Paramètres',
+      icon: Settings,
+      roles: ['admin'],
+    },
   ];
 
   return (
