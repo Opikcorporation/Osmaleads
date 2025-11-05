@@ -170,7 +170,43 @@ export function MetaSettings() {
 
   return (
     <div className="space-y-8">
-      {isConnected && metaSettings ? (
+      {!isConnected ? (
+         <Card>
+            <CardHeader>
+                <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
+                <CardDescription>
+                   Pour commencer, vous devez fournir un jeton d'accès de votre application Meta.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleConnect} className="space-y-4">
+                    <div>
+                    <Label htmlFor="meta-token" className="font-semibold">
+                        Jeton d'accès de l'API Graph
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-3">
+                        Générez un jeton depuis votre application dans le 
+                        <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline hover:text-primary/80">
+                           Graph API Explorer de Meta
+                        </Link>
+                         et collez-le ici.
+                    </p>
+                    <Input
+                        id="meta-token"
+                        type="password"
+                        placeholder="Collez votre jeton d'accès ici"
+                        value={accessToken}
+                        onChange={(e) => setAccessToken(e.target.value)}
+                    />
+                    </div>
+                    <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
+                        {isSaving ? 'Connexion...' : "Enregistrer et Connecter"}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </form>
+            </CardContent>
+         </Card>
+      ) : (
         <>
             <Alert variant="default" className="border-green-500 bg-green-50">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -226,42 +262,6 @@ export function MetaSettings() {
                 </Button>
             </div>
         </>
-      ) : (
-         <Card>
-            <CardHeader>
-                <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
-                <CardDescription>
-                   Pour commencer, vous devez fournir un jeton d'accès de votre application Meta.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleConnect} className="space-y-4">
-                    <div>
-                    <Label htmlFor="meta-token" className="font-semibold">
-                        Jeton d'accès de l'API Graph
-                    </Label>
-                    <p className="text-sm text-muted-foreground mt-1 mb-3">
-                        Générez un jeton depuis votre application dans le 
-                        <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline hover:text-primary/80">
-                           Graph API Explorer de Meta
-                        </Link>
-                         et collez-le ici.
-                    </p>
-                    <Input
-                        id="meta-token"
-                        type="password"
-                        placeholder="Collez votre jeton d'accès ici"
-                        value={accessToken}
-                        onChange={(e) => setAccessToken(e.target.value)}
-                    />
-                    </div>
-                    <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
-                        {isSaving ? 'Connexion...' : "Enregistrer et Connecter"}
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </form>
-            </CardContent>
-         </Card>
       )}
     </div>
   );
