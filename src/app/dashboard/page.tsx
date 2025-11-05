@@ -22,24 +22,45 @@ import {
   useFirebase,
 } from '@/firebase';
 import type { Lead } from '@/lib/types';
-import { collection, query, where, Query } from 'firebase/firestore';
-import { useState, useEffect } from 'react';
+import { collection, query } from 'firebase/firestore';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 
+/**
+ * Parses a CSV string into an object with headers and rows.
+ * @param csvString The CSV content as a string.
+ * @returns An object containing an array of headers and an array of row objects.
+ */
+export const parseCSV = (csvString: string): { headers: string[], rows: Record<string, string>[] } => {
+  const lines = csvString.split(/\r\n|\n/).filter(line => line.trim() !== '');
+  if (lines.length === 0) {
+    return { headers: [], rows: [] };
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = lines.slice(1).map(line => {
+    const values = line.split(',');
+    return headers.reduce((obj, header, index) => {
+      obj[header] = values[index]?.trim() || '';
+      return obj;
+    }, {} as Record<string, string>);
+  });
+
+  return { headers, rows };
+}
+
+
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { collaborator } = useFirebase();
   const { toast } = useToast();
 
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
-  // SIMPLIFIED QUERY: Always fetch all leads. Security rules will handle permissions.
   const leadsQuery = query(collection(firestore, 'leads'));
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
@@ -52,8 +73,6 @@ export default function DashboardPage() {
   }
 
   const handleSaveImport = async (data: any) => {
-    // This function can be re-implemented later.
-    // For now, we keep it simple.
     console.log('Import data:', data);
     toast({
       title: 'Importation démarrée',
@@ -61,10 +80,6 @@ export default function DashboardPage() {
     });
     setIsImporting(false);
   };
-
-  if (!collaborator) {
-    return <div>Chargement du profil...</div>;
-  }
   
   return (
     <>
@@ -78,10 +93,10 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {collaborator?.role === 'admin' ? 'Tous les Leads' : 'Mes Leads'}
+            Tous les Leads
           </CardTitle>
           <CardDescription>
-            Voici la liste de vos leads.
+            Voici la liste de tous les leads dans le système.
           </CardDescription>
         </CardHeader>
         <CardContent>
