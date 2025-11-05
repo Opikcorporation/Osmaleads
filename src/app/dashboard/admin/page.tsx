@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 const adminSections = [
   {
-    title: 'Gérer les Collaborateurs',
+    title: 'Gérer les Utilisateurs',
     description: 'Ajouter, modifier ou supprimer des comptes utilisateurs.',
     href: '/dashboard/admin/collaborators',
     icon: UserPlus,

@@ -33,7 +33,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
     },
     {
       href: '/dashboard/admin/collaborators',
-      label: 'Collaborateurs',
+      label: 'Utilisateurs',
       icon: UserPlus,
       roles: ['admin'],
     },
