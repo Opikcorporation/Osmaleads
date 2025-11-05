@@ -1,7 +1,6 @@
 'use client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MetaSettings } from './_components/meta-settings';
-import { FaFacebook } from 'react-icons/fa';
 
 // You can dynamically import other icons if you add more integrations
 // import { FaGoogle } from 'react-icons/fa';
