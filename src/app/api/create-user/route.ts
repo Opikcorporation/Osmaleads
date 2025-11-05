@@ -32,6 +32,13 @@ export async function POST(request: Request) {
     const { username, password, name, role, avatarColor } = validation.data;
     const email = `${username}@example.com`;
 
+    // --- VERIFICATION D'UNICITE (NOUVEAU ET CRUCIAL) ---
+    // Avant toute chose, on vérifie si un collaborateur avec ce nom d'utilisateur existe déjà dans Firestore.
+    const existingUserQuery = await firestore.collection('collaborators').where('username', '==', username).limit(1).get();
+    if (!existingUserQuery.empty) {
+        return NextResponse.json({ error: "Ce nom d'utilisateur est déjà utilisé." }, { status: 409 });
+    }
+
     // 1. Créer l'utilisateur dans Firebase Auth
     let userRecord: UserRecord;
     try {
@@ -42,6 +49,7 @@ export async function POST(request: Request) {
       });
     } catch (error: any) {
         if (error.code === 'auth/email-already-exists') {
+            // Cette erreur est maintenant une double sécurité. La vérification Firestore est la plus importante.
             return NextResponse.json({ error: "Ce nom d'utilisateur est déjà utilisé." }, { status: 409 });
         }
         // Pour les autres erreurs d'authentification (mot de passe faible, etc.)
@@ -49,9 +57,6 @@ export async function POST(request: Request) {
     }
 
     // 2. Créer le profil dans Firestore.
-    // Cette étape est cruciale car la Cloud Function `onUserCreate` ne peut pas
-    // recevoir de données supplémentaires comme le rôle ou le nom d'utilisateur.
-    // Nous le faisons donc ici de manière atomique après la création de l'utilisateur.
     const userProfile = {
       id: userRecord.uid,
       name: name,
