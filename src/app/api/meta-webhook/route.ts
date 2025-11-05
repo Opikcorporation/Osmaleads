@@ -1,0 +1,96 @@
+'use server';
+
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { NextResponse } from 'next/server';
+import type { Lead } from '@/lib/types';
+import { collection, addDoc } from 'firebase/firestore';
+
+// This is a secret token that we will configure in Meta's Developer Dashboard.
+// It ensures that the requests are coming from Meta and not from a malicious third party.
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
+
+/**
+ * Handles the webhook verification request from Meta.
+ * Meta sends a GET request to this endpoint with a challenge token.
+ * We must respond with that same token to prove ownership of the webhook URL.
+ */
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  // Check if it's a subscription verification request and if the token matches.
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    // Respond with the challenge token from the request
+    console.log('Meta webhook verified successfully!');
+    return new Response(challenge, { status: 200 });
+  } else {
+    // If it's not a valid verification request, respond with a 403 Forbidden error.
+    console.warn('Failed webhook verification. Make sure the verify token is set correctly.');
+    return new Response('Forbidden', { status: 403 });
+  }
+}
+
+/**
+ * Handles incoming lead data from Meta.
+ * Meta sends a POST request to this endpoint whenever a new lead is generated.
+ */
+export async function POST(request: Request) {
+  const { firestore } = getFirebaseAdmin();
+  
+  try {
+    const body = await request.json();
+
+    // Meta sends data in an 'entry' array. We process each entry.
+    if (body.object === 'page' && body.entry) {
+        for (const entry of body.entry) {
+            for (const change of entry.changes) {
+                if (change.field === 'leadgen') {
+                    const leadData = change.value;
+                    
+                    // --- Map Meta fields to our Lead structure ---
+                    const mappedData: {[key: string]: string} = {};
+                    leadData.field_data.forEach((field: {name: string, values: string[]}) => {
+                        mappedData[field.name] = field.values[0];
+                    });
+                    
+                    // The full_name is often a standard field. We fall back to 'Nom Inconnu'.
+                    const leadName = mappedData.full_name || 'Nom Inconnu';
+                    const email = mappedData.email || null;
+                    const phone = mappedData.phone_number || null;
+
+                    const newLead: Omit<Lead, 'id' | 'score' | 'tier' > = {
+                        name: leadName,
+                        email: email,
+                        phone: phone,
+                        company: mappedData.company_name || null,
+                        username: null,
+                        status: 'New',
+                        leadData: JSON.stringify(mappedData), // Store all original mapped data
+                        assignedCollaboratorId: null,
+                        campaignId: leadData.campaign_id,
+                        campaignName: leadData.campaign_name,
+                    };
+                    
+                    // We don't implement campaign filtering yet, but we have the data.
+                    // For now, all leads are added.
+
+                    // Add the new lead to our Firestore 'leads' collection.
+                    await addDoc(collection(firestore, 'leads'), newLead);
+                }
+            }
+        }
+        
+        console.log("Successfully processed and saved leads from Meta webhook.");
+        return NextResponse.json({ message: 'Lead received' }, { status: 200 });
+    }
+
+    // If the data format is not what we expect
+    return NextResponse.json({ message: 'Unsupported event type' }, { status: 200 });
+
+  } catch (error: any) {
+    console.error('Error processing Meta webhook:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
