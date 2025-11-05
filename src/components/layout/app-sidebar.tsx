@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
-import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus } from 'lucide-react';
 import { Logo } from '../logo';
 import { useUser } from '@/firebase';
 
@@ -25,12 +25,6 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       icon: LayoutDashboard,
       roles: ['admin', 'collaborator'],
     },
-    // {
-    //   href: '/dashboard/analytics',
-    //   label: 'Analyse',
-    //   icon: BarChart2,
-    //   roles: ['admin', 'collaborator'],
-    // },
     {
         href: '/dashboard/admin',
         label: 'Admin',
