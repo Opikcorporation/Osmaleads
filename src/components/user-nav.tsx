@@ -25,8 +25,9 @@ export function UserNav({ user }: { user: Collaborator }) {
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
-    // Redirect directly to the login page for a cleaner experience.
-    router.push('/login');
+    // No need to push to '/login'. The FirebaseProvider and DashboardLayout
+    // will detect the logged-out state and automatically handle the redirection.
+    // This prevents the race condition that was causing the "Profile not found" error.
   };
 
   const getInitials = (name: string) => {
