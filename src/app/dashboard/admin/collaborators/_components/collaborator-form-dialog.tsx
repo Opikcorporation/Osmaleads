@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getRandomColor, avatarColors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 
 interface CollaboratorFormDialogProps {
   isOpen: boolean;
@@ -43,6 +43,7 @@ export function CollaboratorFormDialog({
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
   const [avatarColor, setAvatarColor] = useState(getRandomColor());
+  const [showPassword, setShowPassword] = useState(false);
   
   const { toast } = useToast();
 
@@ -63,6 +64,7 @@ export function CollaboratorFormDialog({
         setPassword('');
         setRole('collaborator');
         setAvatarColor(getRandomColor());
+        setShowPassword(false);
       }
     }
   }, [collaborator, isOpen]);
@@ -178,14 +180,25 @@ export function CollaboratorFormDialog({
                     <Label htmlFor="password" className="text-right">
                         Mot de passe
                     </Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="col-span-3"
-                        required
-                    />
+                    <div className="col-span-3 relative">
+                      <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{showPassword ? 'Cacher' : 'Afficher'} le mot de passe</span>
+                      </Button>
+                    </div>
                 </div>
             )}
              <div className="grid grid-cols-4 items-center gap-4">
