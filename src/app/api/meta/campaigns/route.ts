@@ -6,7 +6,7 @@ import type { IntegrationSetting } from '@/lib/types';
 import { NextResponse } from 'next/server';
 import fetch from 'node-fetch';
 
-const META_GRAPH_API_URL = 'https://graph.facebook.com/v20.0';
+const META_GRAPH_API_URL = 'https://graph.facebook.com/v19.0';
 
 /**
  * API route to fetch advertising campaigns from Meta.
