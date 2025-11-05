@@ -29,12 +29,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Leads collection can be listed by admins, or by collaborators if they are querying their own leads.
-    // Individual leads can be read/updated by admins or the assigned collaborator.
+    // Leads collection rules
     match /leads/{leadId} {
-      // NEW RULE: A non-admin can ONLY list leads if the query filters by their own UID.
+      // Admins can list all leads. 
+      // A non-admin can ONLY list leads if the query filters by their own UID. This prevents the "list all" error.
       allow list: if isAdmin() || request.query.where.assignedCollaboratorId == request.auth.uid;
+      
+      // An admin or the assigned collaborator can get/read/update a specific lead.
       allow get, read, update: if isAdmin() || isAssigned(leadId);
+
+      // Only admins can create or delete leads.
       allow create, delete: if isAdmin();
 
       // Notes can be managed by the assigned collaborator or an admin.
