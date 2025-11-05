@@ -12,7 +12,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   useCollection,
   useFirestore,
-  deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
 } from '@/firebase';
 import {
@@ -107,16 +106,34 @@ export default function AdminCollaboratorsPage() {
     }
   };
 
-  const handleDeleteCollaborator = (collaboratorId: string) => {
-    // Note: This only deletes the Firestore record, not the Auth user.
-    // Proper user deletion is a more complex operation.
-    const collaboratorRef = doc(firestore, 'collaborators', collaboratorId);
-    deleteDocumentNonBlocking(collaboratorRef);
-    toast({
-      variant: 'destructive',
-      title: 'Collaborateur supprimé',
-      description: 'Le collaborateur a été supprimé (enregistrement Firestore uniquement).',
-    });
+  const handleDeleteCollaborator = async (collaboratorId: string, collaboratorName: string) => {
+    try {
+      const response = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: collaboratorId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Erreur HTTP ${response.status}`);
+      }
+      
+      toast({
+        variant: 'destructive',
+        title: 'Collaborateur supprimé',
+        description: `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
+      });
+
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+       toast({
+        variant: 'destructive',
+        title: 'Erreur de suppression',
+        description: error.message || 'Impossible de supprimer cet utilisateur.',
+      });
+    }
   };
 
   const getInitials = (name: string) => {
@@ -181,15 +198,16 @@ export default function AdminCollaboratorsPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                        <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Cette action supprimera l'enregistrement du collaborateur de la base de données, mais pas son compte d'authentification.
+                          Cette action est irréversible. Le compte de <strong>{c.name}</strong> sera définitivement supprimé,
+                          ainsi que son profil. Les leads qui lui sont assignés ne seront pas supprimés mais devront être réassignés.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteCollaborator(c.id)}>
-                          Supprimer
+                        <AlertDialogAction onClick={() => handleDeleteCollaborator(c.id, c.name)}>
+                          Oui, supprimer ce collaborateur
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
