@@ -72,6 +72,7 @@ export default function DashboardPage() {
 
 
   const leadsQuery = useMemo(() => {
+    // ** THE GUARD **: Do not create a query if we don't have a fully authenticated user and profile.
     if (!firestore || !collaborator) {
       return null;
     }
