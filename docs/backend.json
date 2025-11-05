@@ -61,6 +61,20 @@
         "assignedCollaboratorId": {
           "type": "string",
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
+        },
+        "campaignId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The ID of the Meta campaign this lead originated from."
+        },
+        "campaignName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The name of the Meta campaign this lead originated from."
         }
       },
       "required": [
@@ -207,14 +221,14 @@
             "Bas de gamme"
           ]
         }
-      },
-      "required": [
-        "id",
-        "groupId",
-        "dailyQuota",
-        "leadTier"
-      ]
-    }
+      }
+    },
+    "required": [
+      "id",
+      "groupId",
+      "dailyQuota",
+      "leadTier"
+    ]
   },
   "auth": {
     "providers": [

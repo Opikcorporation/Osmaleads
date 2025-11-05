@@ -28,6 +28,8 @@ export type Lead = {
   leadData: string; // Raw CSV row data as JSON
   assignedCollaboratorId: string | null;
   assignedAt?: FieldValue;
+  campaignId: string | null;
+  campaignName: string | null;
 };
 
 export type FirestoreNote = {

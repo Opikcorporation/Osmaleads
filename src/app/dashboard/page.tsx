@@ -194,6 +194,8 @@ export default function DashboardPage() {
                 score: finalScore,
                 leadData: JSON.stringify(row), // Store original row data
                 assignedCollaboratorId: null,
+                campaignId: null,
+                campaignName: null,
             };
             return newLead;
         });
