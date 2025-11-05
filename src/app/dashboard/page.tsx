@@ -19,14 +19,16 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
-import { leadStatuses, leadTiers } from '@/lib/types';
-import { collection, query, where, Query, writeBatch, doc } from 'firebase/firestore';
-import { useState, useMemo } from 'react';
+import { leadStatuses } from '@/lib/types';
+import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, User, X } from 'lucide-react';
 import { LeadImportDialog, AllScoreRules } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
+import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export const parseCSV = (
   csvString: string
@@ -61,13 +63,17 @@ export default function DashboardPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+
 
   const leadsQuery = useMemo(() => {
     if (!firestore || !collaborator) {
       return null;
     }
 
-    let q: Query = collection(firestore, 'leads');
+    let q = query(collection(firestore, 'leads'));
 
     if (collaborator.role !== 'admin') {
       q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
@@ -81,7 +87,9 @@ export default function DashboardPage() {
   }, [firestore, collaborator, filterStatus]);
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
-  const { data: allUsers } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
+  const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
+  
+  const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
 
   const handleOpenLead = (leadId: string) => {
     setSelectedLeadId(leadId);
@@ -152,8 +160,8 @@ export default function DashboardPage() {
         
         // Add all leads to a batch
         leadsToCreate.forEach(lead => {
-            const newLeadRef = collection(firestore, 'leads');
-            batch.set(doc(newLeadRef), lead);
+            const newLeadRef = doc(collection(firestore, 'leads'));
+            batch.set(newLeadRef, lead);
         });
 
         await batch.commit();
@@ -173,7 +181,52 @@ export default function DashboardPage() {
     }
   };
   
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedLeads(leads?.map(l => l.id) || []);
+    } else {
+      setSelectedLeads([]);
+    }
+  };
+
+  const handleSelectOne = (leadId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedLeads(prev => [...prev, leadId]);
+    } else {
+      setSelectedLeads(prev => prev.filter(id => id !== leadId));
+    }
+  };
+  
+  const handleBulkAssign = async (collaboratorId: string) => {
+    if (!firestore || selectedLeads.length === 0) return;
+    setIsAssigning(true);
+
+    try {
+        const batch = writeBatch(firestore);
+        selectedLeads.forEach(leadId => {
+            const leadRef = doc(firestore, 'leads', leadId);
+            batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New' });
+        });
+        await batch.commit();
+        toast({
+            title: 'Assignation réussie',
+            description: `${selectedLeads.length} lead(s) assigné(s) avec succès.`,
+        });
+        setSelectedLeads([]); // Clear selection
+    } catch(error) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur d\'assignation',
+            description: 'Un problème est survenu lors de l\'assignation des leads.',
+        });
+    } finally {
+        setIsAssigning(false);
+        setIsBulkAssignDialogOpen(false);
+    }
+  };
+  
   const isAdmin = collaborator?.role === 'admin';
+  const isLoading = leadsLoading || usersLoading;
 
   return (
     <>
@@ -202,23 +255,48 @@ export default function DashboardPage() {
               </CardDescription>
             </div>
           </div>
-           <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All" className="pt-4">
-              <TabsList>
-                <TabsTrigger value="All">Tous</TabsTrigger>
-                {leadStatuses.map(status => (
-                  <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
-                ))}
-              </TabsList>
-          </Tabs>
+          <div className="pt-4">
+            <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
+                <TabsList>
+                    <TabsTrigger value="All">Tous</TabsTrigger>
+                    {leadStatuses.map(status => (
+                    <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
+                    ))}
+                </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
-          {leadsLoading ? (
+          {isAdmin && selectedLeads.length > 0 && (
+             <div className="bg-muted p-3 rounded-lg mb-4 flex items-center justify-between">
+                <span className="text-sm font-medium">{selectedLeads.length} lead(s) sélectionné(s)</span>
+                <div className="space-x-2">
+                    <Button size="sm" onClick={() => setIsBulkAssignDialogOpen(true)}>
+                        <User className="mr-2 h-4 w-4" />
+                        Assigner
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedLeads([])}>
+                        <X className="mr-2 h-4 w-4"/>
+                        Annuler
+                    </Button>
+                </div>
+            </div>
+          )}
+          {isLoading ? (
             <div className="text-center p-8">Chargement des leads...</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                     {isAdmin && (
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedLeads.length > 0 && selectedLeads.length === leads?.length}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Nom</TableHead>
                     <TableHead>Entreprise</TableHead>
                     <TableHead>Statut</TableHead>
@@ -232,16 +310,23 @@ export default function DashboardPage() {
                     leads.map((lead) => (
                       <TableRow
                         key={lead.id}
-                        onClick={() => handleOpenLead(lead.id)}
-                        className="cursor-pointer"
+                        data-state={selectedLeads.includes(lead.id) ? 'selected' : ''}
                       >
-                        <TableCell className="font-medium">{lead.name}</TableCell>
-                        <TableCell>{lead.company}</TableCell>
-                        <TableCell>
+                         {isAdmin && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedLeads.includes(lead.id)}
+                              onCheckedChange={(checked) => handleSelectOne(lead.id, !!checked)}
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-medium cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{lead.name}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{lead.company}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                           <StatusBadge status={lead.status} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenLead(lead.id)}>
                             Détails
                           </Button>
                         </TableCell>
@@ -249,7 +334,7 @@ export default function DashboardPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 5 : 4} className="text-center h-24">
                         Aucun lead à afficher pour ce filtre.
                       </TableCell>
                     </TableRow>
@@ -262,11 +347,20 @@ export default function DashboardPage() {
       </Card>
 
       {isAdmin && (
-        <LeadImportDialog
-          isOpen={isImporting}
-          onClose={() => setIsImporting(false)}
-          onSave={handleSaveImport}
-        />
+        <>
+            <LeadImportDialog
+            isOpen={isImporting}
+            onClose={() => setIsImporting(false)}
+            onSave={handleSaveImport}
+            />
+            <BulkAssignDialog
+                isOpen={isBulkAssignDialogOpen}
+                onClose={() => setIsBulkAssignDialogOpen(false)}
+                onAssign={handleBulkAssign}
+                collaborators={collaborators}
+                isProcessing={isAssigning}
+            />
+        </>
       )}
       {selectedLeadId && (
         <LeadDetailDialog
