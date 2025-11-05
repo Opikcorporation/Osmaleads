@@ -14,9 +14,6 @@ import {
   useFirestore,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
-  setDocumentNonBlocking,
-  errorEmitter,
-  FirestorePermissionError,
 } from '@/firebase';
 import {
   collection,
@@ -37,12 +34,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getRandomColor } from '@/lib/colors';
 
 export default function AdminCollaboratorsPage() {
   const firestore = useFirestore();
-  const auth = getAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
@@ -66,7 +60,9 @@ export default function AdminCollaboratorsPage() {
   };
 
   const handleSaveCollaborator = async (data: any) => {
-    // Editing an existing collaborator
+    handleCloseDialog();
+    
+    // --- MODE ÉDITION ---
     if (editingCollaborator) {
       const collaboratorRef = doc(firestore, 'collaborators', editingCollaborator.id);
       const updatedData = { 
@@ -79,61 +75,35 @@ export default function AdminCollaboratorsPage() {
           title: 'Collaborateur mis à jour',
           description: `Le profil de ${data.name} a été mis à jour.`,
       });
-      handleCloseDialog();
-    } else {
-      // Creating a new collaborator
-      const email = `${data.username}@example.com`; // Transform username to email
-      try {
-        // Can't create user in Auth and Firestore in one transaction,
-        // so we create the auth user first.
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          data.password
-        );
-        const firebaseUser = userCredential.user;
-        
-        // Construct a complete Collaborator object, ensuring all fields are present
-        const newCollaborator: Collaborator = {
-          id: firebaseUser.uid,
-          name: data.name,
-          username: data.username,
-          email: email, // Save the generated email
-          role: data.role,
-          avatarColor: data.avatarColor || getRandomColor(), // Ensure avatarColor is saved
-        };
+    } 
+    // --- MODE CRÉATION ---
+    else {
+        try {
+            const response = await fetch('/api/create-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
 
-        // Use non-blocking set with custom error handling
-        const collaboratorRef = doc(firestore, 'collaborators', firebaseUser.uid);
-        setDocumentNonBlocking(collaboratorRef, newCollaborator, {});
+            const result = await response.json();
 
-        toast({
-          title: 'Collaborateur créé',
-          description: `${data.name} a été ajouté.`,
-        });
-        handleCloseDialog();
-      } catch (error: any) {
-        // This catches auth errors (like email-in-use) or other sync errors
-        console.error('Error creating collaborator:', error);
-        
-        // Check if it's a Firestore permission error that bubbled up
-        if (error instanceof FirestorePermissionError) {
-             errorEmitter.emit('permission-error', error);
-             return;
+            if (!response.ok) {
+                // L'API a renvoyé une erreur (ex: utilisateur existe déjà)
+                throw new Error(result.error || 'Une erreur inconnue est survenue.');
+            }
+
+            toast({
+                title: 'Collaborateur créé',
+                description: `${data.name} a été ajouté avec succès.`,
+            });
+        } catch (error: any) {
+            console.error('Error creating collaborator:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Erreur lors de la création',
+                description: error.message,
+            });
         }
-
-        let errorMessage = "Impossible de créer le collaborateur.";
-        if (error.code === 'auth/email-already-in-use') {
-            errorMessage = "Ce nom d'utilisateur est déjà utilisé.";
-        } else if (error.code === 'auth/weak-password') {
-            errorMessage = "Le mot de passe doit contenir au moins 6 caractères.";
-        }
-        toast({
-          variant: 'destructive',
-          title: 'Erreur',
-          description: errorMessage,
-        });
-      }
     }
   };
 
