@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -42,16 +43,28 @@ export default function AdminCollaboratorsPage() {
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
 
   const [isCreatedDialogOpen, setIsCreatedDialogOpen] = useState(false);
-  const [newlyCreatedData, setNewlyCreatedData] = useState<{ profile: Collaborator, password_generated: string } | null>(null);
+  const [newlyCreatedData, setNewlyCreatedData] = useState<{ profile: Collaborator, generatedPassword?: string } | null>(null);
 
+  const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'collaborator'>('all');
 
   const collaboratorsQuery = useMemo(
     () => collection(firestore, 'collaborators'),
     [firestore]
   );
 
-  const { data: collaborators, isLoading: collaboratorsLoading } =
+  const { data: allCollaborators, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
+
+  const filteredCollaborators = useMemo(() => {
+    if (!allCollaborators) {
+      return [];
+    }
+    if (filterRole === 'all') {
+      return allCollaborators;
+    }
+    return allCollaborators.filter(c => c.role === filterRole);
+  }, [allCollaborators, filterRole]);
+
 
   const handleOpenFormDialog = (collaborator: Collaborator | null = null) => {
     setEditingCollaborator(collaborator);
@@ -106,7 +119,7 @@ export default function AdminCollaboratorsPage() {
                 description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
             // Stocker les données pour le dialogue de succès et l'ouvrir
-            setNewlyCreatedData({ profile: result.profile, password_generated: result.generatedPassword });
+            setNewlyCreatedData({ profile: result.profile, generatedPassword: result.generatedPassword });
             setIsCreatedDialogOpen(true);
 
         } catch (error: any) {
@@ -127,33 +140,28 @@ export default function AdminCollaboratorsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: collaboratorId }),
       });
-      
-      // La réponse est-elle un succès (2xx) ?
+
       if (response.ok) {
         let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
-        
-        // Tentons de lire le corps de la réponse uniquement s'il y en a un.
-        const text = await response.text();
-        if(text){
-          const result = JSON.parse(text);
+        try {
+          const result = await response.json();
           resultMessage = result.message || resultMessage;
+        } catch (e) {
+          // Response was ok but had no body, which is fine for a successful delete
         }
-
+        
         toast({
           variant: 'destructive',
           title: 'Collaborateur supprimé',
           description: resultMessage,
         });
-
       } else {
-        // Gérer les erreurs HTTP (4xx, 5xx)
         let errorDetails = `Erreur HTTP ${response.status}`;
         try {
           const errorResult = await response.json();
           errorDetails = errorResult.error || errorResult.details || errorDetails;
         } catch (e) {
-          // Si le corps de l'erreur n'est pas du JSON, on utilise le message de statut.
-          errorDetails = response.statusText;
+          errorDetails = `La requête a échoué avec le statut ${response.status}.`;
         }
         throw new Error(errorDetails);
       }
@@ -191,14 +199,25 @@ export default function AdminCollaboratorsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Liste des Collaborateurs</CardTitle>
-          <CardDescription>
-            Créez, modifiez et gérez les comptes des utilisateurs.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                  <CardTitle>Liste des Collaborateurs</CardTitle>
+                  <CardDescription>
+                    Créez, modifiez et gérez les comptes des utilisateurs.
+                  </CardDescription>
+              </div>
+              <Tabs onValueChange={(value) => setFilterRole(value as any)} defaultValue="all">
+                  <TabsList>
+                      <TabsTrigger value="all">Tous</TabsTrigger>
+                      <TabsTrigger value="admin">Administrateurs</TabsTrigger>
+                      <TabsTrigger value="collaborator">Collaborateurs</TabsTrigger>
+                  </TabsList>
+              </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {collaborators?.map((c) => (
+            {filteredCollaborators?.map((c) => (
               <div
                 key={c.id}
                 className="flex items-center justify-between rounded-lg border p-3"
@@ -246,6 +265,11 @@ export default function AdminCollaboratorsPage() {
                 </div>
               </div>
             ))}
+             {filteredCollaborators.length === 0 && !collaboratorsLoading && (
+                <div className="text-center p-8 text-muted-foreground">
+                    Aucun collaborateur ne correspond à ce filtre.
+                </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -261,7 +285,7 @@ export default function AdminCollaboratorsPage() {
             isOpen={isCreatedDialogOpen}
             onClose={handleCloseCreatedDialog}
             profile={newlyCreatedData.profile}
-            generatedPassword={newlyCreatedData.password_generated}
+            generatedPassword={newlyCreatedData.generatedPassword}
         />
       )}
     </>
