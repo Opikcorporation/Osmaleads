@@ -12,8 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import {
   useCollection,
   useFirestore,
@@ -65,7 +66,6 @@ export function MetaSettings() {
       fetch('/api/meta/campaigns')
         .then(res => {
             if (!res.ok) {
-                // Try to parse the error body for a more specific message
                 return res.json().then(errData => {
                    throw new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.');
                 });
@@ -86,10 +86,9 @@ export function MetaSettings() {
             setCampaignsLoading(false);
         });
     } else {
-        // Clear campaigns if not connected
         setCampaigns([]);
     }
-  }, [isConnected]); // Re-run when connection status changes
+  }, [isConnected]);
 
 
   const handleConnect = async (e: React.FormEvent) => {
@@ -162,99 +161,108 @@ export function MetaSettings() {
       updatedIds = [...currentlyEnabled, campaignId];
     }
     
-    // Update Firestore document without blocking the UI
     updateDocumentNonBlocking(settingRef, { enabledCampaignIds: updatedIds });
   };
-
+  
+  if (settingsLoading) {
+    return <div className="text-center text-sm text-muted-foreground p-8">Chargement des paramètres...</div>
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Intégration Meta (Facebook)</CardTitle>
-        <CardDescription>
-          Connectez votre compte Meta pour synchroniser automatiquement les leads
-          de vos campagnes publicitaires.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {settingsLoading ? (
-          <div className="text-center text-sm text-muted-foreground">Chargement...</div>
-        ) : isConnected && metaSettings ? (
-          <div className="space-y-4">
-             <Alert variant="default" className="border-green-500">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <AlertTitle>Intégration Active</AlertTitle>
-              <AlertDescription>
-                Le système écoute désormais les nouveaux leads provenant des campagnes sélectionnées.
+    <div className="space-y-8">
+      {isConnected && metaSettings ? (
+        <>
+            <Alert variant="default" className="border-green-500 bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-800">Intégration Active</AlertTitle>
+              <AlertDescription className="text-green-700">
+                Vous êtes connecté à Meta. Le système écoute les nouveaux leads provenant des campagnes sélectionnées ci-dessous.
               </AlertDescription>
             </Alert>
-
-            <div>
-              <Label className="text-base font-semibold">Campagnes Actives</Label>
-              <p className="text-sm text-muted-foreground mt-1 mb-3">
-                Cochez les campagnes pour lesquelles vous souhaitez importer les leads. Les modifications sont enregistrées automatiquement.
-              </p>
-              <ScrollArea className="h-64 w-full rounded-md border p-4">
-                 {campaignsLoading ? (
-                    <p className="text-sm text-muted-foreground">Chargement des campagnes...</p>
-                 ) : campaignsError ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Erreur de chargement</AlertTitle>
-                      <AlertDescription>{campaignsError}</AlertDescription>
-                    </Alert>
-                 ) : campaigns.length > 0 ? (
-                    campaigns.map(campaign => (
-                         <div key={campaign.id} className="flex items-center space-x-2 py-1">
-                            <Checkbox
-                                id={`campaign-${campaign.id}`}
-                                checked={metaSettings.enabledCampaignIds?.includes(campaign.id)}
-                                onCheckedChange={() => handleCampaignToggle(campaign.id)}
-                            />
-                            <Label htmlFor={`campaign-${campaign.id}`} className="font-normal flex flex-col">
-                                <span>{campaign.name}</span>
-                                <span className="text-xs text-muted-foreground">{campaign.account} - ID: {campaign.id}</span>
-                            </Label>
-                        </div>
-                    ))
-                 ) : (
-                    <p className="text-sm text-muted-foreground">Aucune campagne active trouvée ou le jeton est invalide.</p>
-                 )}
-              </ScrollArea>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Étape 2 : Sélectionner les Campagnes</CardTitle>
+                    <CardDescription>
+                        Cochez les campagnes pour lesquelles vous souhaitez importer les leads. Les modifications sont enregistrées automatiquement.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-64 w-full rounded-md border p-4">
+                        {campaignsLoading ? (
+                            <p className="text-sm text-muted-foreground">Chargement des campagnes...</p>
+                        ) : campaignsError ? (
+                            <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Erreur de chargement</AlertTitle>
+                            <AlertDescription>{campaignsError}</AlertDescription>
+                            </Alert>
+                        ) : campaigns.length > 0 ? (
+                            campaigns.map(campaign => (
+                                <div key={campaign.id} className="flex items-center space-x-2 py-1">
+                                    <Checkbox
+                                        id={`campaign-${campaign.id}`}
+                                        checked={metaSettings.enabledCampaignIds?.includes(campaign.id)}
+                                        onCheckedChange={() => handleCampaignToggle(campaign.id)}
+                                    />
+                                    <Label htmlFor={`campaign-${campaign.id}`} className="font-normal flex flex-col">
+                                        <span>{campaign.name}</span>
+                                        <span className="text-xs text-muted-foreground">{campaign.account} - ID: {campaign.id}</span>
+                                    </Label>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground">Aucune campagne active trouvée ou le jeton est invalide.</p>
+                        )}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+            <div className="flex justify-end">
+                 <Button
+                    variant="outline"
+                    onClick={handleDisconnect}
+                    disabled={isSaving}
+                    >
+                    {isSaving ? 'Déconnexion...' : 'Se déconnecter de Meta'}
+                </Button>
             </div>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleDisconnect}
-              disabled={isSaving}
-            >
-              {isSaving ? 'Déconnexion...' : 'Se déconnecter de Meta'}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleConnect} className="space-y-4">
-            <div>
-              <Label htmlFor="meta-token" className="font-semibold">
-                Étape 1 : Fournir un jeton d'accès
-              </Label>
-              <p className="text-sm text-muted-foreground mt-1 mb-3">
-                Générez un jeton depuis votre application dans le tableau de bord Meta for Developers et collez-le ici.
-              </p>
-              <Input
-                id="meta-token"
-                type="password"
-                placeholder="Collez votre jeton d'accès ici"
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isSaving}>
-              {isSaving ? 'Connexion...' : "Enregistrer et Connecter"}
-            </Button>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+        </>
+      ) : (
+         <Card>
+            <CardHeader>
+                <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
+                <CardDescription>
+                   Pour commencer, vous devez fournir un jeton d'accès de votre application Meta.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleConnect} className="space-y-4">
+                    <div>
+                    <Label htmlFor="meta-token" className="font-semibold">
+                        Jeton d'accès de l'API Graph
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-3">
+                        Générez un jeton depuis votre application dans le 
+                        <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline hover:text-primary/80">
+                           Graph API Explorer de Meta
+                        </Link>
+                         et collez-le ici.
+                    </p>
+                    <Input
+                        id="meta-token"
+                        type="password"
+                        placeholder="Collez votre jeton d'accès ici"
+                        value={accessToken}
+                        onChange={(e) => setAccessToken(e.target.value)}
+                    />
+                    </div>
+                    <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
+                        {isSaving ? 'Connexion...' : "Enregistrer et Connecter"}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </form>
+            </CardContent>
+         </Card>
+      )}
+    </div>
   );
 }
