@@ -116,9 +116,9 @@ export default function AdminCollaboratorsPage() {
       
       let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
       
-      // Check if there is content to parse
+      // Check if there is content to parse before calling .json()
       const contentType = response.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
+      if (contentType && contentType.includes("application/json")) {
         const result = await response.json();
          if (!response.ok) {
            throw new Error(result.error || `Erreur HTTP ${response.status}`);

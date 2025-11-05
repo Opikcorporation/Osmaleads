@@ -10,7 +10,8 @@ const RequestBodySchema = z.object({
 
 /**
  * API route to securely delete a user from both Firebase Auth and Firestore.
- * This is an admin-only operation and should be protected by middleware in a real app.
+ * This route is resilient and will handle cases where the user might only exist
+ * in Firestore (e.g., corrupted data) or only in Auth.
  */
 export async function POST(request: Request) {
   const { auth, firestore } = getFirebaseAdmin();
@@ -25,31 +26,40 @@ export async function POST(request: Request) {
     
     const { uid } = validation.data;
 
-    // --- ATOMIC DELETION ---
-    // 1. Delete the Firebase Authentication user.
-    // This is the most critical step. If this fails, we don't proceed.
-    await auth.deleteUser(uid);
+    // --- RESILIENT DELETION ---
+    
+    // 1. Attempt to delete the Firebase Authentication user.
+    try {
+      await auth.deleteUser(uid);
+    } catch (error: any) {
+      // If the user is not found in Auth, it's not a critical failure.
+      // This allows us to clean up Firestore profiles for which an Auth user might not exist.
+      // We log it on the server for debugging but don't stop the process.
+      if (error.code !== 'auth/user-not-found') {
+        // For any other auth error (e.g., permissions), we should fail hard.
+        throw error;
+      }
+      console.log(`Auth user with UID ${uid} not found. Proceeding to delete Firestore profile.`);
+    }
 
-    // 2. Delete the user's profile from Firestore.
+    // 2. Attempt to delete the user's profile from Firestore.
     const userProfileRef = firestore.collection('collaborators').doc(uid);
-    await userProfileRef.delete();
+    const userProfileDoc = await userProfileRef.get();
+    
+    if (userProfileDoc.exists) {
+        await userProfileRef.delete();
+    } else {
+        console.log(`Firestore profile with UID ${uid} not found. Already deleted or never existed.`);
+    }
 
     // 3. (Optional future step) Here you could also query for leads assigned
     // to this user and set their `assignedCollaboratorId` to null.
-    // For now, we leave them as is.
 
     return NextResponse.json({ message: 'Utilisateur supprimé avec succès.' }, { status: 200 });
 
   } catch (error: any) {
     console.error('Error in /api/delete-user:', error);
-
-    // Provide more specific error messages
-    if (error.code === 'auth/user-not-found') {
-        // This can happen in a race condition if the user is already deleted.
-        // We can consider this a "success" from the client's perspective.
-        return NextResponse.json({ message: "L'utilisateur avait déjà été supprimé." }, { status: 200 });
-    }
-
+    // Provide a more generic but helpful server error message
     return NextResponse.json({ error: 'La suppression a échoué sur le serveur.', details: error.message }, { status: 500 });
   }
 }
