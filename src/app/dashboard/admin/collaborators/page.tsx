@@ -114,20 +114,25 @@ export default function AdminCollaboratorsPage() {
         body: JSON.stringify({ uid: collaboratorId }),
       });
       
-      let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
-      
-      // Check if there is content to parse before calling .json()
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
-         if (!response.ok) {
-           throw new Error(result.error || `Erreur HTTP ${response.status}`);
-         }
-         resultMessage = result.message || resultMessage;
-      } else {
-         if (!response.ok) {
+      if (!response.ok) {
+        // Attempt to parse error from server if possible
+        try {
+          const result = await response.json();
+          throw new Error(result.error || `Erreur HTTP ${response.status}`);
+        } catch (jsonError) {
+          // Fallback if parsing error JSON fails
           throw new Error(`Erreur HTTP ${response.status}`);
         }
+      }
+
+      // Handle successful but possibly empty response
+      let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
+      try {
+        const result = await response.json();
+        resultMessage = result.message || resultMessage;
+      } catch (e) {
+        // This is fine, it just means the response body was empty.
+        // We can proceed with the default success message.
       }
 
       toast({
