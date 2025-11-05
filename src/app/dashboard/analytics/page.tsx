@@ -54,24 +54,22 @@ const statusColors: Record<LeadStatus, string> = {
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
-  // The layout now guarantees that `collaborator` is available when this component renders.
   const { collaborator } = useFirebase();
 
   const leadsQuery = useMemo(() => {
-    // We can trust `collaborator` exists here because of the layout guard.
+    // GUARD: Wait until collaborator profile is loaded.
     if (!collaborator) return null; 
-
+    
     const leadsCollection = collection(firestore, 'leads');
     
-    // For admins, no client-side filter is needed to see all leads.
-    // The security rule `isAdmin()` will allow this.
+    // For admins, fetch all leads. Security rules allow this.
     if (collaborator.role === 'admin') {
       return query(leadsCollection);
     }
     
-    // For collaborators, we MUST add the where clause.
+    // For collaborators, MUST add the where clause.
     // The security rule `request.query.where.assignedCollaboratorId == request.auth.uid`
-    // makes this query safe and permissible.
+    // now makes this query safe and permissible.
     return query(leadsCollection, where('assignedCollaboratorId', '==', collaborator.id));
   }, [firestore, collaborator]);
 
@@ -83,7 +81,6 @@ export default function AnalyticsPage() {
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaboratorsData, isLoading: collaboratorsLoading } = useCollection<Collaborator>(collaboratorsQuery);
   
-  // The page is only loading if its own data subscriptions are loading.
   const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
 
