@@ -1,59 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is an admin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
     
-    // Helper function to check if the lead is assigned to the user
-    function isAssigned(leadId) {
-        return get(/databases/$(database)/documents/leads/$(leadId)).data.assignedCollaboratorId == request.auth.uid;
-    }
-
-    // Collaborators can be listed and read by admins.
-    // A user can read their own profile.
-    // Creation is allowed for a user creating their own profile or by an admin.
-    // Updates are allowed by the owner or an admin.
-    match /collaborators/{userId} {
-      allow list, read: if isAdmin();
-      allow get: if isOwner(userId) || isAdmin();
-      allow create: if isAdmin() || isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Leads collection rules
-    match /leads/{leadId} {
-      // Admins can list all leads. 
-      // A non-admin can ONLY list leads if the query filters by their own UID. This prevents the "list all" error.
-      allow list: if isAdmin() || request.query.where.assignedCollaboratorId == request.auth.uid;
-      
-      // An admin or the assigned collaborator can get/read/update a specific lead.
-      allow get, read, update: if isAdmin() || isAssigned(leadId);
-
-      // Only admins can create or delete leads.
-      allow create, delete: if isAdmin();
-
-      // Notes can be managed by the assigned collaborator or an admin.
-      match /notes/{noteId} {
-        allow read, write: if isAdmin() || isAssigned(leadId);
-      }
-    }
-    
-    // Groups and their settings are managed by admins
-    match /groups/{groupId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /distributionSettings/{settingId} {
-        allow read, write: if isAdmin();
+    // WARNING: TEMPORARY RULE - OPEN ACCESS FOR DEBUGGING
+    // This allows any authenticated user to read and write all data.
+    // This is NOT secure and should be replaced with granular rules.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

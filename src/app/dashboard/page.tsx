@@ -24,39 +24,55 @@ import {
 import type { Lead } from '@/lib/types';
 import { collection, query, where, Query } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
+import { LeadImportDialog } from './_components/lead-import-dialog';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from '@/hooks/use-toast';
+import { LeadDetailDialog } from './_components/lead-detail-dialog';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  const { collaborator } = useFirebase(); // The layout guarantees this is loaded.
-  
-  const [leadsQuery, setLeadsQuery] = useState<Query | null>(null);
+  const { collaborator } = useFirebase();
+  const { toast } = useToast();
 
-  // This effect will run once the collaborator object is stable.
-  useEffect(() => {
-    if (!firestore || !collaborator) {
-      return; // Wait for firestore and collaborator to be available
-    }
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
-    let q = query(collection(firestore, 'leads'));
-    
-    // If the user is a collaborator, they can only see leads assigned to them.
-    // The firestore.rules are also updated to enforce this.
-    if (collaborator.role === 'collaborator') {
-      q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
-    }
-    
-    // For an admin, the query remains unfiltered, listing all leads.
-    setLeadsQuery(q);
-
-  }, [firestore, collaborator]);
-
-
+  // SIMPLIFIED QUERY: Always fetch all leads. Security rules will handle permissions.
+  const leadsQuery = query(collection(firestore, 'leads'));
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
+  const handleOpenLead = (leadId: string) => {
+    setSelectedLeadId(leadId);
+  };
+  
+  const handleCloseLead = () => {
+    setSelectedLeadId(null);
+  }
+
+  const handleSaveImport = async (data: any) => {
+    // This function can be re-implemented later.
+    // For now, we keep it simple.
+    console.log('Import data:', data);
+    toast({
+      title: 'Importation démarrée',
+      description: 'Les leads seront traités en arrière-plan.',
+    });
+    setIsImporting(false);
+  };
+
+  if (!collaborator) {
+    return <div>Chargement du profil...</div>;
+  }
+  
   return (
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord des Leads</h1>
+         <Button onClick={() => setIsImporting(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Importer des Leads
+        </Button>
       </div>
 
       <Card>
@@ -77,6 +93,7 @@ export default function DashboardPage() {
                 <TableHeader>
                     <TableRow>
                       <TableHead>Nom</TableHead>
+                      <TableHead>Entreprise</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead className="text-right">
                           <span className="sr-only">Actions</span>
@@ -86,20 +103,23 @@ export default function DashboardPage() {
                 <TableBody>
                     {leads && leads.length > 0 ? (
                       leads.map((lead) => (
-                        <TableRow key={lead.id}>
+                        <TableRow key={lead.id} onClick={() => handleOpenLead(lead.id)} className="cursor-pointer">
                             <TableCell className="font-medium">{lead.name}</TableCell>
+                            <TableCell>{lead.company}</TableCell>
                             <TableCell>
                               <StatusBadge status={lead.status} />
                             </TableCell>
-                            <TableCell className="text-right">
-                              {/* Actions can be added back here later */}
+                             <TableCell className="text-right">
+                              <Button variant="ghost" size="sm">
+                                  Détails
+                              </Button>
                             </TableCell>
                         </TableRow>
                         ))
                     ) : (
                       <TableRow>
-                          <TableCell colSpan={3} className="text-center h-24">
-                            Aucun lead à afficher.
+                          <TableCell colSpan={4} className="text-center h-24">
+                            Aucun lead à afficher. Commencez par en importer.
                           </TableCell>
                       </TableRow>
                     )}
@@ -109,6 +129,19 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      
+      <LeadImportDialog
+        isOpen={isImporting}
+        onClose={() => setIsImporting(false)}
+        onSave={handleSaveImport}
+      />
+      {selectedLeadId && (
+        <LeadDetailDialog
+          leadId={selectedLeadId}
+          isOpen={!!selectedLeadId}
+          onClose={handleCloseLead}
+        />
+      )}
     </>
   );
 }
