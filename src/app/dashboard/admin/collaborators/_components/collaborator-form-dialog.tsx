@@ -104,11 +104,11 @@ export function CollaboratorFormDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {isEditMode ? 'Modifier le Collaborateur' : 'Créer un Collaborateur'}
+              {isEditMode ? "Modifier l'Utilisateur" : 'Créer un Utilisateur'}
             </DialogTitle>
             <DialogDescription>
               {isEditMode
-                ? "Modifier les détails de ce collaborateur."
+                ? "Modifier les détails de cet utilisateur."
                 : "Le nom d'utilisateur et un mot de passe sécurisé seront générés automatiquement."}
             </DialogDescription>
           </DialogHeader>

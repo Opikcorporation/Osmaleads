@@ -94,7 +94,7 @@ export default function AdminCollaboratorsPage() {
       };
       updateDocumentNonBlocking(collaboratorRef, updatedData);
       toast({
-          title: 'Collaborateur mis à jour',
+          title: 'Utilisateur mis à jour',
           description: `Le profil de ${data.name} a été mis à jour.`,
       });
     } 
@@ -115,7 +115,7 @@ export default function AdminCollaboratorsPage() {
             }
 
             toast({
-                title: 'Collaborateur créé',
+                title: 'Utilisateur créé',
                 description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
             // Stocker les données pour le dialogue de succès et l'ouvrir
@@ -152,7 +152,7 @@ export default function AdminCollaboratorsPage() {
         
         toast({
           variant: 'destructive',
-          title: 'Collaborateur supprimé',
+          title: 'Utilisateur supprimé',
           description: resultMessage,
         });
       } else {
@@ -185,15 +185,15 @@ export default function AdminCollaboratorsPage() {
   }
 
   if (collaboratorsLoading) {
-    return <div>Chargement des collaborateurs...</div>;
+    return <div>Chargement des utilisateurs...</div>;
   }
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Collaborateurs</h1>
+        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Utilisateurs</h1>
         <Button onClick={() => handleOpenFormDialog()}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Collaborateur
+          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Utilisateur
         </Button>
       </div>
 
@@ -201,7 +201,7 @@ export default function AdminCollaboratorsPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                  <CardTitle>Liste des Collaborateurs</CardTitle>
+                  <CardTitle>Utilisateurs</CardTitle>
                   <CardDescription>
                     Créez, modifiez et gérez les comptes des utilisateurs.
                   </CardDescription>
@@ -257,7 +257,7 @@ export default function AdminCollaboratorsPage() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleDeleteCollaborator(c.id, c.name)}>
-                          Oui, supprimer ce collaborateur
+                          Oui, supprimer cet utilisateur
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -267,7 +267,7 @@ export default function AdminCollaboratorsPage() {
             ))}
              {filteredCollaborators.length === 0 && !collaboratorsLoading && (
                 <div className="text-center p-8 text-muted-foreground">
-                    Aucun collaborateur ne correspond à ce filtre.
+                    Aucun utilisateur ne correspond à ce filtre.
                 </div>
             )}
           </div>

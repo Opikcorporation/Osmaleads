@@ -68,9 +68,9 @@ Pour vous connecter : ${loginUrl}`;
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Collaborateur Créé avec Succès !</DialogTitle>
+            <DialogTitle>Utilisateur Créé avec Succès !</DialogTitle>
             <DialogDescription>
-              Vous pouvez maintenant copier ce message et l'envoyer au nouveau collaborateur.
+              Vous pouvez maintenant copier ce message et l'envoyer au nouvel utilisateur.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
