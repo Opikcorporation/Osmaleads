@@ -145,23 +145,35 @@ export default function DashboardPage() {
         const { rows } = parseCSV(data.fileContent);
         const batch = writeBatch(firestore);
 
+        // --- SCORING LOGIC ---
+        let maxPossibleScore = 0;
+        if (data.scoreColumns.length > 0) {
+            data.scoreColumns.forEach(col => {
+                const columnRules = data.allScoreRules[col] || [];
+                const maxInCol = Math.max(0, ...columnRules.map(r => r.score));
+                maxPossibleScore += maxInCol;
+            });
+        }
+
         const leadsToCreate = rows.map(row => {
             const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
             
-            // Calculate score
-            let totalScore = 0;
-            let scoreCount = 0;
+            // Calculate lead's total points
+            let leadTotalPoints = 0;
             if (data.scoreColumns.length > 0) {
                 data.scoreColumns.forEach(col => {
                     const value = row[col];
                     const rule = data.allScoreRules[col]?.find(r => r.value === value);
                     if (rule && rule.score) {
-                        totalScore += parseInt(String(rule.score), 10) || 0;
-                        scoreCount++;
+                        leadTotalPoints += parseInt(String(rule.score), 10) || 0;
                     }
                 });
             }
-            const finalScore = scoreCount > 0 ? Math.round(totalScore / scoreCount) : null;
+            
+            // Calculate final percentage score
+            const finalScore = maxPossibleScore > 0 
+                ? Math.round((leadTotalPoints / maxPossibleScore) * 100)
+                : null;
 
             // Determine Tier from score
             let tier = null;
@@ -476,3 +488,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
