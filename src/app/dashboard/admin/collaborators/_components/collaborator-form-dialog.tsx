@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getRandomColor, avatarColors } from '@/lib/colors';
-import { Check, Eye, EyeOff } from 'lucide-react';
+import { Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -113,11 +113,11 @@ export function CollaboratorFormDialog({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-6">
+          <div className="space-y-6 py-6">
 
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Avatar</Label>
-                <div className="col-span-3 flex items-center gap-4">
+             <div className="space-y-2">
+                <Label>Avatar</Label>
+                <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                         <AvatarFallback style={{ backgroundColor: avatarColor }} className="text-white font-bold">
                             {getInitials(name)}
@@ -138,26 +138,25 @@ export function CollaboratorFormDialog({
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+            <div className="space-y-2">
+              <Label htmlFor="name">
                 Nom complet
               </Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="col-span-3"
                 required
                 placeholder="Ex: Jean Dupont"
               />
             </div>
             
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">
+             <div className="space-y-2">
+                <Label htmlFor="role">
                     Rôle
                 </Label>
                  <Select onValueChange={(value) => setRole(value as any)} value={role} required>
-                    <SelectTrigger id="role" className="col-span-3">
+                    <SelectTrigger id="role">
                         <SelectValue placeholder="Sélectionner un rôle" />
                     </SelectTrigger>
                     <SelectContent>
@@ -168,7 +167,7 @@ export function CollaboratorFormDialog({
             </div>
             
             {!isEditMode && (
-              <p className="text-sm text-muted-foreground col-span-4 text-center pt-2">
+              <p className="text-sm text-muted-foreground text-center pt-2">
                 Un nom d'utilisateur et un mot de passe seront générés et affichés après l'enregistrement.
               </p>
             )}
