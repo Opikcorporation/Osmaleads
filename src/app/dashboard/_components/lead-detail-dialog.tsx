@@ -27,7 +27,7 @@ import {
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, type FirestoreNote } from '@/lib/types';
 import { CalendarIcon, Info, TrendingUp, Gem } from 'lucide-react';
 import { format } from 'date-fns';
-import { useDoc, useCollection, useFirestore, useUserProfile } from '@/firebase';
+import { useDoc, useCollection, useFirestore, useFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState, useEffect, useMemo } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -63,14 +63,14 @@ const formatPhoneNumberForLink = (value: string): string => {
 
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
-  const { user: authUser } = useUserProfile();
+  const { collaborator: authUser } = useFirebase();
   const { toast } = useToast();
 
   const leadRef = useMemo(() => doc(firestore, 'leads', leadId), [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
   const assignedUserRef = useMemo(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
-  const { data: assignedUser, isLoading: assignedUserLoading } = useDoc<Collaborator>(assignedUserRef);
+  const { data: assignedUser } = useDoc<Collaborator>(assignedUserRef);
 
   const notesRef = useMemo(() => query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')), [firestore, leadId]);
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
@@ -105,7 +105,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
     const noteToAdd = {
       leadId: lead.id,
-      collaboratorId: authUser.uid,
+      collaboratorId: authUser.id,
       content: newNote,
       timestamp: Timestamp.now(),
     };
@@ -157,7 +157,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     }
   }
 
-  const isLoading = leadLoading || assignedUserLoading || notesLoading || allUsersLoading;
+  // The main loading state only depends on the essential data needed to render the shell.
+  const isLoading = leadLoading || allUsersLoading;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -250,7 +251,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   </form>
                   <Separator />
                   <div className="space-y-6 flex-1 overflow-y-auto pr-2">
-                    {notes?.length === 0 ? (
+                    {notesLoading ? <p className="text-sm text-center text-muted-foreground py-4">Chargement des notes...</p> : notes?.length === 0 ? (
                       <p className="text-sm text-center text-muted-foreground py-4">Aucune note pour le moment.</p>
                     ) : (
                       notes?.map((note) => {
