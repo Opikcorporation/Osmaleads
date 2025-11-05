@@ -5,38 +5,18 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import type { IntegrationSetting } from '@/lib/types';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-
+import { collection, query, where } from 'firebase/firestore';
 
 export function MetaSettings() {
   const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [accessToken, setAccessToken] = useState('');
 
+  // On se contente de lire les paramètres
   const settingsQuery = useMemo(
     () => query(collection(firestore, 'integrationSettings'), where('integrationName', '==', 'meta')),
     [firestore]
@@ -44,64 +24,8 @@ export function MetaSettings() {
   
   const { data: settings, isLoading: settingsLoading } = useCollection<IntegrationSetting>(settingsQuery);
   const metaSettings = useMemo(() => settings?.[0], [settings]);
-  
-  useEffect(() => {
-    if (metaSettings) {
-        setAccessToken(metaSettings.accessToken);
-    } else {
-        setAccessToken('');
-    }
-  }, [metaSettings]);
 
-  const handleConnect = async () => {
-    if (!firestore || !accessToken) {
-        toast({ variant: 'destructive', title: 'Jeton manquant', description: 'Veuillez fournir un jeton d\'accès.'});
-        return;
-    };
-    setIsProcessing(true);
-    try {
-        const batch = writeBatch(firestore);
-        // If settings already exist, update them. Otherwise, create new ones.
-        const settingRef = metaSettings ? doc(firestore, 'integrationSettings', metaSettings.id) : doc(collection(firestore, 'integrationSettings'));
-        
-        const newSetting: Omit<IntegrationSetting, 'id'> = {
-            integrationName: 'meta',
-            enabledCampaignIds: metaSettings?.enabledCampaignIds || [],
-            accessToken: accessToken 
-        }
-        
-        if(metaSettings) {
-            batch.update(settingRef, { accessToken });
-        } else {
-            batch.set(settingRef, newSetting);
-        }
-
-        await batch.commit();
-
-        toast({ title: 'Connecté à Meta', description: 'Vous pouvez maintenant configurer vos campagnes.' });
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder le jeton.' });
-    } finally {
-        setIsProcessing(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!firestore || !metaSettings) return;
-    setIsProcessing(true);
-    try {
-        const batch = writeBatch(firestore);
-        const settingRef = doc(firestore, 'integrationSettings', metaSettings.id);
-        batch.delete(settingRef);
-        await batch.commit();
-
-        toast({ variant: 'destructive', title: 'Déconnecté de Meta', description: 'La synchronisation des leads est arrêtée.' });
-    } catch (error) {
-         toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de se déconnecter.' });
-    } finally {
-        setIsProcessing(false);
-    }
-  }
+  const isConnected = !!metaSettings;
 
   return (
     <Card>
@@ -115,7 +39,7 @@ export function MetaSettings() {
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between rounded-lg border p-4">
           <div className="flex items-center gap-3">
-            {metaSettings ? (
+            {isConnected ? (
               <CheckCircle2 className="h-6 w-6 text-green-500" />
             ) : (
               <AlertCircle className="h-6 w-6 text-destructive" />
@@ -123,70 +47,24 @@ export function MetaSettings() {
             <div>
               <h3 className="font-semibold">Statut</h3>
               <p className="text-sm text-muted-foreground">
-                {settingsLoading ? 'Vérification...' : (metaSettings ? 'Connecté' : 'Non connecté')}
+                {settingsLoading ? 'Vérification...' : (isConnected ? 'Connecté' : 'Non connecté')}
               </p>
             </div>
           </div>
-          <Badge variant={metaSettings ? 'default' : 'destructive'}>
-            {metaSettings ? 'Actif' : 'Inactif'}
+          <Badge variant={isConnected ? 'default' : 'destructive'}>
+            {isConnected ? 'Actif' : 'Inactif'}
           </Badge>
         </div>
         
-        {!metaSettings ? (
-            <div className="space-y-4 rounded-lg border border-dashed p-6">
-                <div className="space-y-2">
-                    <Label htmlFor="access-token" className="text-base font-semibold">Étape 1 : Fournir un jeton d'accès</Label>
-                    <p className="text-sm text-muted-foreground">
-                        Pour connecter votre compte, vous devez générer un jeton d'accès depuis votre application sur
-                        <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="text-primary underline"> Meta for Developers</a>.
-                        Ce jeton doit avoir les permissions `leads_retrieval` et `pages_read_engagement`.
-                    </p>
-                    <Input id="access-token" placeholder="Collez votre jeton d'accès ici" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} />
-                </div>
-                 <Button onClick={handleConnect} disabled={isProcessing || settingsLoading || !accessToken}>
-                    {isProcessing ? 'Connexion...' : 'Enregistrer et Connecter'}
-                </Button>
+        {!isConnected && !settingsLoading && (
+            <div className="space-y-4 rounded-lg border border-dashed p-6 text-center">
+                 <p className="text-sm text-muted-foreground">
+                    La fonctionnalité de connexion pour ajouter votre jeton d'accès sera bientôt disponible.
+                </p>
             </div>
-        ) : (
-            <>
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    Configuration des Campagnes
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    La sélection des campagnes n'est pas encore disponible. Toutes les campagnes sont actuellement synchronisées.
-                  </p>
-                </div>
-            </>
         )}
 
       </CardContent>
-      {metaSettings && (
-          <CardFooter className="border-t px-6 py-4">
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" disabled={isProcessing}>
-                        {isProcessing ? 'Déconnexion...' : 'Se déconnecter de Meta'}
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Êtes-vous sûr de vouloir vous déconnecter ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            La synchronisation automatique des leads sera arrêtée. Vous devrez fournir un nouveau jeton pour la réactiver.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDisconnect}>
-                            Oui, me déconnecter
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-          </CardFooter>
-      )}
     </Card>
   );
 }
