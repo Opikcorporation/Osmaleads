@@ -114,6 +114,17 @@ export default function AdminCollaboratorsPage() {
         body: JSON.stringify({ uid: collaboratorId }),
       });
 
+      // Handle empty response for 204 No Content
+      if (response.status === 204) {
+         toast({
+          variant: 'destructive',
+          title: 'Collaborateur supprimé',
+          description: `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
+        });
+        // Early return on success
+        return;
+      }
+
       const result = await response.json();
 
       if (!response.ok) {
@@ -123,7 +134,7 @@ export default function AdminCollaboratorsPage() {
       toast({
         variant: 'destructive',
         title: 'Collaborateur supprimé',
-        description: `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
+        description: result.message || `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
       });
 
     } catch (error: any) {
