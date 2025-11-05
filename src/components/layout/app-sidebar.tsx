@@ -25,12 +25,12 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       icon: LayoutDashboard,
       roles: ['admin', 'collaborator'],
     },
-    {
-      href: '/dashboard/analytics',
-      label: 'Analyse',
-      icon: BarChart2,
-      roles: ['admin', 'collaborator'],
-    },
+    // {
+    //   href: '/dashboard/analytics',
+    //   label: 'Analyse',
+    //   icon: BarChart2,
+    //   roles: ['admin', 'collaborator'],
+    // },
     {
         href: '/dashboard/admin',
         label: 'Admin',
