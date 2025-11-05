@@ -113,28 +113,27 @@ export default function AdminCollaboratorsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: collaboratorId }),
       });
-
-      // Handle empty response for 204 No Content
-      if (response.status === 204) {
-         toast({
-          variant: 'destructive',
-          title: 'Collaborateur supprimé',
-          description: `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
-        });
-        // Early return on success
-        return;
-      }
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || `Erreur HTTP ${response.status}`);
-      }
       
+      let resultMessage = `L'utilisateur ${collaboratorName} a été supprimé.`;
+      
+      // Check if there is content to parse
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const result = await response.json();
+         if (!response.ok) {
+           throw new Error(result.error || `Erreur HTTP ${response.status}`);
+         }
+         resultMessage = result.message || resultMessage;
+      } else {
+         if (!response.ok) {
+          throw new Error(`Erreur HTTP ${response.status}`);
+        }
+      }
+
       toast({
         variant: 'destructive',
         title: 'Collaborateur supprimé',
-        description: result.message || `L'utilisateur ${collaboratorName} a été supprimé définitivement.`,
+        description: resultMessage,
       });
 
     } catch (error: any) {
