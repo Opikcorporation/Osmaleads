@@ -20,13 +20,13 @@ import { StatusBadge } from '@/components/status-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
 import { leadStatuses, leadTiers } from '@/lib/types';
-import { collection, query, where, Query, writeBatch } from 'firebase/firestore';
+import { collection, query, where, Query, writeBatch, doc } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { LeadImportDialog, AllScoreRules } from './_components/lead-import-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export const parseCSV = (
   csvString: string
