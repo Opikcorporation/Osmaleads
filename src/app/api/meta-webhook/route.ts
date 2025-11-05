@@ -3,6 +3,7 @@
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import type { Lead, IntegrationSetting } from '@/lib/types';
+import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
 
 // This is a secret token that we will configure in Meta's Developer Dashboard.
 // It ensures that the requests are coming from Meta and not from a malicious third party.
@@ -75,18 +76,24 @@ export async function POST(request: Request) {
                     const leadName = mappedData.full_name || 'Nom Inconnu';
                     const email = mappedData.email || null;
                     const phone = mappedData.phone_number || null;
+                    const leadDataString = JSON.stringify(mappedData);
 
-                    const newLead: Omit<Lead, 'id' | 'score' | 'tier' > = {
+                    // --- AI QUALIFICATION ---
+                    const aiQualification = await qualifyLead({ leadData: leadDataString });
+
+                    const newLead: Omit<Lead, 'id'> = {
                         name: leadName,
                         email: email,
                         phone: phone,
                         company: mappedData.company_name || null,
                         username: null,
                         status: 'New',
-                        leadData: JSON.stringify(mappedData), // Store all original mapped data
+                        leadData: leadDataString, // Store all original mapped data
                         assignedCollaboratorId: null,
                         campaignId: leadData.campaign_id,
                         campaignName: leadData.campaign_name,
+                        score: aiQualification.score,
+                        tier: aiQualification.tier
                     };
 
                     // Add the new lead to our Firestore 'leads' collection.
