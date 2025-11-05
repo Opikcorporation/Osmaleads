@@ -80,12 +80,15 @@ export async function POST(request: Request) {
     }
 
     // 3. Get unassigned leads that match the group's tier criteria
-    let unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '==', null);
+    // Using '!=' is more robust for finding documents where a field is null or not present.
+    let unassignedLeadsQuery = firestore.collection('leads').where('assignedCollaboratorId', '!=', '');
     if (setting.leadTier !== 'Tous') {
         unassignedLeadsQuery = unassignedLeadsQuery.where('tier', '==', setting.leadTier);
     }
     const unassignedLeadsSnap = await unassignedLeadsQuery.limit(leadsToAssignCount).get();
-    const unassignedLeads = unassignedLeadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Lead[];
+    const unassignedLeads = unassignedLeadsSnap.docs
+      .map(d => ({ ...d.data(), id: d.id } as Lead))
+      .filter(lead => !lead.assignedCollaboratorId); // Final filter in-memory to be sure.
 
     if (unassignedLeads.length === 0) {
         return NextResponse.json({ message: "No unassigned leads matching the criteria." }, { status: 200 });
