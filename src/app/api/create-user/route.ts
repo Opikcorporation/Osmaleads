@@ -7,16 +7,31 @@ import type { UserRecord } from 'firebase-admin/auth';
 import { avatarColors, getRandomColor } from '@/lib/colors';
 
 const RequestBodySchema = z.object({
-  username: z.string().min(3, "Le nom d'utilisateur est trop court"),
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères."),
   name: z.string().min(2, "Le nom est trop court"),
   role: z.enum(['admin', 'collaborator']),
   avatarColor: z.string().refine(color => avatarColors.includes(color)),
 });
 
 /**
- * API route pour créer un utilisateur dans Firebase Auth.
- * Le profil Firestore associé sera créé automatiquement par une Cloud Function.
+ * Finds a unique username by appending a number if the base username is taken.
+ */
+async function findUniqueUsername(firestore: FirebaseFirestore.Firestore, baseUsername: string): Promise<string> {
+    let username = baseUsername;
+    let counter = 1;
+    while (true) {
+        const existingUserQuery = await firestore.collection('collaborators').where('username', '==', username).limit(1).get();
+        if (existingUserQuery.empty) {
+            return username; // The username is unique
+        }
+        // If not unique, append a number and try again
+        username = `${baseUsername}${counter}`;
+        counter++;
+    }
+}
+
+/**
+ * API route to create a user in Firebase Auth with automatically generated username and password.
+ * The Firestore profile is also created.
  */
 export async function POST(request: Request) {
   const { auth, firestore } = getFirebaseAdmin();
@@ -29,17 +44,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body', details: validation.error.formErrors }, { status: 400 });
     }
     
-    const { username, password, name, role, avatarColor } = validation.data;
+    const { name, role, avatarColor } = validation.data;
+
+    // 1. --- Generate Username ---
+    const baseUsername = name.toLowerCase().replace(/\s+/g, '_');
+    const username = await findUniqueUsername(firestore, baseUsername);
     const email = `${username}@example.com`;
 
-    // --- VERIFICATION D'UNICITE (NOUVEAU ET CRUCIAL) ---
-    // Avant toute chose, on vérifie si un collaborateur avec ce nom d'utilisateur existe déjà dans Firestore.
-    const existingUserQuery = await firestore.collection('collaborators').where('username', '==', username).limit(1).get();
-    if (!existingUserQuery.empty) {
-        return NextResponse.json({ error: "Ce nom d'utilisateur est déjà utilisé." }, { status: 409 });
-    }
+    // 2. --- Generate Password ---
+    const firstName = name.split(' ')[0].toLowerCase();
+    const password = `${firstName.substring(0, 3)}1234TERRASKY`;
 
-    // 1. Créer l'utilisateur dans Firebase Auth
+    // 3. --- Create Auth User ---
     let userRecord: UserRecord;
     try {
       userRecord = await auth.createUser({
@@ -48,15 +64,16 @@ export async function POST(request: Request) {
         displayName: name,
       });
     } catch (error: any) {
+        // This case should be rare now because the username check makes emails unique,
+        // but it's good to keep as a safeguard.
         if (error.code === 'auth/email-already-exists') {
-            // Cette erreur est maintenant une double sécurité. La vérification Firestore est la plus importante.
-            return NextResponse.json({ error: "Ce nom d'utilisateur est déjà utilisé." }, { status: 409 });
+            return NextResponse.json({ error: "Ce nom d'utilisateur a généré un email qui existe déjà." }, { status: 409 });
         }
-        // Pour les autres erreurs d'authentification (mot de passe faible, etc.)
+        // For other auth errors (e.g., weak password policy if changed)
         return NextResponse.json({ error: error.message || "Une erreur est survenue lors de la création du compte d'authentification." }, { status: 500 });
     }
 
-    // 2. Créer le profil dans Firestore.
+    // 4. --- Create Firestore Profile ---
     const userProfile = {
       id: userRecord.uid,
       name: name,
@@ -68,11 +85,12 @@ export async function POST(request: Request) {
 
     await firestore.collection('collaborators').doc(userRecord.uid).set(userProfile);
 
-    // Retourner une réponse de succès
+    // Return a success response
     return NextResponse.json({
       message: 'Utilisateur créé avec succès.',
       uid: userRecord.uid,
-      profile: userProfile
+      profile: userProfile,
+      generatedPassword: password, // For potential display/copy on the frontend if needed
     }, { status: 201 });
 
   } catch (error: any) {
