@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
+import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
 import { leadStatuses } from '@/lib/types';
@@ -29,6 +30,8 @@ import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
 
 export const parseCSV = (
   csvString: string
@@ -90,6 +93,19 @@ export default function DashboardPage() {
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
   
   const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
+  
+  const getCollaboratorById = (id: string): Collaborator | undefined => {
+    return allUsers?.find(u => u.id === id);
+  }
+
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('');
+  }
 
   const handleOpenLead = (leadId: string) => {
     setSelectedLeadId(leadId);
@@ -128,7 +144,7 @@ export default function DashboardPage() {
                     const value = row[col];
                     const rule = data.allScoreRules[col]?.find(r => r.value === value);
                     if (rule && rule.score) {
-                        totalScore += parseInt(String(rule.score), 10);
+                        totalScore += parseInt(String(rule.score), 10) || 0;
                         scoreCount++;
                     }
                 });
@@ -255,7 +271,7 @@ export default function DashboardPage() {
               </CardDescription>
             </div>
           </div>
-          <div className="pt-4">
+           <div className="pt-4">
             <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
                 <TabsList>
                     <TabsTrigger value="All">Tous</TabsTrigger>
@@ -298,8 +314,10 @@ export default function DashboardPage() {
                       </TableHead>
                     )}
                     <TableHead>Nom</TableHead>
-                    <TableHead>Entreprise</TableHead>
+                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Score</TableHead>
                     <TableHead>Statut</TableHead>
+                    <TableHead>Assigné à</TableHead>
                     <TableHead className="text-right">
                       <span className="sr-only">Actions</span>
                     </TableHead>
@@ -307,34 +325,61 @@ export default function DashboardPage() {
                 </TableHeader>
                 <TableBody>
                   {leads && leads.length > 0 ? (
-                    leads.map((lead) => (
+                    leads.map((lead) => {
+                      const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
+                      return (
                       <TableRow
                         key={lead.id}
                         data-state={selectedLeads.includes(lead.id) ? 'selected' : ''}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                            // Prevents row click from triggering when clicking on checkbox
+                            if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                            handleOpenLead(lead.id)
+                        }}
                       >
                          {isAdmin && (
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedLeads.includes(lead.id)}
                               onCheckedChange={(checked) => handleSelectOne(lead.id, !!checked)}
+                              aria-label={`Select lead ${lead.name}`}
                             />
                           </TableCell>
                         )}
-                        <TableCell className="font-medium cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{lead.name}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{lead.company}</TableCell>
-                        <TableCell className="cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
+                        <TableCell className="font-medium">{lead.name}</TableCell>
+                        <TableCell>{lead.phone || '-'}</TableCell>
+                        <TableCell>
+                          <ScoreBadge score={lead.score} />
+                        </TableCell>
+                        <TableCell>
                           <StatusBadge status={lead.status} />
                         </TableCell>
+                        <TableCell>
+                          {assignedCollaborator ? (
+                             <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                    <AvatarFallback style={{ backgroundColor: assignedCollaborator.avatarColor }} className="text-white text-xs font-bold">
+                                        {getInitials(assignedCollaborator.name)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{assignedCollaborator.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenLead(lead.id)}>
+                          <Button variant="ghost" size="sm">
                             Détails
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))
+                      )
+                    })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 5 : 4} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 7 : 6} className="text-center h-24">
                         Aucun lead à afficher pour ce filtre.
                       </TableCell>
                     </TableRow>
