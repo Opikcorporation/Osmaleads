@@ -65,13 +65,16 @@ export function MetaSettings() {
       fetch('/api/meta/campaigns')
         .then(res => {
             if (!res.ok) {
-                throw new Error('La réponse du serveur n\'était pas OK');
+                // Try to parse the error body for a more specific message
+                return res.json().then(errData => {
+                   throw new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.');
+                });
             }
             return res.json();
         })
         .then(data => {
             if(data.error) {
-                 throw new Error(data.error || 'Erreur lors de la récupération des campagnes.');
+                 throw new Error(data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.');
             }
             setCampaigns(data.campaigns || []);
         })
@@ -195,7 +198,11 @@ export function MetaSettings() {
                  {campaignsLoading ? (
                     <p className="text-sm text-muted-foreground">Chargement des campagnes...</p>
                  ) : campaignsError ? (
-                    <p className="text-sm text-destructive">{campaignsError}</p>
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erreur de chargement</AlertTitle>
+                      <AlertDescription>{campaignsError}</AlertDescription>
+                    </Alert>
                  ) : campaigns.length > 0 ? (
                     campaigns.map(campaign => (
                          <div key={campaign.id} className="flex items-center space-x-2 py-1">
