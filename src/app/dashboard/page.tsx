@@ -21,9 +21,9 @@ import {
   useFirestore,
   useFirebase,
 } from '@/firebase';
-import type { Lead } from '@/lib/types';
-import { collection, query } from 'firebase/firestore';
-import { useState } from 'react';
+import type { Lead, Collaborator } from '@/lib/types';
+import { collection, query, where, Query } from 'firebase/firestore';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
@@ -57,11 +57,28 @@ export const parseCSV = (csvString: string): { headers: string[], rows: Record<s
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { collaborator } = useFirebase(); // Get the user's profile
 
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
-  const leadsQuery = query(collection(firestore, 'leads'));
+  // Build the query based on the user's role
+  const leadsQuery = useMemo(() => {
+    if (!firestore || !collaborator) {
+      return null; // Return null if firestore or collaborator profile isn't ready
+    }
+    
+    const leadsCollection = collection(firestore, 'leads');
+    
+    // If user is admin, show all leads. Otherwise, only show assigned leads.
+    if (collaborator.role === 'admin') {
+      return query(leadsCollection);
+    } else {
+      return query(leadsCollection, where('assignedCollaboratorId', '==', collaborator.id));
+    }
+  }, [firestore, collaborator]);
+
+
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
   const handleOpenLead = (leadId: string) => {
@@ -81,22 +98,26 @@ export default function DashboardPage() {
     setIsImporting(false);
   };
   
+  const isAdmin = collaborator?.role === 'admin';
+
   return (
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord des Leads</h1>
-         <Button onClick={() => setIsImporting(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Importer des Leads
-        </Button>
+         {isAdmin && (
+            <Button onClick={() => setIsImporting(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Importer des Leads
+            </Button>
+         )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>
-            Tous les Leads
+            {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
           </CardTitle>
           <CardDescription>
-            Voici la liste de tous les leads dans le système.
+            {isAdmin ? 'Voici la liste de tous les leads dans le système.' : 'Voici la liste des leads qui vous ont été assignés.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,7 +155,7 @@ export default function DashboardPage() {
                     ) : (
                       <TableRow>
                           <TableCell colSpan={4} className="text-center h-24">
-                            Aucun lead à afficher. Commencez par en importer.
+                            Aucun lead à afficher.
                           </TableCell>
                       </TableRow>
                     )}
