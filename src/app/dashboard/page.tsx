@@ -15,6 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
@@ -24,7 +35,7 @@ import { leadStatuses } from '@/lib/types';
 import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X } from 'lucide-react';
+import { PlusCircle, User, X, Trash2 } from 'lucide-react';
 import { LeadImportDialog, AllScoreRules } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -241,6 +252,31 @@ export default function DashboardPage() {
         setIsBulkAssignDialogOpen(false);
     }
   };
+
+  const handleBulkDelete = async () => {
+    if (!firestore || selectedLeads.length === 0) return;
+
+    try {
+        const batch = writeBatch(firestore);
+        selectedLeads.forEach(leadId => {
+            const leadRef = doc(firestore, 'leads', leadId);
+            batch.delete(leadRef);
+        });
+        await batch.commit();
+        toast({
+            variant: 'destructive',
+            title: 'Suppression réussie',
+            description: `${selectedLeads.length} lead(s) ont été supprimé(s).`,
+        });
+        setSelectedLeads([]); // Clear selection
+    } catch(error) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur de suppression',
+            description: 'Un problème est survenu lors de la suppression des leads.',
+        });
+    }
+  };
   
   const isAdmin = collaborator?.role === 'admin';
   const isLoading = leadsLoading || usersLoading;
@@ -292,6 +328,28 @@ export default function DashboardPage() {
                         <User className="mr-2 h-4 w-4" />
                         Assigner
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Cette action est irréversible. {selectedLeads.length} lead(s) seront définitivement supprimés.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleBulkDelete}>
+                            Oui, supprimer
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedLeads([])}>
                         <X className="mr-2 h-4 w-4"/>
                         Annuler
@@ -309,7 +367,7 @@ export default function DashboardPage() {
                      {isAdmin && (
                       <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={selectedLeads.length > 0 && selectedLeads.length === leads?.length}
+                          checked={selectedLeads.length > 0 && !!leads && selectedLeads.length === leads.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
