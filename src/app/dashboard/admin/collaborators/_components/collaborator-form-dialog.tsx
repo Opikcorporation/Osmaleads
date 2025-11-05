@@ -10,6 +10,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { Collaborator } from '@/lib/types';
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { getRandomColor, avatarColors } from '@/lib/colors';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -17,13 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Collaborator } from '@/lib/types';
-import { useEffect, useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { getRandomColor, avatarColors } from '@/lib/colors';
-import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
 
 interface CollaboratorFormDialogProps {
   isOpen: boolean;
@@ -113,7 +112,9 @@ export function CollaboratorFormDialog({
                 : "Le nom d'utilisateur et un mot de passe sécurisé seront générés automatiquement."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          
+          <div className="grid gap-4 py-6">
+
              <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Avatar</Label>
                 <div className="col-span-3 flex items-center gap-4">
@@ -136,6 +137,7 @@ export function CollaboratorFormDialog({
                     </div>
                 </div>
             </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 Nom complet
@@ -149,12 +151,13 @@ export function CollaboratorFormDialog({
                 placeholder="Ex: Jean Dupont"
               />
             </div>
+            
              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="role" className="text-right">
                     Rôle
                 </Label>
                  <Select onValueChange={(value) => setRole(value as any)} value={role} required>
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger id="role" className="col-span-3">
                         <SelectValue placeholder="Sélectionner un rôle" />
                     </SelectTrigger>
                     <SelectContent>
@@ -163,12 +166,14 @@ export function CollaboratorFormDialog({
                     </SelectContent>
                 </Select>
             </div>
-             {!isEditMode && (
+            
+            {!isEditMode && (
               <p className="text-sm text-muted-foreground col-span-4 text-center pt-2">
                 Un nom d'utilisateur et un mot de passe seront générés et affichés après l'enregistrement.
               </p>
             )}
           </div>
+          
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
               Annuler
