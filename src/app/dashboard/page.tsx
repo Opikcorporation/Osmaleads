@@ -19,12 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
-import { leadStatuses } from '@/lib/types';
-import { collection, query, where, Query } from 'firebase/firestore';
+import { leadStatuses, leadTiers } from '@/lib/types';
+import { collection, query, where, Query, writeBatch } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { LeadImportDialog } from './_components/lead-import-dialog';
+import { LeadImportDialog, AllScoreRules } from './_components/lead-import-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 
@@ -40,9 +40,11 @@ export const parseCSV = (
 
   const headers = lines[0].split(',').map((h) => h.trim());
   const rows = lines.slice(1).map((line) => {
-    const values = line.split(',');
+    // A more robust way to handle commas inside quoted fields
+    const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
     return headers.reduce((obj, header, index) => {
-      obj[header] = values[index]?.trim() || '';
+      const value = values[index]?.trim().replace(/"/g, '') || '';
+      obj[header] = value;
       return obj;
     }, {} as Record<string, string>);
   });
@@ -54,13 +56,12 @@ export const parseCSV = (
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { collaborator } = useFirebase(); // Get the user's profile
+  const { collaborator } = useFirebase();
 
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
 
-  // Build the query based on the user's role and selected filters
   const leadsQuery = useMemo(() => {
     if (!firestore || !collaborator) {
       return null;
@@ -68,12 +69,10 @@ export default function DashboardPage() {
 
     let q: Query = collection(firestore, 'leads');
 
-    // Role-based filtering
     if (collaborator.role !== 'admin') {
       q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
     }
 
-    // Status-based filtering
     if (filterStatus !== 'All') {
       q = query(q, where('status', '==', filterStatus));
     }
@@ -82,6 +81,7 @@ export default function DashboardPage() {
   }, [firestore, collaborator, filterStatus]);
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  const { data: allUsers } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
 
   const handleOpenLead = (leadId: string) => {
     setSelectedLeadId(leadId);
@@ -91,15 +91,88 @@ export default function DashboardPage() {
     setSelectedLeadId(null);
   };
 
-  const handleSaveImport = async (data: any) => {
-    console.log('Import data:', data);
-    toast({
-      title: 'Importation démarrée',
-      description: 'Les leads seront traités en arrière-plan.',
+  const handleSaveImport = async (data: {
+    fileContent: string;
+    mapping: { [key: string]: string };
+    scoreColumns: string[];
+    allScoreRules: AllScoreRules;
+  }) => {
+     if (!firestore) return;
+     setIsImporting(false);
+     
+     toast({
+      title: 'Importation en cours...',
+      description: 'Analyse du fichier et préparation des leads.',
     });
-    setIsImporting(false);
-  };
 
+    try {
+        const { rows } = parseCSV(data.fileContent);
+        const batch = writeBatch(firestore);
+
+        const leadsToCreate = rows.map(row => {
+            const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
+            
+            // Calculate score
+            let totalScore = 0;
+            let scoreCount = 0;
+            if (data.scoreColumns.length > 0) {
+                data.scoreColumns.forEach(col => {
+                    const value = row[col];
+                    const rule = data.allScoreRules[col]?.find(r => r.value === value);
+                    if (rule) {
+                        totalScore += rule.score;
+                        scoreCount++;
+                    }
+                });
+            }
+            const finalScore = scoreCount > 0 ? Math.round(totalScore / scoreCount) : null;
+
+            // Determine Tier from score
+            let tier = null;
+            if (finalScore !== null) {
+                if(finalScore > 66) tier = 'Haut de gamme';
+                else if (finalScore > 33) tier = 'Moyenne gamme';
+                else tier = 'Bas de gamme';
+            }
+
+            const newLead: Omit<Lead, 'id'> = {
+                name: nameMapping ? row[nameMapping] : 'Nom Inconnu',
+                email: Object.keys(data.mapping).find(h => data.mapping[h] === 'email') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'email')!] : null,
+                phone: Object.keys(data.mapping).find(h => data.mapping[h] === 'phone') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'phone')!] : null,
+                company: Object.keys(data.mapping).find(h => data.mapping[h] === 'company') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'company')!] : null,
+                username: null,
+                status: 'New',
+                tier: tier,
+                score: finalScore,
+                leadData: JSON.stringify(row), // Store original row data
+                assignedCollaboratorId: null,
+            };
+            return newLead;
+        });
+        
+        // Add all leads to a batch
+        leadsToCreate.forEach(lead => {
+            const newLeadRef = collection(firestore, 'leads');
+            batch.set(doc(newLeadRef), lead);
+        });
+
+        await batch.commit();
+
+        toast({
+            title: 'Importation réussie !',
+            description: `${leadsToCreate.length} leads ont été ajoutés avec succès.`,
+        });
+
+    } catch (error) {
+        console.error("Failed to import leads:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Erreur d\'importation',
+            description: 'Un problème est survenu lors de l\'enregistrement des leads.',
+        });
+    }
+  };
+  
   const isAdmin = collaborator?.role === 'admin';
 
   return (
@@ -117,7 +190,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <CardTitle>
                 {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
