@@ -482,6 +482,7 @@ export default function DashboardPage() {
             />
         </>
       )}
+
       {selectedLeadId && (
         <LeadDetailDialog
           leadId={selectedLeadId}
