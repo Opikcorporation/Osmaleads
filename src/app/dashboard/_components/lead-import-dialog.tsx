@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { readFileAsText } from '@/lib/file-utils';
 import { UploadCloud, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -22,12 +22,6 @@ import {
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { parseCSV } from '../page';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Progress } from '@/components/ui/progress';
-
-export type ScoreRule = { value: string; score: number };
-export type AllScoreRules = { [columnName: string]: ScoreRule[] };
 
 interface LeadImportDialogProps {
   isOpen: boolean;
@@ -35,8 +29,6 @@ interface LeadImportDialogProps {
   onSave: (data: {
     fileContent: string;
     mapping: { [key: string]: string };
-    scoreColumns: string[];
-    allScoreRules: AllScoreRules;
   }) => void;
 }
 
@@ -50,10 +42,7 @@ export function LeadImportDialog({
   const [fileContent, setFileContent] = useState<string>('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
-  const [scoreColumns, setScoreColumns] = useState<string[]>([]);
-  const [allScoreRules, setAllScoreRules] = useState<AllScoreRules>({});
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentScoreColumnIndex, setCurrentScoreColumnIndex] = useState(0);
 
   const { toast } = useToast();
 
@@ -63,10 +52,7 @@ export function LeadImportDialog({
     setFileContent('');
     setHeaders([]);
     setMapping({});
-    setScoreColumns([]);
-    setAllScoreRules({});
     setIsProcessing(false);
-    setCurrentScoreColumnIndex(0);
     onClose();
   };
 
@@ -112,78 +98,15 @@ export function LeadImportDialog({
     }
   };
 
-  const handleGoToStep3 = () => {
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
      if (Object.values(mapping).filter(v => v === 'name').length === 0) {
       toast({ variant: 'destructive', title: 'Mappage incomplet', description: 'Veuillez mapper une colonne pour le champ "Nom".' });
       return;
     }
-    setStep(3);
-  }
-  
-  const handleGoToStep4 = () => {
-    if (scoreColumns.length === 0) {
-        handleSubmit(); // If no score column, just submit
-        return;
-    }
-    setCurrentScoreColumnIndex(0);
-    prepareRulesForColumn(scoreColumns[0]);
-    setStep(4);
-  }
-
-  const prepareRulesForColumn = (column: string) => {
-    // Only prepare if not already done
-    if (allScoreRules[column]) return;
-
-    const { rows } = parseCSV(fileContent);
-    const values = new Set(rows.map(row => row[column]).filter(Boolean));
-    const newRules = Array.from(values).map(value => ({ value, score: 0 }));
-    setAllScoreRules(prev => ({...prev, [column]: newRules}));
-  }
-
-  const handleScoreColumnToggle = (column: string) => {
-    setScoreColumns(prev => 
-      prev.includes(column) 
-        ? prev.filter(c => c !== column)
-        : [...prev, column]
-    );
-  }
-
-  const handleScoreRuleChange = (column: string, value: string, score: number) => {
-    setAllScoreRules(prev => ({
-      ...prev,
-      [column]: prev[column]?.map(rule => rule.value === value ? { ...rule, score } : rule) || []
-    }));
-  }
-  
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    onSave({ fileContent, mapping, scoreColumns, allScoreRules });
+    onSave({ fileContent, mapping });
     resetState();
   };
-
-  const handleNextScoreColumn = () => {
-    if (currentScoreColumnIndex < scoreColumns.length - 1) {
-      const nextIndex = currentScoreColumnIndex + 1;
-      prepareRulesForColumn(scoreColumns[nextIndex]);
-      setCurrentScoreColumnIndex(nextIndex);
-    } else {
-      // Last column, go to final submission
-      handleSubmit();
-    }
-  }
-
-  const handlePrevScoreColumn = () => {
-     if (currentScoreColumnIndex > 0) {
-      setCurrentScoreColumnIndex(currentScoreColumnIndex - 1);
-    } else {
-      // Back to step 3
-      setStep(3);
-    }
-  }
-
-  const totalSteps = scoreColumns.length > 0 ? 4 : 3;
-  const currentScoreColumn = scoreColumns[currentScoreColumnIndex];
-  const uniqueScoreValues = allScoreRules[currentScoreColumn] || [];
 
 
   return (
@@ -191,12 +114,10 @@ export function LeadImportDialog({
       <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Importer des Leads (Étape {step}/{totalSteps})</DialogTitle>
+            <DialogTitle>Importer des Leads (Étape {step}/2)</DialogTitle>
             <DialogDescription>
               {step === 1 && 'Téléversez un fichier CSV contenant vos leads.'}
-              {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination.'}
-              {step === 3 && 'Optionnel : Choisissez une ou plusieurs colonnes pour définir le score des leads.'}
-              {step === 4 && `Attribuez des points pour chaque valeur de la colonne "${currentScoreColumn}".`}
+              {step === 2 && 'Mappez les colonnes de votre fichier aux champs de destination. L\'IA se chargera de qualifier chaque lead.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -246,48 +167,6 @@ export function LeadImportDialog({
                 ))}
              </div>
           )}
-
-           {step === 3 && (
-            <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
-                <Label className="text-base font-semibold">Configuration du Score (Optionnel)</Label>
-                 <p className="text-sm text-muted-foreground">Sélectionnez les colonnes qui détermineront le score du lead. Le score final sera la moyenne des points de chaque colonne sélectionnée.</p>
-                <div className="space-y-3 rounded-md border p-4">
-                    {headers.map(header => (
-                        <div key={header} className="flex items-center space-x-3">
-                            <Checkbox
-                                id={`score-col-${header}`}
-                                onCheckedChange={() => handleScoreColumnToggle(header)}
-                                checked={scoreColumns.includes(header)}
-                            />
-                            <Label htmlFor={`score-col-${header}`} className="font-normal truncate">
-                                {header}
-                            </Label>
-                        </div>
-                    ))}
-                </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="py-6 space-y-4 max-h-[60vh] overflow-y-auto pr-4">
-                 <div className='space-y-2 mb-4'>
-                    <Progress value={((currentScoreColumnIndex + 1) / scoreColumns.length) * 100} />
-                    <p className="text-sm text-muted-foreground">Configuration de la colonne {currentScoreColumnIndex + 1} sur {scoreColumns.length}. Plus le nombre de points est élevé, meilleur est le lead.</p>
-                 </div>
-                 {uniqueScoreValues.map(rule => (
-                    <div key={rule.value} className="grid grid-cols-3 items-center gap-4">
-                        <Badge variant="secondary" className="justify-center truncate">{rule.value}</Badge>
-                        <Input
-                            type="number"
-                            placeholder="Points"
-                            className="col-span-2"
-                            onChange={(e) => handleScoreRuleChange(currentScoreColumn, rule.value, parseInt(e.target.value, 10) || 0)}
-                            defaultValue={rule.score}
-                        />
-                    </div>
-                ))}
-            </div>
-          )}
           
           <DialogFooter>
             {step === 1 && (
@@ -303,33 +182,10 @@ export function LeadImportDialog({
                 <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
                 </Button>
-                <Button type="button" onClick={handleGoToStep3}>
-                    Suivant <ArrowRight className="ml-2 h-4 w-4" />
+                <Button type="submit">
+                    Importer et Qualifier par IA <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </>
-            )}
-            {step === 3 && (
-                <>
-                    <Button type="button" variant="ghost" onClick={() => setStep(2)}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
-                    </Button>
-                    <Button type="button" onClick={handleGoToStep4}>
-                       {scoreColumns.length > 0 ? 'Définir les Points' : 'Importer sans Score'} <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </>
-            )}
-            {step === 4 && (
-                <>
-                     <Button type="button" variant="ghost" onClick={handlePrevScoreColumn}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Précédent
-                    </Button>
-                    <Button type="button" onClick={handleNextScoreColumn}>
-                      {currentScoreColumnIndex < scoreColumns.length - 1
-                        ? 'Suivant'
-                        : 'Importer et Calculer les Scores'}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </>
             )}
           </DialogFooter>
         </form>

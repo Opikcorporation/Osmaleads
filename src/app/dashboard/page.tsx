@@ -36,12 +36,13 @@ import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, User, X, Trash2 } from 'lucide-react';
-import { LeadImportDialog, AllScoreRules } from './_components/lead-import-dialog';
+import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
 
 
 export const parseCSV = (
@@ -130,87 +131,51 @@ export default function DashboardPage() {
   const handleSaveImport = async (data: {
     fileContent: string;
     mapping: { [key: string]: string };
-    scoreColumns: string[];
-    allScoreRules: AllScoreRules;
   }) => {
      if (!firestore) return;
      setIsImporting(false);
      
      toast({
-      title: 'Importation en cours...',
-      description: 'Analyse du fichier et préparation des leads.',
+      title: 'Qualification IA en cours...',
+      description: 'Analyse du fichier et qualification de chaque lead. Cela peut prendre un moment.',
     });
 
     try {
         const { rows } = parseCSV(data.fileContent);
         const batch = writeBatch(firestore);
 
-        // --- SCORING LOGIC ---
-        let maxPossibleScore = 0;
-        if (data.scoreColumns.length > 0) {
-            data.scoreColumns.forEach(col => {
-                const columnRules = data.allScoreRules[col] || [];
-                const maxInCol = Math.max(0, ...columnRules.map(r => r.score));
-                maxPossibleScore += maxInCol;
-            });
+        for (const row of rows) {
+          const leadDataString = JSON.stringify(row);
+          
+          // --- AI QUALIFICATION ---
+          const aiQualification = await qualifyLead({ leadData: leadDataString });
+
+          const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
+
+          const newLead: Omit<Lead, 'id'> = {
+              name: nameMapping ? row[nameMapping] : 'Nom Inconnu',
+              email: Object.keys(data.mapping).find(h => data.mapping[h] === 'email') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'email')!] : null,
+              phone: Object.keys(data.mapping).find(h => data.mapping[h] === 'phone') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'phone')!] : null,
+              company: Object.keys(data.mapping).find(h => data.mapping[h] === 'company') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'company')!] : null,
+              username: null,
+              status: 'New',
+              tier: aiQualification.tier,
+              score: aiQualification.score,
+              leadData: leadDataString, // Store original row data
+              assignedCollaboratorId: null,
+              campaignId: null,
+              campaignName: null,
+          };
+          
+          const newLeadRef = doc(collection(firestore, 'leads'));
+          batch.set(newLeadRef, newLead);
         }
-
-        const leadsToCreate = rows.map(row => {
-            const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
-            
-            // Calculate lead's total points
-            let leadTotalPoints = 0;
-            if (data.scoreColumns.length > 0) {
-                data.scoreColumns.forEach(col => {
-                    const value = row[col];
-                    const rule = data.allScoreRules[col]?.find(r => r.value === value);
-                    if (rule && rule.score) {
-                        leadTotalPoints += parseInt(String(rule.score), 10) || 0;
-                    }
-                });
-            }
-            
-            // Calculate final percentage score
-            const finalScore = maxPossibleScore > 0 
-                ? Math.round((leadTotalPoints / maxPossibleScore) * 100)
-                : null;
-
-            // Determine Tier from score
-            let tier = null;
-            if (finalScore !== null) {
-                if(finalScore > 66) tier = 'Haut de gamme';
-                else if (finalScore > 33) tier = 'Moyenne gamme';
-                else tier = 'Bas de gamme';
-            }
-
-            const newLead: Omit<Lead, 'id'> = {
-                name: nameMapping ? row[nameMapping] : 'Nom Inconnu',
-                email: Object.keys(data.mapping).find(h => data.mapping[h] === 'email') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'email')!] : null,
-                phone: Object.keys(data.mapping).find(h => data.mapping[h] === 'phone') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'phone')!] : null,
-                company: Object.keys(data.mapping).find(h => data.mapping[h] === 'company') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'company')!] : null,
-                username: null,
-                status: 'New',
-                tier: tier,
-                score: finalScore,
-                leadData: JSON.stringify(row), // Store original row data
-                assignedCollaboratorId: null,
-                campaignId: null,
-                campaignName: null,
-            };
-            return newLead;
-        });
-        
-        // Add all leads to a batch
-        leadsToCreate.forEach(lead => {
-            const newLeadRef = doc(collection(firestore, 'leads'));
-            batch.set(newLeadRef, lead);
-        });
 
         await batch.commit();
 
         toast({
             title: 'Importation réussie !',
-            description: `${leadsToCreate.length} leads ont été ajoutés avec succès.`,
+            description: `${rows.length} leads ont été qualifiés par l'IA et ajoutés avec succès.`,
         });
 
     } catch (error) {
@@ -218,7 +183,7 @@ export default function DashboardPage() {
         toast({
             variant: 'destructive',
             title: 'Erreur d\'importation',
-            description: 'Un problème est survenu lors de l\'enregistrement des leads.',
+            description: 'Un problème est survenu lors de la qualification ou de l\'enregistrement des leads.',
         });
     }
   };
