@@ -24,10 +24,10 @@ export function UserNav({ user }: { user: Collaborator }) {
 
   const handleLogout = async () => {
     if (!auth) return;
+    // By simply signing out, we let the onAuthStateChanged listener in FirebaseProvider
+    // handle the state change. The DashboardLayout will then see the user is null
+    // and automatically redirect, avoiding any race conditions or error messages.
     await signOut(auth);
-    // No need to push to '/login'. The FirebaseProvider and DashboardLayout
-    // will detect the logged-out state and automatically handle the redirection.
-    // This prevents the race condition that was causing the "Profile not found" error.
   };
 
   const getInitials = (name: string) => {

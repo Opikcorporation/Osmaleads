@@ -62,7 +62,8 @@ export default function DashboardLayout({
   }
   
   // This case covers the brief moment before the useEffect redirect triggers
-  // if the user is not logged in at all.
+  // if the user is not logged in at all. It acts as a final guard.
+  // Instead of rendering children that will error, we render a loading state until the redirect is complete.
   if (!user || !collaborator) {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
