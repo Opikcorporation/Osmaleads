@@ -24,7 +24,7 @@ import {
   useFirebase,
 } from '@/firebase';
 import type { Lead, Collaborator, LeadTier } from '@/lib/types';
-import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, Query } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileUp, Trash2, UserPlus, Search, Phone, Mail } from 'lucide-react';
@@ -80,7 +80,6 @@ export const parseCSV = (content: string): { headers: string[], rows: { [key: st
 
 export default function DashboardPage() {
   const firestore = useFirestore();
-  // The layout now guarantees that `collaborator` is available when this component renders.
   const { collaborator } = useFirebase();
   const { toast } = useToast();
   
@@ -93,6 +92,36 @@ export default function DashboardPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [tierFilter, setTierFilter] = useState<string>('All');
+  
+  // *** START: State-based Query Management ***
+  const [leadsQuery, setLeadsQuery] = useState<Query | null>(null);
+
+  useEffect(() => {
+    // The layout guarantees `collaborator` is available, so this effect runs when it's stable.
+    if (!collaborator || !firestore) return;
+
+    let q = query(collection(firestore, 'leads'));
+    
+    if (collaborator.role === 'collaborator') {
+      q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
+    } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
+      const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
+      q = query(q, where('assignedCollaboratorId', '==', assigneeId));
+    }
+    
+    if (statusFilter !== 'All') {
+      q = query(q, where('status', '==', statusFilter));
+    }
+    
+    if (tierFilter !== 'All' && collaborator.role === 'admin') {
+      q = query(q, where('tier', '==', tierFilter));
+    }
+
+    setLeadsQuery(q);
+
+  }, [firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
+  // *** END: State-based Query Management ***
+
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -103,34 +132,6 @@ export default function DashboardPage() {
       .join('');
   }
 
-  const leadsQuery = useMemo(() => {
-    // We can trust `collaborator` exists here because of the layout guard.
-    if (!collaborator) return null;
-
-    let q = query(collection(firestore, 'leads'));
-    
-    // Apply role-based filtering first.
-    if (collaborator.role === 'collaborator') {
-      // Security rules enforce this, so the query MUST match.
-      q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
-    } else if (collaborator.role === 'admin' && assigneeFilter !== 'All') {
-      // Admins can filter by assignee.
-      const assigneeId = assigneeFilter === 'Unassigned' ? null : assigneeFilter;
-      q = query(q, where('assignedCollaboratorId', '==', assigneeId));
-    }
-    
-    // Apply other status/tier filters on top of the role-based query.
-    if (statusFilter !== 'All') {
-      q = query(q, where('status', '==', statusFilter));
-    }
-    
-    if (tierFilter !== 'All' && collaborator?.role === 'admin') {
-      q = query(q, where('tier', '==', tierFilter));
-    }
-
-    return q;
-  }, [firestore, collaborator, statusFilter, assigneeFilter, tierFilter]);
-
   const collaboratorsQuery = useMemo(
     () => (collaborator?.role === 'admin' ? collection(firestore, 'collaborators') : null),
     [firestore, collaborator]
@@ -140,7 +141,6 @@ export default function DashboardPage() {
   const { data: collaboratorsData, isLoading: collaboratorsLoading } =
     useCollection<Collaborator>(collaboratorsQuery);
   
-  // The page is only loading if its own data subscriptions are loading.
   const isLoading = leadsLoading || (collaborator?.role === 'admin' && collaboratorsLoading);
 
   const filteredLeads = useMemo(() => {
