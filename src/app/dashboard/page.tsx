@@ -127,8 +127,8 @@ export default function DashboardPage() {
                 data.scoreColumns.forEach(col => {
                     const value = row[col];
                     const rule = data.allScoreRules[col]?.find(r => r.value === value);
-                    if (rule) {
-                        totalScore += rule.score;
+                    if (rule && rule.score) {
+                        totalScore += parseInt(String(rule.score), 10);
                         scoreCount++;
                     }
                 });

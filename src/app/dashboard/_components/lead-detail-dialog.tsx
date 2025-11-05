@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { leadStatuses, type LeadStatus, type Lead, type Collaborator, type FirestoreNote } from '@/lib/types';
-import { CalendarIcon, Info } from 'lucide-react';
+import { CalendarIcon, Info, TrendingUp, Gem } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useUserProfile } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
@@ -33,6 +33,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/status-badge';
+import { Badge } from '@/components/ui/badge';
 
 interface LeadDetailDialogProps {
   leadId: string;
@@ -194,21 +195,35 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium">Status:</span>
-                    <Select defaultValue={lead.status} onValueChange={handleStatusChange}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Set status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {leadStatuses.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              <StatusBadge status={status as LeadStatus} />
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                  </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">Status:</span>
+                            <Select defaultValue={lead.status} onValueChange={handleStatusChange}>
+                                <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Set status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {leadStatuses.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                    <StatusBadge status={status as LeadStatus} />
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {lead.tier && (
+                            <div className="flex items-center gap-2">
+                               <Gem className="h-4 w-4 text-primary" />
+                               <Badge variant="secondary">{lead.tier}</Badge>
+                           </div>
+                        )}
+                        {lead.score !== null && typeof lead.score !== 'undefined' && (
+                             <div className="flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-primary" />
+                                <Badge variant="outline">Score: {lead.score}</Badge>
+                            </div>
+                        )}
+                    </div>
                 </CardContent>
               </Card>
               
