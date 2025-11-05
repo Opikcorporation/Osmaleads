@@ -174,7 +174,7 @@ export function MetaSettings() {
         <>
             <Alert variant="default" className="border-green-500 bg-green-50">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Intégration Active</AlertTitle>
+              <AlertTitle className="text-green-800">Étape 1 : Intégration Active</AlertTitle>
               <AlertDescription className="text-green-700">
                 Vous êtes connecté à Meta. Le système écoute les nouveaux leads provenant des campagnes sélectionnées ci-dessous.
               </AlertDescription>
