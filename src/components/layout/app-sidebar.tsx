@@ -58,7 +58,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
           .filter((item) => user?.role && item.roles.includes(user.role))
           .map((item) => (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
