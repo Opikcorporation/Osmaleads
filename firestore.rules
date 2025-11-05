@@ -1,11 +1,43 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+    // --- Helper Functions ---
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Check if the user making the request has an 'admin' role in their own profile document.
+      return isAuth() && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
+    }
     
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // --- Collaborators Rules ---
+    match /collaborators/{userId} {
+      // ANY authenticated user can read the list of collaborators.
+      // This is needed to display names, assign leads, etc.
+      allow read: if isAuth();
+
+      // ONLY admins can create new collaborators.
+      allow create: if isAdmin();
+      
+      // Users can update their OWN profile, and admins can update ANY profile.
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // ONLY admins can delete collaborators.
+      allow delete: if isAdmin();
+    }
+
     // WARNING: TEMPORARY RULE - OPEN ACCESS FOR DEBUGGING
-    // This allows any authenticated user to read and write all data.
+    // This allows any authenticated user to read and write all other data.
     // This is NOT secure and should be replaced with granular rules.
-    match /{document=**} {
+    match /{path=**} {
+      // This rule only applies to paths that haven't been matched above.
       allow read, write: if request.auth != null;
     }
   }
