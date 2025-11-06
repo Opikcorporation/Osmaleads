@@ -66,7 +66,7 @@ export const parseCSV = (
     }, {} as Record<string, string>);
   });
 
-  return { headers, rows };
+  return { headers: [], rows };
 };
 
 
@@ -74,6 +74,9 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { collaborator } = useFirebase();
+
+  // --- FIX EST ICI ---
+  const isAdmin = collaborator?.role === 'admin';
 
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -83,7 +86,7 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
-  const isAdmin = collaborator?.role === 'admin';
+  // La ligne "isAdmin" a été retirée d'ici
 
   const leadsQuery = useMemo(() => {
     // ** THE GUARD **: Do not create a query if we don't have a fully authenticated user and profile.

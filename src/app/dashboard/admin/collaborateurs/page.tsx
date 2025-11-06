@@ -21,8 +21,8 @@ import {
 } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { useState, useMemo } from 'react';
-import { CollaboratorFormDialog } from './_components/collaborator-form-dialog';
-import { CollaboratorCreatedDialog } from './_components/collaborator-created-dialog';
+// import { CollaboratorFormDialog } from './_components/collaborator-form-dialog';
+// import { CollaboratorCreatedDialog } from './_components/collaborator-created-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -269,25 +269,29 @@ export default function AdminCollaboratorsPage() {
                 <div className="text-center p-8 text-muted-foreground">
                     Aucun collaborateur ne correspond à ce filtre.
                 </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+</div>
+</CardContent>
+</Card>
 
-      <CollaboratorFormDialog
-        isOpen={isFormDialogOpen}
-        onClose={handleCloseFormDialog}
-        onSave={handleSaveCollaborator}
-        collaborator={editingCollaborator}
-      />
-      {newlyCreatedData && (
-        <CollaboratorCreatedDialog
-            isOpen={isCreatedDialogOpen}
-            onClose={handleCloseCreatedDialog}
-            profile={newlyCreatedData.profile}
-            generatedPassword={newlyCreatedData.generatedPassword}
-        />
-      )}
-    </>
-  );
+/*
+<CollaboratorFormDialog
+isOpen={isFormDialogOpen}
+onClose={handleCloseFormDialog}
+onSave={handleSaveCollaborator}
+collaborator={editingCollaborator}
+/>
+*/
+
+{newlyCreatedData && (
+/*
+<CollaboratorCreatedDialog
+  isOpen={isCreatedDialogOpen}
+  onClose={handleCloseCreatedDialog}
+  profile={newlyCreatedData.profile}
+  generatedPassword={newlyCreatedData.generatedPassword}
+/>
+*/
+)}
+</>
+);
 }
