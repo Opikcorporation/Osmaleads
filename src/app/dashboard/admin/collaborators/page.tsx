@@ -13,11 +13,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   useCollection,
   useFirestore,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import {
   collection,
   doc,
-  writeBatch,
 } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { useState, useMemo } from 'react';
@@ -35,7 +35,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function AdminCollaboratorsPage() {
   const firestore = useFirestore();
@@ -95,7 +94,7 @@ export default function AdminCollaboratorsPage() {
       };
       updateDocumentNonBlocking(collaboratorRef, updatedData);
       toast({
-          title: 'Utilisateur mis à jour',
+          title: 'Collaborateur mis à jour',
           description: `Le profil de ${data.name} a été mis à jour.`,
       });
     } 
@@ -116,7 +115,7 @@ export default function AdminCollaboratorsPage() {
             }
 
             toast({
-                title: 'Utilisateur créé',
+                title: 'Collaborateur créé',
                 description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
             // Stocker les données pour le dialogue de succès et l'ouvrir
@@ -153,7 +152,7 @@ export default function AdminCollaboratorsPage() {
         
         toast({
           variant: 'destructive',
-          title: 'Utilisateur supprimé',
+          title: 'Collaborateur supprimé',
           description: resultMessage,
         });
       } else {
