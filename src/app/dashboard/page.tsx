@@ -83,6 +83,7 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
+  const isAdmin = collaborator?.role === 'admin';
 
   const leadsQuery = useMemo(() => {
     // ** THE GUARD **: Do not create a query if we don't have a fully authenticated user and profile.
@@ -105,7 +106,7 @@ export default function DashboardPage() {
     }
 
     return q;
-  }, [firestore, collaborator, filterStatus, filterTier]);
+  }, [firestore, collaborator, filterStatus, filterTier, isAdmin]);
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
@@ -263,7 +264,6 @@ export default function DashboardPage() {
     }
   };
   
-  const isAdmin = collaborator?.role === 'admin';
   const isLoading = leadsLoading || usersLoading;
 
   return (
