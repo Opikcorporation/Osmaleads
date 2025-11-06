@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
+import Image from 'next/image';
 
 import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
@@ -91,7 +92,7 @@ export default function DashboardLayout({
           </Sheet>
           <div className="w-full flex-1">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
-                <span className="font-bold">Osmaleads</span>
+                <Image src="/logo.png" alt="Osmaleads Logo" width={120} height={30} />
             </Link>
           </div>
         </header>

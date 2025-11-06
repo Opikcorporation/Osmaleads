@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
 import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart } from 'lucide-react';
 import { useUser } from '@/firebase';
+import Image from 'next/image';
 
 interface AppSidebarProps {
   user: Collaborator;
@@ -54,7 +55,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
     <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <span className="text-xl font-bold text-primary">Osmaleads</span>
+          <Image src="/logo.png" alt="Osmaleads Logo" width={120} height={30} />
         </Link>
       </div>
       <nav className="flex-1 space-y-2 p-4">
