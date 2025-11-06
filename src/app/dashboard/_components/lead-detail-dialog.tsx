@@ -201,8 +201,10 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Status:</span>
                             <Select defaultValue={lead.status} onValueChange={handleStatusChange}>
-                                <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Set status" />
+                                <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2">
+                                  <SelectValue>
+                                    <StatusBadge status={lead.status as LeadStatus} />
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                 {leadStatuses.map((status) => (
@@ -231,7 +233,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
               
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Info className="text-accent" /> Informations Complètes</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><Info className="text-primary" /> Informations Complètes</CardTitle>
                   <CardDescription>Données originales provenant de l'importation.</CardDescription>
                 </CardHeader>
                 <CardContent>

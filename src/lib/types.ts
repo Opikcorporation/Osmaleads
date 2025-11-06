@@ -37,7 +37,7 @@ export type FirestoreNote = {
   id: string;
   leadId: string;
   collaboratorId: string;
-  timestamp: any;
+  timestamp: Timestamp;
   content: string;
 };
 
