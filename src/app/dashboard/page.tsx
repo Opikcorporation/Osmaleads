@@ -30,8 +30,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
-import { leadStatuses } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
+import { leadStatuses, leadTiers } from '@/lib/types';
 import { collection, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
+  const [filterTier, setFilterTier] = useState<LeadTier | 'All'>('All');
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
@@ -98,9 +99,13 @@ export default function DashboardPage() {
     if (filterStatus !== 'All') {
       q = query(q, where('status', '==', filterStatus));
     }
+    
+    if (isAdmin && filterTier !== 'All') {
+        q = query(q, where('tier', '==', filterTier));
+    }
 
     return q;
-  }, [firestore, collaborator, filterStatus]);
+  }, [firestore, collaborator, filterStatus, filterTier]);
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(collection(firestore, 'collaborators'));
@@ -288,15 +293,25 @@ export default function DashboardPage() {
               </CardDescription>
             </div>
           </div>
-           <div className="pt-4">
+           <div className="pt-4 flex flex-wrap gap-4">
             <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
                 <TabsList>
-                    <TabsTrigger value="All">Tous</TabsTrigger>
+                    <TabsTrigger value="All">Tous les statuts</TabsTrigger>
                     {leadStatuses.map(status => (
                     <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
                     ))}
                 </TabsList>
             </Tabs>
+            {isAdmin && (
+                <Tabs onValueChange={(value) => setFilterTier(value as any)} defaultValue="All">
+                    <TabsList>
+                        <TabsTrigger value="All">Tous les tiers</TabsTrigger>
+                        {leadTiers.map(tier => (
+                        <TabsTrigger key={tier} value={tier}>{tier}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+            )}
           </div>
         </CardHeader>
         <CardContent>
