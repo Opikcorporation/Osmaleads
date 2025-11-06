@@ -1,6 +1,7 @@
-{'use server';
+'use server';
 
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 import type { Lead, IntegrationSetting } from '@/lib/types';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
                         status: 'New',
                         leadData: leadDataString, // Store all original mapped data
                         assignedCollaboratorId: null,
+                        createdAt: FieldValue.serverTimestamp(),
                         campaignId: leadData.campaign_id,
                         campaignName: leadData.campaign_name,
                         score: aiQualification.score,

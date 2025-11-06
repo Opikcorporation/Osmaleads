@@ -32,7 +32,7 @@ import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus } from '@/lib/types';
 import { leadStatuses } from '@/lib/types';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, User, X, Trash2 } from 'lucide-react';
@@ -163,6 +163,7 @@ export default function DashboardPage() {
               score: aiQualification.score,
               leadData: leadDataString, // Store original row data
               assignedCollaboratorId: null,
+              createdAt: serverTimestamp(),
               campaignId: null,
               campaignName: null,
           };
@@ -212,7 +213,7 @@ export default function DashboardPage() {
         const batch = writeBatch(firestore);
         selectedLeads.forEach(leadId => {
             const leadRef = doc(firestore, 'leads', leadId);
-            batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New' });
+            batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New', assignedAt: serverTimestamp() });
         });
         await batch.commit();
         toast({
@@ -419,7 +420,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 6 : 5} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 7 : 5} className="text-center h-24">
                         Aucun lead à afficher pour ce filtre.
                       </TableCell>
                     </TableRow>

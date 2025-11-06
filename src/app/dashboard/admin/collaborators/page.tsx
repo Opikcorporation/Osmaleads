@@ -13,11 +13,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   useCollection,
   useFirestore,
-  updateDocumentNonBlocking,
 } from '@/firebase';
 import {
   collection,
   doc,
+  writeBatch,
 } from 'firebase/firestore';
 import type { Collaborator } from '@/lib/types';
 import { useState, useMemo } from 'react';
@@ -35,6 +35,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function AdminCollaboratorsPage() {
   const firestore = useFirestore();
@@ -185,7 +186,7 @@ export default function AdminCollaboratorsPage() {
   }
 
   if (collaboratorsLoading) {
-    return <div>Chargement des utilisateurs...</div>;
+    return <div>Chargement des collaborateurs...</div>;
   }
 
   return (
@@ -193,7 +194,7 @@ export default function AdminCollaboratorsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Utilisateurs</h1>
         <Button onClick={() => handleOpenFormDialog()}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Utilisateur
+          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Collaborateur
         </Button>
       </div>
 
@@ -257,7 +258,7 @@ export default function AdminCollaboratorsPage() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleDeleteCollaborator(c.id, c.name)}>
-                          Oui, supprimer cet utilisateur
+                          Oui, supprimer ce collaborateur
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -267,7 +268,7 @@ export default function AdminCollaboratorsPage() {
             ))}
              {filteredCollaborators.length === 0 && !collaboratorsLoading && (
                 <div className="text-center p-8 text-muted-foreground">
-                    Aucun utilisateur ne correspond à ce filtre.
+                    Aucun collaborateur ne correspond à ce filtre.
                 </div>
             )}
           </div>
