@@ -6,7 +6,6 @@ import { Menu } from 'lucide-react';
 import AppSidebar from '@/components/layout/app-sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Logo } from '@/components/logo';
 import { useFirebase, useAuth } from '@/firebase'; // Use the main firebase hook
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -92,8 +91,7 @@ export default function DashboardLayout({
           </Sheet>
           <div className="w-full flex-1">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
-                <Logo className="h-6 w-6" />
-                <span>LeadFlowAI</span>
+                <span className="font-bold">Osmaleads</span>
             </Link>
           </div>
         </header>

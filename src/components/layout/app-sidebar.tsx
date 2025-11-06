@@ -8,7 +8,6 @@ import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
 import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart } from 'lucide-react';
-import { Logo } from '../logo';
 import { useUser } from '@/firebase';
 
 interface AppSidebarProps {
@@ -55,8 +54,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
     <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Logo className="h-8 w-8" />
-          <span className="text-xl text-primary">LeadFlowAI</span>
+          <span className="text-xl font-bold text-primary">Osmaleads</span>
         </Link>
       </div>
       <nav className="flex-1 space-y-2 p-4">

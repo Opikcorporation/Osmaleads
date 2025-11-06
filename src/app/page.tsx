@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Logo } from '@/components/logo';
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,7 +16,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">
       <div className="text-center space-y-4">
-        <Logo className="mx-auto h-12 w-12 animate-pulse text-foreground" />
+        <p className="text-xl font-bold animate-pulse">Osmaleads</p>
         <p className="font-semibold">Chargement de l'application...</p>
       </div>
     </div>

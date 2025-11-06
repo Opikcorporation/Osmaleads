@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Logo } from '@/components/logo';
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useEffect, useState } from 'react';
@@ -67,7 +66,7 @@ export default function LoginPage() {
      return (
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <Logo className="mx-auto h-12 w-12 animate-pulse text-foreground" />
+          <p className="font-semibold text-xl animate-pulse">Osmaleads</p>
           <p className="font-semibold">Chargement de la session...</p>
         </div>
       </div>
@@ -80,7 +79,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2">
-            <Logo className="h-7 w-7" /> LeadFlowAI
+            Osmaleads
           </CardTitle>
           <CardDescription>
             Connectez-vous pour accéder à votre tableau de bord.
