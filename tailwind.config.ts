@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
+        body: ['"Nunito Sans"', 'sans-serif'],
+        headline: ['"Bricolage Grotesque"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
