@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -78,8 +79,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2">
-            Osmaleads
+          <CardTitle className="flex items-center justify-center gap-2">
+            <Image src="/logo.png" alt="Osmaleads Logo" width={140} height={35} />
           </CardTitle>
           <CardDescription>
             Connectez-vous pour accéder à votre tableau de bord.
@@ -112,14 +113,6 @@ export default function LoginPage() {
               {isSubmitting ? 'Connexion...' : 'Se connecter'}
             </Button>
           </form>
-           <div className="mt-4 text-center text-sm">
-            <p className="text-muted-foreground">
-              Utilisateur admin par défaut : <span className="font-mono">alessio_opik</span>
-            </p>
-            <p className="text-muted-foreground">
-              Mot de passe : <span className="font-mono">password123</span>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </main>
