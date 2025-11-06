@@ -78,8 +78,8 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       <div className="mt-auto p-4 space-y-4">
         <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
           <div className='flex items-center gap-2'>
-            <BotMessageSquare className="h-6 w-6 text-accent"/>
-            <h3 className="font-semibold text-accent">Perspectives IA</h3>
+            <BotMessageSquare className="h-6 w-6 text-primary"/>
+            <h3 className="font-semibold text-accent-foreground">Ernest IA</h3>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Notre IA enrichit vos leads et suggère des stratégies optimales.
