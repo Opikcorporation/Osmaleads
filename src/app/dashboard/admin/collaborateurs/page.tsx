@@ -263,7 +263,6 @@ export default function AdminCollaboratorsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
-              </div>
             ))}
              {filteredCollaborators.length === 0 && !collaboratorsLoading && (
                 <div className="text-center p-8 text-muted-foreground">
