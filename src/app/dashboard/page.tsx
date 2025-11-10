@@ -98,14 +98,13 @@ export default function DashboardPage() {
   const filteredAndSortedLeads = useMemo(() => {
     if (!allLeads) return [];
 
+    const getCreationDate = (l: Lead): number => {
+      const dateVal = l.createdAt?.toDate() ?? (l['Create Time'] || l.created_time ? new Date(l['Create Time'] || l.created_time!) : null);
+      return dateVal ? dateVal.getTime() : 0;
+    };
+
     const sorted = [...allLeads].sort((a, b) => {
-        const getDate = (lead: Lead): number => {
-            if (lead.createdAt && lead.createdAt.toDate) return lead.createdAt.toDate().getTime();
-            if (lead['Create Time']) return new Date(lead['Create Time']).getTime();
-            if (lead.created_time) return new Date(lead.created_time).getTime();
-            return 0;
-        };
-        return getDate(b) - getDate(a);
+        return getCreationDate(b) - getCreationDate(a);
     });
 
     return sorted.filter(lead => {
@@ -396,13 +395,13 @@ export default function DashboardPage() {
                       const leadName = lead.name || lead.nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || lead.telephone || '-';
                       const leadCampaign = lead.campaignName || lead.nom_campagne || '-';
-                      const leadStatus = lead.status || 'New';
+                      const leadStatus = lead.status; // Can be undefined
                       
                       const getCreationDate = (l: Lead): Date | null => {
-                        if (l.createdAt && l.createdAt.toDate) return l.createdAt.toDate();
-                        if (l['Create Time']) return new Date(l['Create Time']);
-                        if (l.created_time) return new Date(l.created_time);
-                        return null;
+                          if (l.createdAt?.toDate) return l.createdAt.toDate();
+                          if (l['Create Time']) return new Date(l['Create Time']);
+                          if (l.created_time) return new Date(l.created_time);
+                          return null;
                       };
                       const creationDate = getCreationDate(lead);
                       
