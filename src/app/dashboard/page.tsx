@@ -45,6 +45,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { IntegrationStatus } from './admin/settings/_components/integration-status';
 
 export const parseCSV = (
   csvString: string
@@ -101,7 +102,7 @@ export default function DashboardPage() {
     const sorted = [...allLeads].sort((a, b) => {
       const dateA = a.createdAt?.toDate()?.getTime() || 0;
       const dateB = b.createdAt?.toDate()?.getTime() || 0;
-      return dateB - dateA;
+      return dateB - dateA; // Sort descending (newest first)
     });
 
     return sorted.filter(lead => {
@@ -111,14 +112,6 @@ export default function DashboardPage() {
       return userFilter && statusFilter && tierFilter;
     });
   }, [allLeads, collaborator, isAdmin, filterStatus, filterTier]);
-
-
-  const lastLead = useMemo(() => {
-    if (!allLeads || allLeads.length === 0) return null;
-    // This assumes the data is sorted by date descending after fetching.
-    return filteredAndSortedLeads[0];
-  }, [filteredAndSortedLeads]);
-
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
     return allUsers?.find(u => u.id === id);
@@ -294,51 +287,7 @@ export default function DashboardPage() {
 
        {isAdmin && (
         <div className="mt-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Statut de l'Intégration</CardTitle>
-                        <CardDescription>Aperçu de la synchronisation des leads.</CardDescription>
-                    </div>
-                    {isLoading ? (
-                        <div className="animate-pulse bg-muted h-6 w-24 rounded-md" />
-                    ) : lastLead?.createdAt ? (
-                         <div className="text-sm text-muted-foreground flex items-center gap-2">
-                           <CheckSquare className="text-green-500"/>
-                           <span className="font-medium">Connecté</span>
-                        </div>
-                    ) : (
-                         <div className="text-sm text-muted-foreground flex items-center gap-2">
-                           <X className="text-red-500"/>
-                           <span className="font-medium">En attente de leads</span>
-                        </div>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Total des leads</p>
-                            {isLoading ? (
-                                <div className="animate-pulse bg-muted h-8 w-16 rounded-md mt-1" />
-                            ) : (
-                                <p className="text-2xl font-bold">{allLeads?.length || 0}</p>
-                            )}
-                        </div>
-                         <div>
-                            <p className="text-sm font-medium text-muted-foreground">Dernier prospect reçu le</p>
-                            {isLoading ? (
-                                <div className="animate-pulse bg-muted h-8 w-48 rounded-md mt-1" />
-                            ) : lastLead?.createdAt ? (
-                                <p className="text-2xl font-bold">
-                                    {format(lastLead.createdAt.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
-                                </p>
-                            ) : (
-                                <p className="text-2xl font-bold">-</p>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+           <IntegrationStatus />
         </div>
       )}
 

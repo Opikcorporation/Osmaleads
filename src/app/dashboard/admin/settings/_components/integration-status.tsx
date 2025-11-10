@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle2, Package, XCircle } from 'lucide-react';
+import { CheckCircle2, Package, XCircle, Clock } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import {
   useCollection,
@@ -30,34 +30,42 @@ import { fr } from 'date-fns/locale';
 export function IntegrationStatus() {
   const firestore = useFirestore();
 
+  // Use a simple query to fetch all leads. Sorting will be done on the client.
   const leadsQuery = useMemo(
-    () => query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')),
+    () => collection(firestore, 'leads'),
     [firestore]
   );
   
-  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  const { data: allLeads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
   const integrationStatus = useMemo(() => {
-    if (!leads) return { status: 'loading', lastLead: null, total: 0 };
-    if (leads.length === 0) return { status: 'waiting', lastLead: null, total: 0 };
+    if (leadsLoading) return { status: 'loading', lastLead: null, total: 0 };
+    if (!allLeads || allLeads.length === 0) return { status: 'waiting', lastLead: null, total: 0 };
     
+    // Sort on the client to find the most recent lead
+    const sortedLeads = [...allLeads].sort((a, b) => {
+      const dateA = a.createdAt?.toDate()?.getTime() || 0;
+      const dateB = b.createdAt?.toDate()?.getTime() || 0;
+      return dateB - dateA;
+    });
+
     return {
       status: 'connected',
-      lastLead: leads[0],
-      total: leads.length,
+      lastLead: sortedLeads[0],
+      total: allLeads.length,
     }
-  }, [leads]);
+  }, [allLeads, leadsLoading]);
 
   const activeCampaigns = useMemo(() => {
-    if (!leads) return [];
+    if (!allLeads) return [];
     const campaignNames = new Set<string>();
-    leads.forEach(lead => {
+    allLeads.forEach(lead => {
       if (lead.campaignName) {
         campaignNames.add(lead.campaignName);
       }
     });
     return Array.from(campaignNames);
-  }, [leads]);
+  }, [allLeads]);
   
   const isLoading = leadsLoading;
 
@@ -66,7 +74,9 @@ export function IntegrationStatus() {
        <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-3">
-                   {integrationStatus.status === 'connected' ? <CheckCircle2 className="h-6 w-6 text-green-500" /> : <XCircle className="h-6 w-6 text-red-500" />}
+                   {integrationStatus.status === 'loading' ? <Clock className="h-6 w-6 animate-spin text-muted-foreground" />
+                    : integrationStatus.status === 'connected' ? <CheckCircle2 className="h-6 w-6 text-green-500" /> 
+                    : <XCircle className="h-6 w-6 text-red-500" />}
                    État de l'Intégration
                 </CardTitle>
                 <CardDescription>
