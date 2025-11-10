@@ -107,7 +107,7 @@ export function MetaSettings() {
 
   const handleConnect = async () => {
     // IMPORTANT: Remplacez cette valeur par votre vrai jeton d'accès utilisateur.
-    const userAccessToken = "REMPLACEZ_PAR_VOTRE_VRAI_JETON";
+    const userAccessToken = "EAAIf0kHxShoBP387FcoyG0pg5WBHIQSTqJIpVdzuLN0sQDLFYFZAYTPBAwXGVHPbtXnqboBaWv5IE7od2otvDLAQCiM0WWhbWYjCaceZBXXAHXhlhuLQfVdJ66EhgDAqVraUrmHHsoolVFXZCtX5Tmxg2zclC1IR8VZBA5jgvOR3GrZBj2VcQvzfvneUaCcNIWhQi40EGnGo4";
     
     if (userAccessToken === "REMPLACEZ_PAR_VOTRE_VRAI_JETON") {
       toast({
