@@ -32,6 +32,7 @@ export type Lead = {
   assignedCollaboratorId: string | null;
   createdAt?: Timestamp; // May not be present on all docs
   'Create Time'?: string; // Zapier's field
+  created_time?: string; // Zapier's field (alternative)
   assignedAt?: Timestamp;
   campaignId: string | null;
   campaignName?: string | null; // App's standard field

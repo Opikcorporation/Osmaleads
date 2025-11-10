@@ -99,10 +99,13 @@ export default function DashboardPage() {
     if (!allLeads) return [];
 
     const sorted = [...allLeads].sort((a, b) => {
-      // Handle both Timestamp and string dates from Zapier
-      const dateA = a.createdAt ? a.createdAt.toDate().getTime() : (a['Create Time'] ? new Date(a['Create Time']).getTime() : 0);
-      const dateB = b.createdAt ? b.createdAt.toDate().getTime() : (b['Create Time'] ? new Date(b['Create Time']).getTime() : 0);
-      return dateB - dateA; // Sort descending (newest first)
+        const getDate = (lead: Lead): number => {
+            if (lead.createdAt && lead.createdAt.toDate) return lead.createdAt.toDate().getTime();
+            if (lead['Create Time']) return new Date(lead['Create Time']).getTime();
+            if (lead.created_time) return new Date(lead.created_time).getTime();
+            return 0;
+        };
+        return getDate(b) - getDate(a);
     });
 
     return sorted.filter(lead => {
@@ -394,7 +397,14 @@ export default function DashboardPage() {
                       const leadPhone = lead.phone || lead.telephone || '-';
                       const leadCampaign = lead.campaignName || lead.nom_campagne || '-';
                       const leadStatus = lead.status || 'New';
-                      const creationDate = lead.createdAt ? lead.createdAt.toDate() : (lead['Create Time'] ? new Date(lead['Create Time']) : null);
+                      
+                      const getCreationDate = (l: Lead): Date | null => {
+                        if (l.createdAt && l.createdAt.toDate) return l.createdAt.toDate();
+                        if (l['Create Time']) return new Date(l['Create Time']);
+                        if (l.created_time) return new Date(l.created_time);
+                        return null;
+                      };
+                      const creationDate = getCreationDate(lead);
                       
                       return (
                       <TableRow
