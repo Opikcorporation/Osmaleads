@@ -13,10 +13,10 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { useCollection, useFirestore } from '@/firebase';
-import type { Lead, LeadStatus, LeadTier } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection } from 'firebase/firestore';
 import { useMemo } from 'react';
-import { Bar, BarChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts';
 
 const chartConfigStatus = {
   leads: {
@@ -39,7 +39,7 @@ const chartConfigStatus = {
     color: 'hsl(var(--chart-4))',
   },
    'Not Interested': {
-    label: 'Non Intéressé',
+    label: 'Pas Intéressé',
     color: 'hsl(var(--chart-5))',
   },
   Signed: {
@@ -66,42 +66,52 @@ const chartConfigTier = {
   },
 } satisfies React.ComponentProps<typeof ChartContainer>['config'];
 
+
 export default function AnalysePage() {
   const firestore = useFirestore();
+  
   const leadsQuery = useMemo(
     () => collection(firestore, 'leads'),
     [firestore]
   );
-  const { data: leads, isLoading } = useCollection<Lead>(leadsQuery);
+  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  
+  const usersQuery = useMemo(
+    () => collection(firestore, 'collaborators'),
+    [firestore]
+  );
+  const { data: collaborators, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
 
   const stats = useMemo(() => {
     if (!leads) {
       return {
         totalLeads: 0,
-        qualifiedLeads: 0,
-        signedLeads: 0,
         qualificationRate: 0,
+        signatureRate: 0,
+        signedLeads: 0,
       };
     }
     const totalLeads = leads.length;
-    const qualifiedLeads = leads.filter((l) => l.status === 'Qualified').length;
-    const signedLeads = leads.filter((l) => l.status === 'Signed').length;
+    const qualifiedLeads = leads.filter(l => l.status === 'Qualified').length;
+    const signedLeads = leads.filter(l => l.status === 'Signed').length;
     const processedLeads = leads.filter(l => l.status === 'Qualified' || l.status === 'Not Qualified').length;
+    
     const qualificationRate = processedLeads > 0 ? (qualifiedLeads / processedLeads) * 100 : 0;
-
+    const signatureRate = totalLeads > 0 ? (signedLeads / totalLeads) * 100 : 0;
 
     return {
       totalLeads,
-      qualifiedLeads,
-      signedLeads,
       qualificationRate,
+      signatureRate,
+      signedLeads,
     };
   }, [leads]);
   
   const leadsByStatus = useMemo(() => {
     if (!leads) return [];
     const statusCounts = leads.reduce((acc, lead) => {
-        acc[lead.status] = (acc[lead.status] || 0) + 1;
+        const status = lead.status || 'New';
+        acc[status] = (acc[status] || 0) + 1;
         return acc;
     }, {} as Record<LeadStatus, number>);
 
@@ -110,7 +120,6 @@ export default function AnalysePage() {
         leads: count,
         fill: chartConfigStatus[status as LeadStatus]?.color || 'hsl(var(--muted))'
     }));
-
   }, [leads]);
 
   const leadsByTier = useMemo(() => {
@@ -127,9 +136,44 @@ export default function AnalysePage() {
         leads: count,
         fill: chartConfigTier[tier as LeadTier]?.color || 'hsl(var(--muted))'
     }));
-
   }, [leads]);
 
+  const leadsByCampaign = useMemo(() => {
+    if (!leads) return [];
+    const campaignCounts = leads.reduce((acc, lead) => {
+      const campaignName = lead.campaignName || lead.nom_campagne || 'Inconnue';
+      acc[campaignName] = (acc[campaignName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(campaignCounts).map(([campaign, count]) => ({
+      name: campaign,
+      leads: count,
+    }));
+  }, [leads]);
+
+  const performanceByCollaborator = useMemo(() => {
+    if (!leads || !collaborators) return [];
+    
+    const collaboratorData = collaborators.map(c => {
+        const assignedLeads = leads.filter(l => l.assignedCollaboratorId === c.id);
+        const statusCounts = assignedLeads.reduce((acc, lead) => {
+            const status = lead.status || 'New';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {} as Record<LeadStatus, number>);
+        
+        return {
+            name: c.name,
+            total: assignedLeads.length,
+            ...statusCounts
+        }
+    });
+
+    return collaboratorData.filter(c => c.total > 0);
+  }, [leads, collaborators]);
+
+  const isLoading = leadsLoading || usersLoading;
 
   if (isLoading) {
     return <div>Chargement des données d'analyse...</div>;
@@ -138,13 +182,13 @@ export default function AnalysePage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Leads</h1>
+        <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Performances</h1>
       </div>
       <p className="text-muted-foreground">
-        Visualisez la performance et la répartition de vos leads.
+        Visualisez la performance de vos campagnes, collaborateurs et leads.
       </p>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Total des Leads</CardTitle>
@@ -157,9 +201,7 @@ export default function AnalysePage() {
         <Card>
           <CardHeader>
             <CardTitle>Taux de Qualification</CardTitle>
-            <CardDescription>
-              Pourcentage de leads qualifiés parmi les leads traités.
-            </CardDescription>
+            <CardDescription>Leads qualifiés / leads traités.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold">{stats.qualificationRate.toFixed(1)}%</p>
@@ -168,12 +210,19 @@ export default function AnalysePage() {
         <Card>
           <CardHeader>
             <CardTitle>Leads Signés</CardTitle>
-            <CardDescription>
-              Nombre total de leads ayant atteint le statut "Signé".
-            </CardDescription>
+            <CardDescription>Nombre de contrats signés.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold">{stats.signedLeads}</p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader>
+            <CardTitle>Taux de Signature</CardTitle>
+            <CardDescription>Leads signés / total des leads.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-4xl font-bold">{stats.signatureRate.toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
@@ -182,24 +231,27 @@ export default function AnalysePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Répartition par Statut</CardTitle>
-                    <CardDescription>Nombre de leads pour chaque statut.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                <ChartContainer config={chartConfigStatus} className="min-h-[200px] w-full">
-                    <BarChart data={leadsByStatus} accessibilityLayer>
-                        <XAxis
+                <ChartContainer config={chartConfigStatus} className="min-h-[250px] w-full">
+                    <BarChart data={leadsByStatus} accessibilityLayer layout="vertical">
+                        <CartesianGrid horizontal={false} />
+                        <YAxis
                             dataKey="status"
+                            type="category"
                             tickLine={false}
                             tickMargin={10}
                             axisLine={false}
                             tickFormatter={(value) => chartConfigStatus[value as LeadStatus]?.label || value}
                         />
-                        <YAxis />
+                        <XAxis dataKey="leads" type="number" hide />
                         <Tooltip
                             cursor={false}
                             content={<ChartTooltipContent indicator="dot" />}
                         />
-                        <Bar dataKey="leads" radius={4} />
+                        <Bar dataKey="leads" radius={4}>
+                            <LabelList dataKey="leads" position="right" offset={8} className="fill-foreground" fontSize={12} />
+                        </Bar>
                     </BarChart>
                 </ChartContainer>
                 </CardContent>
@@ -207,7 +259,6 @@ export default function AnalysePage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Répartition par Tier</CardTitle>
-                    <CardDescription>Proportion des leads par tier de qualité.</CardDescription>
                 </CardHeader>
                  <CardContent className="flex-1 pb-0">
                     <ChartContainer
@@ -216,8 +267,78 @@ export default function AnalysePage() {
                     >
                         <PieChart>
                             <Tooltip content={<ChartTooltipContent nameKey="leads" hideLabel />} />
-                            <Pie data={leadsByTier} dataKey="leads" nameKey="tier" />
+                             <Legend
+                                content={({ payload }) => {
+                                return (
+                                    <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
+                                    {payload?.map((entry) => (
+                                        <li key={entry.value} className="flex items-center gap-2">
+                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                        <span>{chartConfigTier[entry.value as LeadTier]?.label}</span>
+                                        </li>
+                                    ))}
+                                    </ul>
+                                )
+                                }}
+                            />
+                            <Pie data={leadsByTier} dataKey="leads" nameKey="tier" labelLine={false} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}/>
                         </PieChart>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Performance par Campagne</CardTitle>
+                    <CardDescription>Nombre de leads générés par chaque campagne.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ChartContainer config={{}} className="min-h-[300px] w-full">
+                        <BarChart data={leadsByCampaign} accessibilityLayer>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                                dataKey="name"
+                                tickLine={false}
+                                tickMargin={10}
+                                axisLine={false}
+                            />
+                            <YAxis />
+                            <Tooltip
+                                cursor={false}
+                                content={<ChartTooltipContent indicator="dot" />}
+                            />
+                            <Bar dataKey="leads" fill="hsl(var(--primary))" radius={4}>
+                                <LabelList dataKey="leads" position="top" offset={8} className="fill-foreground" fontSize={12} />
+                            </Bar>
+                        </BarChart>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+        </div>
+
+         <div className="mt-6 grid grid-cols-1 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Performance par Collaborateur</CardTitle>
+                    <CardDescription>Répartition des statuts des leads pour chaque collaborateur.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ChartContainer config={chartConfigStatus} className="min-h-[400px] w-full">
+                        <BarChart data={performanceByCollaborator} accessibilityLayer layout="vertical">
+                            <CartesianGrid horizontal={false} />
+                            <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} />
+                            <XAxis dataKey="total" type="number" hide />
+                            <Tooltip content={<ChartTooltipContent hideLabel />} />
+                            <Legend />
+                            <Bar dataKey="New" stackId="a" fill={chartConfigStatus.New.color} name={chartConfigStatus.New.label} />
+                            <Bar dataKey="Qualified" stackId="a" fill={chartConfigStatus.Qualified.color} name={chartConfigStatus.Qualified.label} />
+                            <Bar dataKey="Signed" stackId="a" fill={chartConfigStatus.Signed.color} name={chartConfigStatus.Signed.label} />
+                            <Bar dataKey="Not Qualified" stackId="a" fill={chartConfigStatus['Not Qualified'].color} name={chartConfigStatus['Not Qualified'].label} />
+                            <Bar dataKey="No Answer" stackId="a" fill={chartConfigStatus['No Answer'].color} name={chartConfigStatus['No Answer'].label} />
+                            <Bar dataKey="Not Interested" stackId="a" fill={chartConfigStatus['Not Interested'].color} name={chartConfigStatus['Not Interested'].label} />
+                        </BarChart>
                     </ChartContainer>
                 </CardContent>
             </Card>
