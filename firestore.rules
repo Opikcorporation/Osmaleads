@@ -27,20 +27,17 @@ service cloud.firestore {
     
     // --- Leads Rules ---
     match /leads/{leadId} {
-      // Admins can get any lead. Collaborators can get leads assigned to them.
-      allow get: if isAdmin() || (isAuth() && resource.data.assignedCollaboratorId == request.auth.uid);
-      
-      // Any authenticated user can list leads. The query in the app filters them correctly.
-      allow list: if isAuth();
-
-      // Write rules: Any authenticated user can write. This will be refined later if needed.
-      // This is more secure than a blanket allow, but still permissive for development.
-      allow write: if isAuth();
+      // Allow any authenticated user to read (list and get).
+      // The app's client-side query will handle filtering for assigned leads.
+      // Admins are allowed to write (create, update, delete).
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
     
-    // WARNING: TEMPORARY RULE - OPEN ACCESS FOR DEBUGGING
-    // This allows any authenticated user to read and write all other data.
-    // This is NOT secure and should be replaced with granular rules.
+    match /leads/{leadId}/notes/{noteId} {
+       allow read, write: if isAuth();
+    }
+    
     match /groups/{groupId} {
         allow read, write: if isAdmin();
     }
@@ -49,9 +46,6 @@ service cloud.firestore {
     }
     match /integrationSettings/{settingId} {
         allow read, write: if isAdmin();
-    }
-     match /leads/{leadId}/notes/{noteId} {
-        allow read, write: if isAuth();
     }
   }
 }
