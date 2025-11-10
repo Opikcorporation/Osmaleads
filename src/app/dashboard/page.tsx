@@ -94,17 +94,34 @@ export default function DashboardPage() {
 
   const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
   
+    const getCreationDate = (l: Lead): Date | null => {
+      // 1. Check for a standard Firestore Timestamp
+      if (l.createdAt?.toDate) return l.createdAt.toDate();
+
+      // 2. Check for root-level string dates from Zapier
+      if (l['Create Time']) return new Date(l['Create Time']);
+      if (l.created_time) return new Date(l.created_time);
+
+      // 3. Check inside the leadData JSON string
+      if (l.leadData) {
+        try {
+          const parsedData = JSON.parse(l.leadData);
+          if (parsedData['Create Time']) return new Date(parsedData['Create Time']);
+          if (parsedData.created_time) return new Date(parsedData.created_time);
+        } catch (e) {
+          // JSON parsing failed, do nothing
+        }
+      }
+      return null;
+    };
+
+
   // --- Client-Side Filtering and Sorting ---
   const filteredAndSortedLeads = useMemo(() => {
     if (!allLeads) return [];
 
-    const getCreationDate = (l: Lead): number => {
-      const dateVal = l.createdAt?.toDate() ?? (l['Create Time'] || l.created_time ? new Date(l['Create Time'] || l.created_time!) : null);
-      return dateVal ? dateVal.getTime() : 0;
-    };
-
     const sorted = [...allLeads].sort((a, b) => {
-        return getCreationDate(b) - getCreationDate(a);
+        return (getCreationDate(b)?.getTime() || 0) - (getCreationDate(a)?.getTime() || 0);
     });
 
     return sorted.filter(lead => {
@@ -397,12 +414,6 @@ export default function DashboardPage() {
                       const leadCampaign = lead.campaignName || lead.nom_campagne || '-';
                       const leadStatus = lead.status; // Can be undefined
                       
-                      const getCreationDate = (l: Lead): Date | null => {
-                          if (l.createdAt?.toDate) return l.createdAt.toDate();
-                          if (l['Create Time']) return new Date(l['Create Time']);
-                          if (l.created_time) return new Date(l.created_time);
-                          return null;
-                      };
                       const creationDate = getCreationDate(lead);
                       
                       return (
