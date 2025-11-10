@@ -32,6 +32,10 @@ type MetaCampaign = {
   subscribed: boolean;
 };
 
+// Paste your Meta User Access Token here.
+const USER_ACCESS_TOKEN = "EAAIf0kHxShoBP387FcoyG0pg5WBHIQSTqJIpVdzuLN0sQDLFYFZAYTPBAwXGVHPbtXnqboBaWv5IE7od2otvDLAQCiM0WWhbWYjCaceZBXXAHXhlhuLQfVdJ66EhgDAqVraUrmHHsoolVFXZCtX5Tmxg2zclC1IR8VZBA5jgvOR3GrZBj2VcQvzfvneUaCcNIWhQi40EGnGo4";
+
+
 export function MetaSettings() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -103,14 +107,13 @@ export function MetaSettings() {
 
 
   const handleConnect = async () => {
-    // IMPORTANT: This now reads the token from the environment variable.
-    const userAccessToken = process.env.NEXT_PUBLIC_META_USER_ACCESS_TOKEN;
+    const userAccessToken = USER_ACCESS_TOKEN;
     
-    if (!userAccessToken || userAccessToken === "REMPLACEZ_PAR_VOTRE_VRAI_JETON") {
+    if (!userAccessToken || userAccessToken.includes("REMPLACEZ") || userAccessToken.includes("PASTE")) {
       toast({
         variant: "destructive",
         title: "Action requise",
-        description: "Veuillez ajouter votre jeton d'accès utilisateur Meta dans le fichier .env sous la clé NEXT_PUBLIC_META_USER_ACCESS_TOKEN.",
+        description: "Veuillez fournir un jeton d'accès utilisateur Meta valide.",
       });
       return;
     }
@@ -118,6 +121,13 @@ export function MetaSettings() {
     setIsSaving(true);
     try {
       const settingsCollection = collection(firestore, 'integrationSettings');
+      // If settings already exist, don't create a new one.
+      if(metaSettings) {
+        toast({ title: 'Déjà connecté', description: "L'intégration Meta est déjà active." });
+        setIsSaving(false);
+        return;
+      }
+      
       await addDocumentNonBlocking(settingsCollection, {
         integrationName: 'meta',
         accessToken: userAccessToken,
@@ -236,7 +246,7 @@ export function MetaSettings() {
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Assurez-vous d'avoir inséré votre jeton d'accès dans le fichier .env.
+                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Le jeton d'accès est pré-configuré.
                 </CardDescription>
             </CardHeader>
             <CardContent>
