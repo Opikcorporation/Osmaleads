@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview An AI flow for qualifying and scoring leads.
+ * @fileOverview An AI flow for qualifying and scoring leads based on deterministic rules.
  *
  * - qualifyLead - A function that handles the lead qualification process.
  * - QualifyLeadInput - The input type for the qualifyLead function.
@@ -38,35 +38,80 @@ const QualifyLeadOutputSchema = z.object({
 });
 export type QualifyLeadOutput = z.infer<typeof QualifyLeadOutputSchema>;
 
+// This function now calculates the score based on deterministic rules.
+// The AI part is kept for structure and potential future enhancements.
 export async function qualifyLead(
   input: QualifyLeadInput
 ): Promise<QualifyLeadOutput> {
   return qualifyLeadFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'qualifyLeadPrompt',
-  input: {schema: QualifyLeadInputSchema},
-  output: {schema: QualifyLeadOutputSchema},
-  prompt: `You are an expert B2B lead qualification analyst. Your task is to analyze the data of a new lead and assign it a score and a tier based on its potential value.
 
-You will be given a JSON object containing the lead's information. Analyze all the fields provided (like 'company_name', 'job_title', 'estimated_budget', etc.) to make your assessment.
+// Function to calculate score based on defined business rules
+const calculateScore = (data: Record<string, string>): { score: number, justification: string } => {
+  let score = 0;
+  const justifications: string[] = [];
 
-- A high score (e.g., 70-100) is for leads that look very promising: clear budget, decision-maker role, relevant industry.
-- A medium score (e.g., 40-69) is for leads with some potential but missing key information.
-- A low score (e.g., 0-39) is for leads that seem unqualified, have very little information, or are clearly not a good fit.
+  // Question 1: Interest
+  const interestKey = "vous_etes_interesse_par";
+  const interestValue = data[interestKey];
+  if (interestValue) {
+    if (interestValue.includes('Rendement locatif')) {
+      score += 7;
+      justifications.push("rendement locatif");
+    } else if (interestValue.includes('Achat/Revente')) {
+      score += 5;
+       justifications.push("achat/revente");
+    } else if (interestValue.includes('Résidence')) {
+      score += 7;
+       justifications.push("résidence principale/secondaire");
+    }
+  }
 
-Based on the score, determine the tier:
-- Score > 66: 'Haut de gamme'
-- Score > 33: 'Moyenne gamme'
-- Otherwise: 'Bas de gamme'
+  // Question 2: Timeline
+  const timelineKey = "quand_souhaitez-vous_investir_";
+  const timelineValue = data[timelineKey];
+  if (timelineValue) {
+    if (timelineValue.includes('Immédiatement')) {
+      score += 10;
+      justifications.push("projet immédiat");
+    } else if (timelineValue.includes('1-3 mois')) {
+      score += 5;
+      justifications.push("projet à court terme");
+    } else if (timelineValue.includes('6 mois')) {
+      score += 1;
+      justifications.push("projet à moyen terme");
+    }
+  }
 
-Provide a brief, one-sentence justification in French for your decision.
+  // Question 3: Budget
+  const budgetKey = "quel_est_votre_budget_";
+  const budgetValue = data[budgetKey];
+  if (budgetValue) {
+    if (budgetValue.includes('Supérieur à 350.000€')) {
+      score += 12;
+      justifications.push("budget supérieur");
+    } else if (budgetValue.includes('Entre 250.000 et 350.000€')) {
+      score += 7;
+       justifications.push("budget conséquent");
+    } else if (budgetValue.includes('Inférieur à 250.000€')) {
+      score += 1;
+       justifications.push("budget standard");
+    }
+  }
 
-Here is the lead data to analyze:
-{{{leadData}}}
-`,
-});
+  const justification = justifications.length > 0
+    ? `Score basé sur: ${justifications.join(', ')}.`
+    : 'Score de base, informations de qualification absentes.';
+
+  return { score, justification };
+};
+
+const getTier = (score: number): 'Haut de gamme' | 'Moyenne gamme' | 'Bas de gamme' => {
+  if (score > 20) return 'Haut de gamme';
+  if (score > 10) return 'Moyenne gamme';
+  return 'Bas de gamme';
+};
 
 const qualifyLeadFlow = ai.defineFlow(
   {
@@ -74,8 +119,20 @@ const qualifyLeadFlow = ai.defineFlow(
     inputSchema: QualifyLeadInputSchema,
     outputSchema: QualifyLeadOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input) => {
+    const leadData = JSON.parse(input.leadData) as Record<string, string>;
+
+    // Calculate score using deterministic logic
+    const { score, justification } = calculateScore(leadData);
+
+    // Determine tier based on score
+    const tier = getTier(score);
+
+    // The output is now based on calculation, not an AI prompt.
+    return {
+      score,
+      tier,
+      justification,
+    };
   }
 );

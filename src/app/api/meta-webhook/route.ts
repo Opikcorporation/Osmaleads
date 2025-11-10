@@ -79,8 +79,8 @@ export async function POST(request: Request) {
                     const phone = mappedData.phone_number || null;
                     const leadDataString = JSON.stringify(mappedData);
 
-                    // --- AI QUALIFICATION ---
-                    const aiQualification = await qualifyLead({ leadData: leadDataString });
+                    // --- QUALIFICATION ---
+                    const qualification = await qualifyLead({ leadData: leadDataString });
 
                     const newLead: Omit<Lead, 'id'> = {
                         name: leadName,
@@ -94,8 +94,8 @@ export async function POST(request: Request) {
                         createdAt: FieldValue.serverTimestamp(),
                         campaignId: leadData.campaign_id,
                         campaignName: leadData.campaign_name,
-                        score: aiQualification.score,
-                        tier: aiQualification.tier
+                        score: qualification.score,
+                        tier: qualification.tier
                     };
 
                     // Add the new lead to our Firestore 'leads' collection.

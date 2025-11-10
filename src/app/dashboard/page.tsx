@@ -156,7 +156,7 @@ export default function DashboardPage() {
      setIsImporting(false);
      
      toast({
-      title: 'Qualification IA en cours...',
+      title: 'Qualification en cours...',
       description: 'Analyse du fichier et qualification de chaque lead. Cela peut prendre un moment.',
     });
 
@@ -164,11 +164,18 @@ export default function DashboardPage() {
         const { rows } = parseCSV(data.fileContent);
         const batch = writeBatch(firestore);
 
-        for (const row of rows) {
+        const qualificationPromises = rows.map(row => {
           const leadDataString = JSON.stringify(row);
-          
-          const aiQualification = await qualifyLead({ leadData: leadDataString });
+          return qualifyLead({ leadData: leadDataString }).then(qualification => ({
+            row,
+            qualification,
+            leadDataString
+          }));
+        });
+        
+        const qualifiedRows = await Promise.all(qualificationPromises);
 
+        for (const { row, qualification, leadDataString } of qualifiedRows) {
           const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
 
           const newLead: Omit<Lead, 'id'> = {
@@ -178,8 +185,8 @@ export default function DashboardPage() {
               company: Object.keys(data.mapping).find(h => data.mapping[h] === 'company') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'company')!] : null,
               username: null,
               status: 'New',
-              tier: aiQualification.tier,
-              score: aiQualification.score,
+              tier: qualification.tier,
+              score: qualification.score,
               leadData: leadDataString, 
               assignedCollaboratorId: null,
               createdAt: serverTimestamp() as Timestamp,
@@ -195,7 +202,7 @@ export default function DashboardPage() {
 
         toast({
             title: 'Importation réussie !',
-            description: `${rows.length} leads ont été qualifiés par l'IA et ajoutés avec succès.`,
+            description: `${rows.length} leads ont été qualifiés et ajoutés avec succès.`,
         });
 
     } catch (error) {
