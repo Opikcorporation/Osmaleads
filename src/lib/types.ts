@@ -15,23 +15,34 @@ export const leadStatuses = [
 
 export type LeadStatus = (typeof leadStatuses)[number];
 
+// This type is now more flexible to handle data directly from Zapier
 export type Lead = {
   id: string;
-  name: string;
+  name?: string; // App's standard field
+  nom?: string;   // Zapier's field
   email: string | null;
-  phone: string | null;
+  phone?: string | null; // App's standard field
+  telephone?: string | null; // Zapier's field
   company: string | null;
   username: string | null;
-  status: LeadStatus;
+  status?: LeadStatus; // Status might not be present on Zapier-created leads
   tier: LeadTier | null;
   score: number | null;
-  leadData: string; // Raw CSV row data as JSON
+  leadData?: string; // May or may not be used
   assignedCollaboratorId: string | null;
-  createdAt: Timestamp;
+  createdAt?: Timestamp; // May not be present on all docs
+  'Create Time'?: string; // Zapier's field
   assignedAt?: Timestamp;
   campaignId: string | null;
-  campaignName: string | null;
+  campaignName?: string | null; // App's standard field
+  nom_campagne?: string; // Zapier's field
+
+  // Direct Zapier fields that might exist at the root
+  objectif?: string;
+  budget?: string;
+  temps?: string;
 };
+
 
 export type FirestoreNote = {
   id: string;

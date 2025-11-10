@@ -99,14 +99,16 @@ export default function DashboardPage() {
     if (!allLeads) return [];
 
     const sorted = [...allLeads].sort((a, b) => {
-      const dateA = a.createdAt?.toDate()?.getTime() || 0;
-      const dateB = b.createdAt?.toDate()?.getTime() || 0;
+      // Handle both Timestamp and string dates from Zapier
+      const dateA = a.createdAt ? a.createdAt.toDate().getTime() : (a['Create Time'] ? new Date(a['Create Time']).getTime() : 0);
+      const dateB = b.createdAt ? b.createdAt.toDate().getTime() : (b['Create Time'] ? new Date(b['Create Time']).getTime() : 0);
       return dateB - dateA; // Sort descending (newest first)
     });
 
     return sorted.filter(lead => {
+      const leadStatus = lead.status || 'New'; // Default to 'New' if status is missing
       const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
-      const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
+      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus;
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
       return userFilter && statusFilter && tierFilter;
     });
@@ -388,6 +390,12 @@ export default function DashboardPage() {
                   {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
                     filteredAndSortedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
+                      const leadName = lead.name || lead.nom || 'Nom Inconnu';
+                      const leadPhone = lead.phone || lead.telephone || '-';
+                      const leadCampaign = lead.campaignName || lead.nom_campagne || '-';
+                      const leadStatus = lead.status || 'New';
+                      const creationDate = lead.createdAt ? lead.createdAt.toDate() : (lead['Create Time'] ? new Date(lead['Create Time']) : null);
+                      
                       return (
                       <TableRow
                         key={lead.id}
@@ -403,15 +411,15 @@ export default function DashboardPage() {
                             <Checkbox
                               checked={selectedLeads.includes(lead.id)}
                               onCheckedChange={(checked) => handleSelectOne(lead.id, !!checked)}
-                              aria-label={`Select lead ${lead.name}`}
+                              aria-label={`Select lead ${leadName}`}
                             />
                           </TableCell>
                         )}
-                        <TableCell className="font-medium">{lead.name || 'Nom Inconnu'}</TableCell>
-                        <TableCell>{lead.phone || '-'}</TableCell>
+                        <TableCell className="font-medium">{leadName}</TableCell>
+                        <TableCell>{leadPhone}</TableCell>
                          {isAdmin && (
                           <TableCell>
-                           {lead.campaignName || '-'}
+                           {leadCampaign}
                           </TableCell>
                         )}
                         {isAdmin && (
@@ -420,7 +428,7 @@ export default function DashboardPage() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <StatusBadge status={lead.status} />
+                          <StatusBadge status={leadStatus} />
                         </TableCell>
                         <TableCell>
                           {assignedCollaborator ? (
@@ -437,9 +445,9 @@ export default function DashboardPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                            {lead.createdAt ? (
+                            {creationDate ? (
                                 <span className="text-sm text-muted-foreground">
-                                    {format(lead.createdAt.toDate(), "dd/MM/yyyy HH:mm")}
+                                    {format(creationDate, "dd/MM/yyyy HH:mm")}
                                 </span>
                             ) : (
                                 <span className="text-sm text-muted-foreground">-</span>

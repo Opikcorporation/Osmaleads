@@ -63,9 +63,12 @@ const formatPhoneNumberForLink = (value: string): string => {
 // A map for user-friendly labels for lead data keys
 const leadDataLabels: Record<string, string> = {
     nom: 'Nom',
+    name: 'Nom',
     telephone: 'Téléphone',
+    phone: 'Téléphone',
     email: 'Email',
     nom_campagne: 'Campagne',
+    campaignName: 'Campagne',
     objectif: 'Objectif',
     budget: 'Budget',
     temps: 'Échéance',
@@ -137,54 +140,102 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   }
 
   const renderLeadData = () => {
-    if (!lead?.leadData) return null;
-    try {
-      const data = JSON.parse(lead.leadData);
-      // Filter out keys that are already displayed prominently (like nom, email, telephone)
-      const filteredKeys = Object.keys(data).filter(key => 
-        !['nom', 'email', 'telephone'].includes(key)
-      );
+    if (!lead) return null;
 
-      return (
+    // Use the entire lead object as the source of data
+    const data: Record<string, any> = lead;
+    
+    // Filter out keys that are already displayed prominently
+    const filteredKeys = Object.keys(data).filter(key => 
+      !['id', 'name', 'nom', 'email', 'phone', 'telephone', 'status', 'tier', 'score', 'assignedCollaboratorId', 'createdAt', 'assignedAt', 'leadData'].includes(key) && data[key]
+    );
+
+    if (filteredKeys.length === 0 && !lead.leadData) {
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
+    }
+
+    // First, try to parse leadData if it exists
+    if (lead.leadData) {
+        try {
+            const parsedLeadData = JSON.parse(lead.leadData);
+             return (
+                <ul className="space-y-3 text-sm text-foreground">
+                {Object.keys(parsedLeadData).map((key) => {
+                    const label = leadDataLabels[key] || key.replace(/_/g, ' ');
+                    const value = parsedLeadData[key];
+                    if (!value) return null;
+                    const stringValue = String(value);
+
+                    if (isPhoneNumber(stringValue)) {
+                    return (
+                        <li key={key}>
+                        <strong className="capitalize">{label}:</strong>{' '}
+                        <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                            <WhatsAppIcon />
+                            <span>{stringValue}</span>
+                        </a>
+                        </li>
+                    );
+                    }
+                    return (
+                    <li key={key}>
+                        <strong className="capitalize">{label}:</strong> {stringValue}
+                    </li>
+                    );
+                })}
+                </ul>
+            );
+        } catch(e) {
+            // If leadData is not JSON, display it as raw text
+            return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
+        }
+    }
+
+
+    // Fallback to displaying root-level properties if leadData is not available
+    return (
         <ul className="space-y-3 text-sm text-foreground">
-          {filteredKeys.map((key) => {
-            const label = leadDataLabels[key] || key.replace(/_/g, ' '); // Use friendly label or format the key
+        {filteredKeys.map((key) => {
+            const label = leadDataLabels[key] || key.replace(/_/g, ' ');
             const value = data[key];
+            if (!value) return null;
             const stringValue = String(value);
 
             if (isPhoneNumber(stringValue)) {
-              return (
-                <li key={key}>
-                  <strong className="capitalize">{label}:</strong>{' '}
-                  <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                    <WhatsAppIcon />
-                    <span>{stringValue}</span>
-                  </a>
-                </li>
-              );
+                return (
+                    <li key={key}>
+                    <strong className="capitalize">{label}:</strong>{' '}
+                    <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                        <WhatsAppIcon />
+                        <span>{stringValue}</span>
+                    </a>
+                    </li>
+                );
             }
             return (
-              <li key={key}>
+            <li key={key}>
                 <strong className="capitalize">{label}:</strong> {stringValue}
-              </li>
+            </li>
             );
-          })}
+        })}
         </ul>
-      );
-    } catch (e) {
-      // Fallback for non-JSON data
-      return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
-    }
+    );
   };
 
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
+  
+  const leadName = lead?.name || lead?.nom || 'Lead Inconnu';
+  const leadEmail = lead?.email;
+  const leadPhone = lead?.phone || lead?.telephone;
+  const leadStatus = lead?.status || 'New';
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-cols-1 md:grid-cols-3 gap-6">
         <DialogHeader className="md:col-span-3">
-          <DialogTitle className="sr-only">Fiche de {lead?.name || 'Lead'}</DialogTitle>
+          <DialogTitle className="sr-only">Fiche de {leadName}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
@@ -199,8 +250,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 <CardHeader>
                   <div className="flex items-start justify-between">
                       <div>
-                          <CardTitle className="text-2xl">{lead.name}</CardTitle>
-                          <CardDescription>{lead.email} &middot; {lead.phone}</CardDescription>
+                          <CardTitle className="text-2xl">{leadName}</CardTitle>
+                          <CardDescription>{leadEmail} &middot; {leadPhone}</CardDescription>
                       </div>
                       {assignedUser && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
@@ -219,10 +270,10 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Status:</span>
-                            <Select defaultValue={lead.status} onValueChange={handleStatusChange}>
+                            <Select defaultValue={leadStatus} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2">
                                   <SelectValue>
-                                    <StatusBadge status={lead.status as LeadStatus} />
+                                    <StatusBadge status={leadStatus as LeadStatus} />
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>

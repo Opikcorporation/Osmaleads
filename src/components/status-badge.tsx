@@ -19,20 +19,9 @@ const statusConfig: Record<
 
 
 export function StatusBadge({ status }: { status: LeadStatus | null | undefined }) {
-  if (!status) {
-    return (
-       <Badge
-        className={cn(
-          "flex items-center gap-1.5 border-transparent font-medium px-2.5 py-1 rounded-md text-xs",
-          'bg-gray-100 text-gray-800'
-        )}
-      >
-        <CircleDot className="h-3.5 w-3.5" />
-        <span>Inconnu</span>
-      </Badge>
-    )
-  }
-  const config = statusConfig[status] || { label: 'Inconnu', icon: CircleDot, className: 'bg-gray-100 text-gray-800' };
+  // If status is null or undefined, default to 'New'
+  const currentStatus = status || 'New';
+  const config = statusConfig[currentStatus] || statusConfig.New;
   const { label, icon: Icon, className } = config;
 
   return (
