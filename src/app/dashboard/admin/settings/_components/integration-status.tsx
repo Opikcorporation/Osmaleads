@@ -27,10 +27,38 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
+// Helper function to reliably get the creation date from a lead object
+const getCreationDate = (l: Lead): Date | null => {
+  if (l.createdAt?.toDate) return l.createdAt.toDate();
+  if (l['Create Time'] && typeof l['Create Time'] === 'string') return new Date(l['Create Time']);
+  if (l.created_time && typeof l.created_time === 'string') return new Date(l.created_time);
+  if (l.leadData) {
+    try {
+      const parsedData = JSON.parse(l.leadData);
+      const dateStr = parsedData['Create Time'] || parsedData.created_time;
+      if (dateStr && typeof dateStr === 'string') return new Date(dateStr);
+    } catch (e) { /* ignore parsing errors */ }
+  }
+  return null;
+};
+
+// Helper function to reliably get the campaign name
+const getCampaignName = (l: Lead): string | null => {
+    if (l.campaignName) return l.campaignName;
+    if (l.nom_campagne) return l.nom_campagne;
+    if (l.leadData) {
+        try {
+            const parsedData = JSON.parse(l.leadData);
+            if (parsedData.nom_campagne) return parsedData.nom_campagne;
+        } catch(e) { /* ignore */ }
+    }
+    return null;
+}
+
+
 export function IntegrationStatus() {
   const firestore = useFirestore();
 
-  // Use a simple query to fetch all leads. Sorting will be done on the client.
   const leadsQuery = useMemo(
     () => collection(firestore, 'leads'),
     [firestore]
@@ -42,10 +70,10 @@ export function IntegrationStatus() {
     if (leadsLoading) return { status: 'loading', lastLead: null, total: 0 };
     if (!allLeads || allLeads.length === 0) return { status: 'waiting', lastLead: null, total: 0 };
     
-    // Sort on the client to find the most recent lead
+    // Sort on the client to find the most recent lead using the reliable helper
     const sortedLeads = [...allLeads].sort((a, b) => {
-      const dateA = a.createdAt?.toDate()?.getTime() || 0;
-      const dateB = b.createdAt?.toDate()?.getTime() || 0;
+      const dateA = getCreationDate(a)?.getTime() || 0;
+      const dateB = getCreationDate(b)?.getTime() || 0;
       return dateB - dateA;
     });
 
@@ -60,14 +88,17 @@ export function IntegrationStatus() {
     if (!allLeads) return [];
     const campaignNames = new Set<string>();
     allLeads.forEach(lead => {
-      if (lead.campaignName) {
-        campaignNames.add(lead.campaignName);
+      const campaign = getCampaignName(lead);
+      if (campaign) {
+        campaignNames.add(campaign);
       }
     });
     return Array.from(campaignNames);
   }, [allLeads]);
   
   const isLoading = leadsLoading;
+  
+  const lastLeadDate = integrationStatus.lastLead ? getCreationDate(integrationStatus.lastLead) : null;
 
   return (
     <div className="space-y-8">
@@ -100,9 +131,9 @@ export function IntegrationStatus() {
                         </div>
                          <div>
                             <p className="text-sm font-medium text-muted-foreground">Dernier prospect reçu le</p>
-                            {integrationStatus.lastLead?.createdAt ? (
+                            {lastLeadDate ? (
                                 <p className="text-lg font-semibold">
-                                    {format(integrationStatus.lastLead.createdAt.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                                    {format(lastLeadDate, "d MMMM yyyy 'à' HH:mm", { locale: fr })}
                                 </p>
                             ) : (
                                 <p className="text-lg font-semibold">-</p>
