@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { parseCSV } from '../page';
+import { parseCSV } from '@/app/page';
 
 interface LeadImportDialogProps {
   isOpen: boolean;
