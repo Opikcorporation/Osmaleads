@@ -52,9 +52,8 @@ const calculateScore = (data: Record<string, string>): { score: number, justific
   let score = 0;
   const justifications: string[] = [];
 
-  // Question 1: Interest
-  const interestKey = "vous_etes_interesse_par";
-  const interestValue = data[interestKey];
+  // Question 1: Interest (using the new field 'bien')
+  const interestValue = data['bien'] || data["vous_etes_interesse_par"];
   if (interestValue) {
     if (interestValue.includes('Rendement locatif')) {
       score += 7;
@@ -68,9 +67,8 @@ const calculateScore = (data: Record<string, string>): { score: number, justific
     }
   }
 
-  // Question 2: Timeline
-  const timelineKey = "quand_souhaitez-vous_investir_";
-  const timelineValue = data[timelineKey];
+  // Question 2: Timeline (using the new field 'temps')
+  const timelineValue = data['temps'] || data["quand_souhaitez-vous_investir_"];
   if (timelineValue) {
     if (timelineValue.includes('Immédiatement')) {
       score += 10;
@@ -84,9 +82,8 @@ const calculateScore = (data: Record<string, string>): { score: number, justific
     }
   }
 
-  // Question 3: Budget
-  const budgetKey = "quel_est_votre_budget_";
-  const budgetValue = data[budgetKey];
+  // Question 3: Budget (using the new field 'budget')
+  const budgetValue = data['budget'] || data["quel_est_votre_budget_"];
   if (budgetValue) {
     if (budgetValue.includes('Supérieur à 350.000€')) {
       score += 12;

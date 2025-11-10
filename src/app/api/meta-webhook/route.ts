@@ -73,10 +73,9 @@ export async function POST(request: Request) {
                         mappedData[field.name] = field.values[0];
                     });
                     
-                    // The full_name is often a standard field. We fall back to 'Nom Inconnu'.
-                    const leadName = mappedData.full_name || 'Nom Inconnu';
+                    const leadName = mappedData.nom || 'Nom Inconnu';
                     const email = mappedData.email || null;
-                    const phone = mappedData.phone_number || null;
+                    const phone = mappedData.telephone || null;
                     const leadDataString = JSON.stringify(mappedData);
 
                     // --- QUALIFICATION ---
@@ -86,14 +85,14 @@ export async function POST(request: Request) {
                         name: leadName,
                         email: email,
                         phone: phone,
-                        company: mappedData.company_name || null,
+                        company: mappedData.company || null,
                         username: null,
                         status: 'New',
                         leadData: leadDataString, // Store all original mapped data
                         assignedCollaboratorId: null,
                         createdAt: FieldValue.serverTimestamp(),
                         campaignId: leadData.campaign_id,
-                        campaignName: leadData.campaign_name,
+                        campaignName: mappedData.nom_campagne || leadData.campaign_name || null,
                         score: qualification.score,
                         tier: qualification.tier
                     };
