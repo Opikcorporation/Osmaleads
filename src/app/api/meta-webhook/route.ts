@@ -55,43 +55,26 @@ export async function POST(request: Request) {
       // Extract all key-value pairs from the webhook payload.
       const leadData: { [key: string]: string } = {};
       
-      // Directly map known fields from the payload
-      const knownMappings: Record<string, keyof typeof leadData> = {
-        telephone: 'telephone',
-        nom_campagne: 'nom_campagne',
-        objectif: 'objectif',
-        budget: 'budget',
-        email: 'email',
-        temps: 'temps',
-        nom: 'nom',
-        'Create Time': 'Create Time',
-        campaign_name: 'nom_campagne', // Handle alternative field name
+      // Directly map known fields from the payload to an object
+      const data: Record<string, string> = {
+          nom: leadgenValue.nom || null,
+          email: leadgenValue.email || null,
+          telephone: leadgenValue.telephone || null,
+          nom_campagne: leadgenValue.nom_campagne || null,
+          objectif: leadgenValue.objectif || null,
+          budget: leadgenValue.budget || null,
+          temps: leadgenValue.temps || null,
+          "Create Time": leadgenValue['Create Time'] || leadgenValue.created_time || null
       };
 
-      for(const key in leadgenValue) {
-          if (Object.prototype.hasOwnProperty.call(leadgenValue, key)) {
-              if (knownMappings[key]) {
-                  leadData[knownMappings[key]] = String(leadgenValue[key]);
-              } else if (key === 'field_data' && Array.isArray(leadgenValue[key])) {
-                 // Fallback for deeply nested Meta structure
-                 leadgenValue[key].forEach((field: {name: string, values: string[]}) => {
-                    leadData[field.name] = field.values[0];
-                });
-              } else {
-                 // Store any other unexpected fields
-                 leadData[key] = String(leadgenValue[key]);
-              }
-          }
-      }
-
-      const leadDataString = JSON.stringify(leadData);
+      const leadDataString = JSON.stringify(data);
 
       // --- QUALIFICATION (Temporarily disabled) ---
       const qualification = await qualifyLead({ leadData: leadDataString });
 
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
-      const dateString = leadData['Create Time'] || leadgenValue.created_time;
+      const dateString = data['Create Time'];
       if (dateString) {
         // Meta sends date strings like "2024-05-21T10:30:00+0000"
         const date = new Date(dateString);
@@ -107,17 +90,17 @@ export async function POST(request: Request) {
       }
 
       const newLead: Omit<Lead, 'id'> = {
-          name: leadData.nom || 'Nom Inconnu',
-          email: leadData.email || null,
-          phone: leadData.telephone || null,
-          company: leadData.company || null,
+          name: data.nom || 'Nom Inconnu',
+          email: data.email || null,
+          phone: data.telephone || null,
+          company: null, // No company field from zapier
           username: null,
           status: 'New', // Automatically set status to 'New'
           leadData: leadDataString,
           assignedCollaboratorId: null,
           createdAt: createdAt as Timestamp, // We cast it here for type consistency
           campaignId: leadgenValue.campaign_id || null,
-          campaignName: leadData.nom_campagne || null,
+          campaignName: data.nom_campagne || null,
           score: qualification.score,
           tier: qualification.tier,
       };
