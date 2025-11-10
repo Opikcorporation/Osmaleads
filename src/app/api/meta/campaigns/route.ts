@@ -58,8 +58,9 @@ async function fetchCampaignsForAccount(accountId: string, accountName: string, 
  * Fetches campaigns linked to leadgen forms on a specific page.
  * This is a more reliable method for Lead Ads.
  */
-async function fetchCampaignsFromPage(page: Page, userAccessToken: string): Promise<MetaCampaign[]> {
-    const pageAccessToken = page.access_token; // Use the specific page access token for this request
+async function fetchCampaignsFromPage(page: Page): Promise<MetaCampaign[]> {
+    // CRUCIAL: Use the specific page access token for this request
+    const pageAccessToken = page.access_token;
     const url = `${META_GRAPH_API_URL}/${page.id}/leadgen_forms?fields=campaign.name,campaign.effective_status&access_token=${pageAccessToken}`;
 
     try {
@@ -111,8 +112,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Meta integration not configured.' }, { status: 404 });
     }
     const metaSettings = settingsSnap.docs[0].data() as IntegrationSetting;
-    const accessToken = metaSettings.accessToken;
-    if (!accessToken) {
+    const userAccessToken = metaSettings.accessToken;
+    if (!userAccessToken) {
         return NextResponse.json({ error: 'Meta access token is missing.' }, { status: 400 });
     }
 
@@ -121,11 +122,11 @@ export async function GET(request: Request) {
 
     // --- STRATEGY 1: Fetch via Pages and Leadgen Forms (Most Reliable for Lead Ads) ---
     try {
-        const pagesResponse = await fetch(`${META_GRAPH_API_URL}/me/accounts?fields=name,access_token&access_token=${accessToken}`);
+        const pagesResponse = await fetch(`${META_GRAPH_API_URL}/me/accounts?fields=name,access_token&access_token=${userAccessToken}`);
         if(pagesResponse.ok) {
             const pagesData = await pagesResponse.json() as { data: Page[] };
             if (pagesData.data && pagesData.data.length > 0) {
-                const pageCampaignPromises = pagesData.data.map(page => fetchCampaignsFromPage(page, accessToken));
+                const pageCampaignPromises = pagesData.data.map(page => fetchCampaignsFromPage(page));
                 const results = await Promise.all(pageCampaignPromises);
                 results.forEach(campaigns => allCampaigns.push(...campaigns));
             }
@@ -138,12 +139,12 @@ export async function GET(request: Request) {
     if (allCampaigns.length === 0) {
         try {
             const allAdAccounts: AdAccount[] = [];
-            const businessesResponse = await fetch(`${META_GRAPH_API_URL}/me/businesses?access_token=${accessToken}`);
+            const businessesResponse = await fetch(`${META_GRAPH_API_URL}/me/businesses?access_token=${userAccessToken}`);
             if (businessesResponse.ok) {
                 const businessesData = await businessesResponse.json() as any;
                 if (businessesData.data && businessesData.data.length > 0) {
                      for (const business of businessesData.data) {
-                        const ownedAdAccountsResponse = await fetch(`${META_GRAPH_API_URL}/${business.id}/owned_ad_accounts?fields=name,account_id&access_token=${accessToken}`);
+                        const ownedAdAccountsResponse = await fetch(`${META_GRAPH_API_URL}/${business.id}/owned_ad_accounts?fields=name,account_id&access_token=${userAccessToken}`);
                         if(ownedAdAccountsResponse.ok) {
                             const adAccountsData = await ownedAdAccountsResponse.json() as any;
                             if(adAccountsData.data) allAdAccounts.push(...adAccountsData.data);
@@ -152,7 +153,7 @@ export async function GET(request: Request) {
                 }
             }
             if (allAdAccounts.length > 0) {
-                 const campaignPromises = allAdAccounts.map(account => fetchCampaignsForAccount(account.account_id, account.name, accessToken));
+                 const campaignPromises = allAdAccounts.map(account => fetchCampaignsForAccount(account.account_id, account.name, userAccessToken));
                  const results = await Promise.all(campaignPromises);
                  results.forEach(campaigns => allCampaigns.push(...campaigns));
             }
@@ -165,11 +166,11 @@ export async function GET(request: Request) {
     // --- STRATEGY 3: Fetch direct ad accounts (final fallback) ---
     if (allCampaigns.length === 0) {
         try {
-            const adAccountsResponse = await fetch(`${META_GRAPH_API_URL}/me/adaccounts?fields=name,account_id&access_token=${accessToken}`);
+            const adAccountsResponse = await fetch(`${META_GRAPH_API_URL}/me/adaccounts?fields=name,account_id&access_token=${userAccessToken}`);
             if (adAccountsResponse.ok) {
                  const adAccountsData = await adAccountsResponse.json() as any;
                  if (adAccountsData.data && adAccountsData.data.length > 0) {
-                    const campaignPromises = adAccountsData.data.map((account: any) => fetchCampaignsForAccount(account.account_id, account.name, accessToken));
+                    const campaignPromises = adAccountsData.data.map((account: any) => fetchCampaignsForAccount(account.account_id, account.name, userAccessToken));
                     const results = await Promise.all(campaignPromises);
                     results.forEach(campaigns => allCampaigns.push(...campaigns));
                  }
@@ -183,7 +184,7 @@ export async function GET(request: Request) {
         }
     }
 
-    if (fetchError) {
+    if (allCampaigns.length === 0 && fetchError) {
         console.error("Failed to fetch any Meta ad accounts:", fetchError);
         return NextResponse.json({ error: 'Failed to fetch ad accounts from Meta.', details: fetchError }, { status: 500 });
     }
