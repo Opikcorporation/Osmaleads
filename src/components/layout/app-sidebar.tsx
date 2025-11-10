@@ -20,7 +20,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
 
   const navItems = [
     {
-      href: '/',
+      href: '/dashboard',
       label: 'Dashboard',
       icon: LayoutDashboard,
       roles: ['admin', 'collaborator'],
@@ -54,7 +54,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
   return (
     <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Image src="/logo.png" alt="Osmaleads Logo" width={120} height={30} />
         </Link>
       </div>
@@ -67,7 +67,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                (pathname.startsWith(item.href) && item.href !== '/') || pathname === item.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                pathname.startsWith(item.href) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />

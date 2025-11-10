@@ -27,7 +27,7 @@ export default function LoginPage() {
   useEffect(() => {
     // Only redirect if the loading is complete and a user is present.
     if (!isUserLoading && user) {
-      router.push('/'); // Redirect to the root dashboard page
+      router.push('/dashboard'); // Redirect to the root dashboard page
     }
   }, [isUserLoading, user, router]);
 
