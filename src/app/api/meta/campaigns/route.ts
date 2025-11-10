@@ -117,7 +117,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Meta access token is missing.' }, { status: 400 });
     }
 
-    const allCampaigns: MetaCampaign[] = [];
+    const allCampaigns: { [id: string]: MetaCampaign } = {};
     let fetchError: any = null;
 
     // --- STRATEGY 1: Fetch via Pages and Leadgen Forms (Most Reliable for Lead Ads) ---
@@ -128,15 +128,20 @@ export async function GET(request: Request) {
             if (pagesData.data && pagesData.data.length > 0) {
                 const pageCampaignPromises = pagesData.data.map(page => fetchCampaignsFromPage(page));
                 const results = await Promise.all(pageCampaignPromises);
-                results.forEach(campaigns => allCampaigns.push(...campaigns));
+                results.flat().forEach(campaign => {
+                    allCampaigns[campaign.id] = campaign;
+                });
             }
+        } else {
+             const errorData = await pagesResponse.json();
+             console.warn("Could not fetch pages, will try other methods.", errorData);
         }
     } catch(e) {
          console.warn("Could not fetch via Pages, will try other methods.", e);
     }
 
     // --- STRATEGY 2: Fetch via Business Manager (if pages yielded nothing) ---
-    if (allCampaigns.length === 0) {
+    if (Object.keys(allCampaigns).length === 0) {
         try {
             const allAdAccounts: AdAccount[] = [];
             const businessesResponse = await fetch(`${META_GRAPH_API_URL}/me/businesses?access_token=${userAccessToken}`);
@@ -155,7 +160,9 @@ export async function GET(request: Request) {
             if (allAdAccounts.length > 0) {
                  const campaignPromises = allAdAccounts.map(account => fetchCampaignsForAccount(account.account_id, account.name, userAccessToken));
                  const results = await Promise.all(campaignPromises);
-                 results.forEach(campaigns => allCampaigns.push(...campaigns));
+                 results.flat().forEach(campaign => {
+                    allCampaigns[campaign.id] = campaign;
+                 });
             }
         } catch(e) {
             console.warn("Could not fetch via Business Manager, will try direct accounts.", e);
@@ -164,7 +171,7 @@ export async function GET(request: Request) {
 
 
     // --- STRATEGY 3: Fetch direct ad accounts (final fallback) ---
-    if (allCampaigns.length === 0) {
+    if (Object.keys(allCampaigns).length === 0) {
         try {
             const adAccountsResponse = await fetch(`${META_GRAPH_API_URL}/me/adaccounts?fields=name,account_id&access_token=${userAccessToken}`);
             if (adAccountsResponse.ok) {
@@ -172,7 +179,9 @@ export async function GET(request: Request) {
                  if (adAccountsData.data && adAccountsData.data.length > 0) {
                     const campaignPromises = adAccountsData.data.map((account: any) => fetchCampaignsForAccount(account.account_id, account.name, userAccessToken));
                     const results = await Promise.all(campaignPromises);
-                    results.forEach(campaigns => allCampaigns.push(...campaigns));
+                    results.flat().forEach(campaign => {
+                        allCampaigns[campaign.id] = campaign;
+                    });
                  }
             } else {
                  const errorData = await adAccountsResponse.json();
@@ -183,14 +192,13 @@ export async function GET(request: Request) {
              fetchError = e;
         }
     }
+    
+    const uniqueCampaigns = Object.values(allCampaigns);
 
-    if (allCampaigns.length === 0 && fetchError) {
+    if (uniqueCampaigns.length === 0 && fetchError) {
         console.error("Failed to fetch any Meta ad accounts:", fetchError);
         return NextResponse.json({ error: 'Failed to fetch ad accounts from Meta.', details: fetchError }, { status: 500 });
     }
-    
-    // Remove duplicates that might arise from different fetch strategies
-    const uniqueCampaigns = Array.from(new Map(allCampaigns.map(c => [c.id, c])).values());
 
     return NextResponse.json({ campaigns: uniqueCampaigns });
 
