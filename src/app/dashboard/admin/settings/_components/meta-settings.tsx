@@ -106,18 +106,30 @@ export function MetaSettings() {
 
 
   const handleConnect = async () => {
+    // IMPORTANT: Remplacez cette valeur par votre vrai jeton d'accès utilisateur.
+    const userAccessToken = "REMPLACEZ_PAR_VOTRE_VRAI_JETON";
+    
+    if (userAccessToken === "REMPLACEZ_PAR_VOTRE_VRAI_JETON") {
+      toast({
+        variant: "destructive",
+        title: "Action requise",
+        description: "Veuillez modifier le code pour remplacer le jeton d'accès temporaire par votre vrai jeton.",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const settingsCollection = collection(firestore, 'integrationSettings');
       await addDocumentNonBlocking(settingsCollection, {
         integrationName: 'meta',
-        accessToken: 'TEMP_TOKEN_NEEDS_OAUTH', // This will be replaced by a real token in a future step
+        accessToken: userAccessToken,
         enabledCampaignIds: [],
         subscribedPageIds: []
       });
       toast({
-        title: 'Connecté ! (Simulation)',
-        description: "L'intégration Meta a été activée avec un jeton temporaire.",
+        title: 'Connecté !',
+        description: "L'intégration Meta a été activée.",
       });
     } catch (error) {
       toast({
@@ -227,13 +239,13 @@ export function MetaSettings() {
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Cliquez sur le bouton ci-dessous pour lancer l'authentification et activer la synchronisation des leads.
+                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Assurez-vous d'avoir inséré votre jeton d'accès dans le code.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Button onClick={handleConnect} disabled={isSaving}>
                     <Plug className="mr-2 h-4 w-4" /> 
-                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta (Simulation)'}
+                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta'}
                 </Button>
             </CardContent>
          </Card>
