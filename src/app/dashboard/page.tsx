@@ -32,10 +32,10 @@ import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { leadStatuses, leadTiers } from '@/lib/types';
-import { collection, query, where, writeBatch, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X, Trash2 } from 'lucide-react';
+import { PlusCircle, User, X, Trash2, CheckSquare } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -43,7 +43,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
-
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export const parseCSV = (
   csvString: string
@@ -83,13 +84,13 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
-
+  // Query for the main leads table with filters
   const leadsQuery = useMemo(() => {
     if (!firestore || !collaborator) {
       return null;
     }
 
-    let q = query(collection(firestore, 'leads'));
+    let q = query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
 
     if (collaborator.role !== 'admin') {
       q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
@@ -106,7 +107,20 @@ export default function DashboardPage() {
     return q;
   }, [firestore, collaborator, filterStatus, filterTier, isAdmin]);
 
+  // Query for the last lead to get the timestamp
+  const lastLeadQuery = useMemo(() => {
+    if (!firestore) return null;
+    // We only need the very last document based on creation time.
+    return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'), limit(1));
+  }, [firestore]);
+
+  // Query to get all leads for the total count. No filters applied here.
+  const allLeadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
+
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  const { data: allLeads, isLoading: allLeadsLoading } = useCollection<Lead>(allLeadsQuery);
+  const { data: lastLeadArr, isLoading: lastLeadLoading } = useCollection<Lead>(lastLeadQuery);
+  const lastLead = lastLeadArr?.[0];
   
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(allUsersQuery);
@@ -263,7 +277,7 @@ export default function DashboardPage() {
     }
   };
   
-  const isLoading = leadsLoading || usersLoading;
+  const isLoading = leadsLoading || usersLoading || allLeadsLoading || lastLeadLoading;
 
   return (
     <>
@@ -277,6 +291,57 @@ export default function DashboardPage() {
           </Button>
         )}
       </div>
+
+       {isAdmin && (
+        <div className="mt-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Statut de l'Intégration</CardTitle>
+                        <CardDescription>Aperçu de la synchronisation des leads.</CardDescription>
+                    </div>
+                    {isLoading ? (
+                        <div className="animate-pulse bg-muted h-6 w-24 rounded-md" />
+                    ) : lastLead?.createdAt ? (
+                         <div className="text-sm text-muted-foreground flex items-center gap-2">
+                           <CheckSquare className="text-green-500"/>
+                           <span className="font-medium">Connecté</span>
+                        </div>
+                    ) : (
+                         <div className="text-sm text-muted-foreground flex items-center gap-2">
+                           <X className="text-red-500"/>
+                           <span className="font-medium">En attente de leads</span>
+                        </div>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground">Total des leads</p>
+                            {isLoading ? (
+                                <div className="animate-pulse bg-muted h-8 w-16 rounded-md mt-1" />
+                            ) : (
+                                <p className="text-2xl font-bold">{allLeads?.length || 0}</p>
+                            )}
+                        </div>
+                         <div>
+                            <p className="text-sm font-medium text-muted-foreground">Dernier prospect reçu le</p>
+                            {isLoading ? (
+                                <div className="animate-pulse bg-muted h-8 w-48 rounded-md mt-1" />
+                            ) : lastLead?.createdAt ? (
+                                <p className="text-2xl font-bold">
+                                    {format(lastLead.createdAt.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                                </p>
+                            ) : (
+                                <p className="text-2xl font-bold">-</p>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+      )}
+
 
       <Card>
         <CardHeader>
@@ -368,6 +433,7 @@ export default function DashboardPage() {
                     )}
                     <TableHead>Nom</TableHead>
                     <TableHead>Téléphone</TableHead>
+                     {isAdmin && <TableHead>Campagne</TableHead>}
                     {isAdmin && <TableHead>Score</TableHead>}
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
@@ -401,6 +467,11 @@ export default function DashboardPage() {
                         )}
                         <TableCell className="font-medium">{lead.name}</TableCell>
                         <TableCell>{lead.phone || '-'}</TableCell>
+                         {isAdmin && (
+                          <TableCell>
+                           {lead.campaignName || '-'}
+                          </TableCell>
+                        )}
                         {isAdmin && (
                           <TableCell>
                             <ScoreBadge score={lead.score} />
@@ -433,7 +504,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 7 : 5} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
                         Aucun lead à afficher pour ce filtre.
                       </TableCell>
                     </TableRow>
