@@ -52,23 +52,23 @@ const calculateScore = (data: Record<string, string>): { score: number, justific
   let score = 0;
   const justifications: string[] = [];
 
-  // Question 1: Interest (using the new field 'bien')
-  const interestValue = data['bien'] || data["vous_etes_interesse_par"];
-  if (interestValue) {
-    if (interestValue.includes('Rendement locatif')) {
+  // Question 1: Objective (using the field 'objectif')
+  const objectiveValue = data['objectif'];
+  if (objectiveValue) {
+    if (objectiveValue.includes('Rendement locatif')) {
       score += 7;
       justifications.push("rendement locatif");
-    } else if (interestValue.includes('Achat/Revente')) {
+    } else if (objectiveValue.includes('Achat/Revente')) {
       score += 5;
        justifications.push("achat/revente");
-    } else if (interestValue.includes('Résidence')) {
+    } else if (objectiveValue.includes('Résidence')) {
       score += 7;
        justifications.push("résidence principale/secondaire");
     }
   }
 
-  // Question 2: Timeline (using the new field 'temps')
-  const timelineValue = data['temps'] || data["quand_souhaitez-vous_investir_"];
+  // Question 2: Timeline (using the field 'temps')
+  const timelineValue = data['temps'];
   if (timelineValue) {
     if (timelineValue.includes('Immédiatement')) {
       score += 10;
@@ -82,8 +82,8 @@ const calculateScore = (data: Record<string, string>): { score: number, justific
     }
   }
 
-  // Question 3: Budget (using the new field 'budget')
-  const budgetValue = data['budget'] || data["quel_est_votre_budget_"];
+  // Question 3: Budget (using the field 'budget')
+  const budgetValue = data['budget'];
   if (budgetValue) {
     if (budgetValue.includes('Supérieur à 350.000€')) {
       score += 12;
