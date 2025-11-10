@@ -433,10 +433,11 @@ export default function DashboardPage() {
                     )}
                     <TableHead>Nom</TableHead>
                     <TableHead>Téléphone</TableHead>
-                     {isAdmin && <TableHead>Campagne</TableHead>}
+                    {isAdmin && <TableHead>Campagne</TableHead>}
                     {isAdmin && <TableHead>Score</TableHead>}
                     <TableHead>Statut</TableHead>
                     <TableHead>Assigné à</TableHead>
+                    <TableHead>Date d'ajout</TableHead>
                     <TableHead className="text-right">
                       <span className="sr-only">Actions</span>
                     </TableHead>
@@ -494,6 +495,15 @@ export default function DashboardPage() {
                             <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
+                        <TableCell>
+                            {lead.createdAt ? (
+                                <span className="text-sm text-muted-foreground">
+                                    {format(lead.createdAt.toDate(), "dd/MM/yyyy HH:mm")}
+                                </span>
+                            ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">
                             Détails
@@ -504,7 +514,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 9 : 6} className="text-center h-24">
                         { leadsError ? "Une erreur est survenue lors du chargement des leads." : "Aucun lead à afficher pour ce filtre." }
                       </TableCell>
                     </TableRow>
@@ -543,5 +553,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
