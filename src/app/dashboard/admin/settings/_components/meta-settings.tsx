@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, ArrowRight, Plug } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ArrowRight, Plug, BellRing, Loader2 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -27,13 +27,16 @@ import { useToast } from '@/hooks/use-toast';
 type MetaCampaign = {
   id: string;
   name: string;
-  account: string;
+  account: string; // This is the Page Name
+  page_id: string; // The Page ID
+  subscribed: boolean;
 };
 
 export function MetaSettings() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [subscribingPageId, setSubscribingPageId] = useState<string | null>(null);
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
@@ -55,40 +58,47 @@ export function MetaSettings() {
 
   const isConnected = !!metaSettings;
 
+  const fetchCampaigns = () => {
+    if (!isConnected) return;
+
+    setCampaignsLoading(true);
+    setCampaignsError(null);
+    fetch('/api/meta/campaigns')
+      .then(async res => {
+          if (!res.ok) {
+              let errorMessage = `Erreur de communication avec l'API Meta. Le token est probablement invalide, a expiré ou n'a pas les bonnes permissions (ads_read, leads_retrieval, pages_show_list, pages_read_engagement).`;
+              try {
+                  const errData = await res.json();
+                  errorMessage = errData.details?.error?.message || errData.error || errorMessage;
+              } catch(e) {
+                  // Keep the generic error message if response is not JSON
+              }
+              setCampaignsError(errorMessage);
+              return;
+          }
+          
+          const data = await res.json();
+           if(data.error) {
+              const errorMessage = data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.';
+              setCampaignsError(errorMessage);
+              return;
+          }
+
+          setCampaigns(data.campaigns || []);
+      })
+      .catch(err => {
+          console.error("Meta campaigns fetch error:", err);
+          setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez la connexion réseau.');
+      })
+      .finally(() => {
+          setCampaignsLoading(false);
+      });
+  }
+
   // --- EFFECT TO FETCH CAMPAIGNS ---
   useEffect(() => {
     if (isConnected) {
-      setCampaignsLoading(true);
-      setCampaignsError(null);
-      fetch('/api/meta/campaigns')
-        .then(async res => {
-            if (!res.ok) {
-                try {
-                    const errData = await res.json();
-                    const errorMessage = errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.';
-                    setCampaignsError(errorMessage);
-                } catch(e) {
-                    setCampaignsError(`Erreur de communication avec l'API Meta. Le token est probablement invalide, a expiré ou n'a pas les bonnes permissions (ads_read, leads_retrieval).`);
-                }
-                return;
-            }
-            
-            const data = await res.json();
-             if(data.error) {
-                const errorMessage = data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.';
-                setCampaignsError(errorMessage);
-                return;
-            }
-
-            setCampaigns(data.campaigns || []);
-        })
-        .catch(err => {
-            console.error("Meta campaigns fetch error:", err);
-            setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez la connexion réseau.');
-        })
-        .finally(() => {
-            setCampaignsLoading(false);
-        });
+        fetchCampaigns();
     } else {
         setCampaigns([]);
     }
@@ -99,15 +109,15 @@ export function MetaSettings() {
     setIsSaving(true);
     try {
       const settingsCollection = collection(firestore, 'integrationSettings');
-      // This is a placeholder for a real OAuth flow.
       await addDocumentNonBlocking(settingsCollection, {
         integrationName: 'meta',
-        accessToken: 'TEMP_TOKEN_NEEDS_OAUTH',
+        accessToken: 'TEMP_TOKEN_NEEDS_OAUTH', // This will be replaced by a real token in a future step
         enabledCampaignIds: [],
+        subscribedPageIds: []
       });
       toast({
-        title: 'Connecté !',
-        description: "L'intégration Meta a été activée avec succès.",
+        title: 'Connecté ! (Simulation)',
+        description: "L'intégration Meta a été activée avec un jeton temporaire.",
       });
     } catch (error) {
       toast({
@@ -159,9 +169,56 @@ export function MetaSettings() {
     updateDocumentNonBlocking(settingRef, { enabledCampaignIds: updatedIds });
   };
   
-  if (settingsLoading) {
-    return <div className="text-center text-sm text-muted-foreground p-8">Chargement des paramètres...</div>
+  const handleSubscribePage = async (pageId: string) => {
+    setSubscribingPageId(pageId);
+    try {
+      const response = await fetch('/api/meta/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageId: pageId }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `La requête a échoué avec le statut ${response.status}.`);
+      }
+
+      toast({
+        title: 'Abonnement Réussi!',
+        description: `La page est maintenant abonnée aux prospects en temps réel.`,
+      });
+      
+      // Re-fetch campaigns to update subscription status
+      fetchCampaigns();
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: "Erreur d'abonnement",
+        description: error.message,
+      });
+    } finally {
+      setSubscribingPageId(null);
+    }
   }
+
+  const getCampaignsByPage = () => {
+    return campaigns.reduce((acc, campaign) => {
+      const pageName = campaign.account || "Page Inconnue";
+      if (!acc[pageName]) {
+        acc[pageName] = {
+          pageId: campaign.page_id,
+          campaigns: [],
+          isSubscribed: campaign.subscribed,
+        };
+      }
+      acc[pageName].campaigns.push(campaign);
+      return acc;
+    }, {} as Record<string, { pageId: string, campaigns: MetaCampaign[], isSubscribed: boolean }>);
+  };
+  
+  const campaignsByPage = getCampaignsByPage();
+  const isLoading = settingsLoading || campaignsLoading;
 
   return (
     <div className="space-y-8">
@@ -176,7 +233,7 @@ export function MetaSettings() {
             <CardContent>
                 <Button onClick={handleConnect} disabled={isSaving}>
                     <Plug className="mr-2 h-4 w-4" /> 
-                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta'}
+                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta (Simulation)'}
                 </Button>
             </CardContent>
          </Card>
@@ -186,33 +243,59 @@ export function MetaSettings() {
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertTitle className="text-green-800">Étape 1 : Intégration Active</AlertTitle>
               <AlertDescription className="text-green-700">
-                Vous êtes connecté à Meta. Le système écoute les nouveaux leads provenant des campagnes sélectionnées ci-dessous.
+                Vous êtes connecté à Meta. Le système est prêt à être configuré.
               </AlertDescription>
             </Alert>
             <Card>
                 <CardHeader>
-                    <CardTitle>Étape 2 : Sélectionner les Campagnes</CardTitle>
+                    <CardTitle>Étape 2 : Activer le Temps Réel & Sélectionner les Campagnes</CardTitle>
                     <CardDescription>
-                        Cochez les campagnes pour lesquelles vous souhaitez importer les leads. Les modifications sont enregistrées automatiquement.
+                        Pour chaque page, activez la réception en temps réel puis cochez les campagnes à synchroniser. Les modifications sont enregistrées automatiquement.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ScrollArea className="h-64 w-full rounded-md border p-4">
-                        {campaignsLoading ? (
-                            <p className="text-sm text-muted-foreground">Chargement des campagnes...</p>
-                        ) : campaignsError ? (
-                            <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Erreur de chargement</AlertTitle>
-                            <AlertDescription>
-                              {campaignsError}
-                              <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDisconnect}>
-                                Se déconnecter et réessayer ?
+                   {isLoading ? (
+                      <p className="text-sm text-muted-foreground text-center p-4">Chargement des campagnes...</p>
+                    ) : campaignsError ? (
+                      <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erreur de chargement</AlertTitle>
+                      <AlertDescription>
+                        {campaignsError}
+                        <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDisconnect}>
+                          Se déconnecter et réessayer ?
+                        </Button>
+                      </AlertDescription>
+                      </Alert>
+                  ) : Object.keys(campaignsByPage).length > 0 ? (
+                    <div className="space-y-6">
+                      {Object.entries(campaignsByPage).map(([pageName, data]) => (
+                        <div key={data.pageId} className="rounded-lg border p-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold">{pageName}</h3>
+                            {data.isSubscribed ? (
+                               <Badge variant="secondary" className='border-green-500'>
+                                <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                Temps Réel Activé
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={subscribingPageId === data.pageId}
+                                onClick={() => handleSubscribePage(data.pageId)}
+                              >
+                                {subscribingPageId === data.pageId ? 
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
+                                  <BellRing className="mr-2 h-4 w-4" />
+                                }
+                                {subscribingPageId === data.pageId ? 'Activation...' : 'Activer le Temps Réel'}
                               </Button>
-                            </AlertDescription>
-                            </Alert>
-                        ) : campaigns.length > 0 ? (
-                            campaigns.map(campaign => (
+                            )}
+                          </div>
+                           <ScrollArea className="h-40 w-full">
+                            <div className="space-y-2">
+                            {data.campaigns.map(campaign => (
                                 <div key={campaign.id} className="flex items-center space-x-2 py-1">
                                     <Checkbox
                                         id={`campaign-${campaign.id}`}
@@ -221,14 +304,18 @@ export function MetaSettings() {
                                     />
                                     <Label htmlFor={`campaign-${campaign.id}`} className="font-normal flex flex-col">
                                         <span>{campaign.name}</span>
-                                        <span className="text-xs text-muted-foreground">{campaign.account} - ID: {campaign.id}</span>
+                                        <span className="text-xs text-muted-foreground">ID: {campaign.id}</span>
                                     </Label>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground">Aucune campagne active trouvée. Assurez-vous que votre token est valide et dispose des bonnes permissions.</p>
-                        )}
-                    </ScrollArea>
+                            ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center p-4">Aucune campagne active trouvée. Assurez-vous que votre token est valide et dispose des bonnes permissions.</p>
+                  )}
                 </CardContent>
             </Card>
             <div className="flex justify-end">

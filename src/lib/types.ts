@@ -67,6 +67,7 @@ export type IntegrationSetting = {
   id: string;
   integrationName: 'meta';
   enabledCampaignIds: string[];
+  subscribedPageIds?: string[];
   accessToken: string;
   lastSync?: Timestamp;
 };
