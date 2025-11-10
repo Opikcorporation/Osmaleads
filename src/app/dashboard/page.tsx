@@ -45,7 +45,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { IntegrationStatus } from './admin/settings/_components/integration-status';
 
 export const parseCSV = (
   csvString: string
@@ -284,13 +283,6 @@ export default function DashboardPage() {
           </Button>
         )}
       </div>
-
-       {isAdmin && (
-        <div className="mt-4">
-           <IntegrationStatus />
-        </div>
-      )}
-
 
       <Card>
         <CardHeader>
