@@ -51,14 +51,26 @@ const WhatsAppIcon = () => (
 
 const isPhoneNumber = (value: string): boolean => {
     if (typeof value !== 'string') return false;
-    // Regex to check for a string that is mostly numbers, possibly with a leading +, and some common phone characters.
-    // This is more strict to avoid matching on IDs or other numerical data.
+    // Basic regex to check for a string that is mostly numbers, possibly with a leading +, and some common phone characters.
     const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
     return phoneRegex.test(value);
 };
 
 const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
+};
+
+// A map for user-friendly labels for lead data keys
+const leadDataLabels: Record<string, string> = {
+    nom: 'Nom',
+    telephone: 'Téléphone',
+    email: 'Email',
+    nom_campagne: 'Campagne',
+    objectif: 'Objectif',
+    budget: 'Budget',
+    temps: 'Échéance',
+    'Create Time': 'Date de Création (Meta)',
+    // Add any other fields you want to display with a friendly name
 };
 
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
@@ -127,37 +139,44 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const renderLeadData = () => {
     if (!lead?.leadData) return null;
     try {
-        const data = JSON.parse(lead.leadData);
-        // Display values only, without technical keys.
-        return (
-            <ul className="space-y-2 text-foreground">
-                {Object.values(data).map((value, index) => {
-                    const stringValue = String(value);
-                    if (isPhoneNumber(stringValue)) {
-                        return (
-                             <li key={index}>
-                                <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                                    <WhatsAppIcon />
-                                    <span>{stringValue}</span>
-                                </a>
-                            </li>
-                        )
-                    }
-                     return (
-                         <li key={index} className="text-foreground">
-                            {stringValue}
-                        </li>
-                     );
-                })}
-            </ul>
-        )
-    } catch(e) {
-        // Fallback for non-JSON data
-        return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>
-    }
-  }
+      const data = JSON.parse(lead.leadData);
+      // Filter out keys that are already displayed prominently (like nom, email, telephone)
+      const filteredKeys = Object.keys(data).filter(key => 
+        !['nom', 'email', 'telephone'].includes(key)
+      );
 
-  // The main loading state only depends on the essential data needed to render the shell.
+      return (
+        <ul className="space-y-3 text-sm text-foreground">
+          {filteredKeys.map((key) => {
+            const label = leadDataLabels[key] || key.replace(/_/g, ' '); // Use friendly label or format the key
+            const value = data[key];
+            const stringValue = String(value);
+
+            if (isPhoneNumber(stringValue)) {
+              return (
+                <li key={key}>
+                  <strong className="capitalize">{label}:</strong>{' '}
+                  <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                    <WhatsAppIcon />
+                    <span>{stringValue}</span>
+                  </a>
+                </li>
+              );
+            }
+            return (
+              <li key={key}>
+                <strong className="capitalize">{label}:</strong> {stringValue}
+              </li>
+            );
+          })}
+        </ul>
+      );
+    } catch (e) {
+      // Fallback for non-JSON data
+      return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
+    }
+  };
+
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
 
@@ -181,7 +200,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   <div className="flex items-start justify-between">
                       <div>
                           <CardTitle className="text-2xl">{lead.name}</CardTitle>
-                          <CardDescription>{lead.company} - {lead.email}</CardDescription>
+                          <CardDescription>{lead.email} &middot; {lead.phone}</CardDescription>
                       </div>
                       {assignedUser && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">

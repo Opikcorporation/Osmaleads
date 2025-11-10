@@ -1,9 +1,9 @@
 'use server';
 
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
-import type { Lead, IntegrationSetting } from '@/lib/types';
+import type { Lead } from '@/lib/types';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
 
 // This is a secret token that we will configure in Meta's Developer Dashboard.
@@ -34,8 +34,7 @@ export async function GET(request: Request) {
 }
 
 /**
- * Handles incoming lead data from Meta.
- * Meta sends a POST request to this endpoint whenever a new lead is generated.
+ * Handles incoming lead data from Meta/Zapier.
  */
 export async function POST(request: Request) {
   const { firestore } = getFirebaseAdmin();
@@ -43,67 +42,77 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Meta sends data in an 'entry' array. We process each entry.
-    if (body.object === 'page' && body.entry) {
-      
-        for (const entry of body.entry) {
-            for (const change of entry.changes) {
-                if (change.field === 'leadgen' || change.field === 'leads') {
-                    const leadgenValue = change.value;
-                    const leadData : {[key:string]: string} = {};
-                    
-                    // Handle standard Meta 'leadgen' format
-                    if (leadgenValue.field_data) {
-                        leadgenValue.field_data.forEach((field: {name: string, values: string[]}) => {
-                            leadData[field.name] = field.values[0];
-                        });
-                    } 
-                    // Handle flat structure from Zapier
-                    else {
-                         Object.keys(leadgenValue).forEach(key => {
-                            // Exclude Meta's internal fields if they exist
-                            if (!key.startsWith('ad_') && !key.startsWith('form_') && !key.startsWith('campaign_') && key !== 'created_time') {
-                               leadData[key] = leadgenValue[key];
-                            }
-                        });
-                    }
+    // Zapier might send a single lead object, while Meta sends an array in `entry`.
+    // We'll handle both cases.
+    const leadsToProcess = Array.isArray(body) ? body : [body];
 
-                    const leadDataString = JSON.stringify(leadData);
+    for (const leadPayload of leadsToProcess) {
+      // The actual lead data might be nested inside `entry` for direct Meta webhooks
+      const changes = leadPayload.entry?.[0]?.changes;
+      const leadgenValue = changes?.[0]?.value || leadPayload;
 
-                    // --- QUALIFICATION ---
-                    const qualification = await qualifyLead({ leadData: leadDataString });
-
-                    const newLead: Omit<Lead, 'id'> = {
-                        name: leadData.nom || 'Nom Inconnu',
-                        email: leadData.email || null,
-                        phone: leadData.telephone || null,
-                        company: leadData.company || null,
-                        username: null,
-                        status: 'New',
-                        leadData: leadDataString,
-                        assignedCollaboratorId: null,
-                        createdAt: FieldValue.serverTimestamp(),
-                        campaignId: leadgenValue.campaign_id || null,
-                        campaignName: leadData.nom_campagne || leadgenValue.campaign_name || null,
-                        score: qualification.score,
-                        tier: qualification.tier
-                    };
-
-                    // Add the new lead to our Firestore 'leads' collection.
-                    await firestore.collection('leads').add(newLead);
-                }
-            }
+      // Extract all key-value pairs from the webhook payload.
+      const leadData: { [key: string]: string } = {};
+      for (const key in leadgenValue) {
+        if (Object.prototype.hasOwnProperty.call(leadgenValue, key)) {
+          // Flatten nested objects if any, like 'field_data' from Meta
+          if (key === 'field_data' && Array.isArray(leadgenValue[key])) {
+             leadgenValue[key].forEach((field: {name: string, values: string[]}) => {
+                leadData[field.name] = field.values[0];
+            });
+          } else {
+            leadData[key] = String(leadgenValue[key]);
+          }
         }
-        
-        console.log("Successfully processed leads from Meta webhook.");
-        return NextResponse.json({ message: 'Lead received' }, { status: 200 });
-    }
+      }
 
-    // If the data format is not what we expect
-    return NextResponse.json({ message: 'Unsupported event type' }, { status: 200 });
+      const leadDataString = JSON.stringify(leadData);
+
+      // --- QUALIFICATION (Temporarily disabled as requested) ---
+      const qualification = await qualifyLead({ leadData: leadDataString });
+
+      // --- DATE HANDLING ---
+      let createdAt: FieldValue | Timestamp;
+      if (leadData['Create Time'] || leadgenValue.created_time) {
+        // Meta sends date strings like "2024-05-21T10:30:00+0000"
+        const dateString = leadData['Create Time'] || leadgenValue.created_time;
+        const date = new Date(dateString);
+        // Check if the date is valid before creating a Timestamp
+        if (!isNaN(date.getTime())) {
+          createdAt = Timestamp.fromDate(date);
+        } else {
+          // Fallback to server time if the date is invalid
+          createdAt = FieldValue.serverTimestamp();
+        }
+      } else {
+        createdAt = FieldValue.serverTimestamp();
+      }
+
+      const newLead: Omit<Lead, 'id'> = {
+          name: leadData.nom || 'Nom Inconnu',
+          email: leadData.email || null,
+          phone: leadData.telephone || null,
+          company: leadData.company || null,
+          username: null,
+          status: 'New',
+          leadData: leadDataString,
+          assignedCollaboratorId: null,
+          createdAt: createdAt as Timestamp, // We cast it here for type consistency
+          campaignId: leadgenValue.campaign_id || null,
+          campaignName: leadData.nom_campagne || leadgenValue.campaign_name || null,
+          score: qualification.score,
+          tier: qualification.tier,
+      };
+
+      // Add the new lead to our Firestore 'leads' collection.
+      await firestore.collection('leads').add(newLead);
+    }
+        
+    console.log(`Successfully processed ${leadsToProcess.length} lead(s).`);
+    return NextResponse.json({ message: 'Lead(s) received' }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Error processing Meta webhook:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Error processing webhook:', error);
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

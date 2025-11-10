@@ -50,63 +50,13 @@ export async function qualifyLead(
 // Function to calculate score based on defined business rules
 const calculateScore = (data: Record<string, string>): { score: number, justification: string } => {
   let score = 0;
-  const justifications: string[] = [];
-
-  // Question 1: Objective (using the field 'objectif')
-  const objectiveValue = data['objectif'];
-  if (objectiveValue) {
-    if (objectiveValue.includes('Rendement locatif')) {
-      score += 7;
-      justifications.push("rendement locatif");
-    } else if (objectiveValue.includes('Achat/Revente')) {
-      score += 5;
-       justifications.push("achat/revente");
-    } else if (objectiveValue.includes('Résidence')) {
-      score += 7;
-       justifications.push("résidence principale/secondaire");
-    }
-  }
-
-  // Question 2: Timeline (using the field 'temps')
-  const timelineValue = data['temps'];
-  if (timelineValue) {
-    if (timelineValue.includes('Immédiatement')) {
-      score += 10;
-      justifications.push("projet immédiat");
-    } else if (timelineValue.includes('1-3 mois')) {
-      score += 5;
-      justifications.push("projet à court terme");
-    } else if (timelineValue.includes('6 mois')) {
-      score += 1;
-      justifications.push("projet à moyen terme");
-    }
-  }
-
-  // Question 3: Budget (using the field 'budget')
-  const budgetValue = data['budget'];
-  if (budgetValue) {
-    if (budgetValue.includes('Supérieur à 350.000€')) {
-      score += 12;
-      justifications.push("budget supérieur");
-    } else if (budgetValue.includes('Entre 250.000 et 350.000€')) {
-      score += 7;
-       justifications.push("budget conséquent");
-    } else if (budgetValue.includes('Inférieur à 250.000€')) {
-      score += 1;
-       justifications.push("budget standard");
-    }
-  }
-
-  const justification = justifications.length > 0
-    ? `Score basé sur: ${justifications.join(', ')}.`
-    : 'Score de base, informations de qualification absentes.';
-
-  return { score, justification };
+  // Scoring is temporarily disabled as requested by the user.
+  // We will re-enable this later.
+  return { score, justification: "Scoring en attente." };
 };
 
 const getTier = (score: number): 'Haut de gamme' | 'Moyenne gamme' | 'Bas de gamme' => {
-  if (score > 20) return 'Haut de gamme';
-  if (score > 10) return 'Moyenne gamme';
+  // Scoring is temporarily disabled.
   return 'Bas de gamme';
 };
 
