@@ -49,33 +49,51 @@ export async function POST(request: Request) {
     for (const leadPayload of leadsToProcess) {
       // The actual lead data might be nested inside `entry` for direct Meta webhooks
       const changes = leadPayload.entry?.[0]?.changes;
+      // Use the raw payload from Zapier, or dig into the Meta structure if it exists.
       const leadgenValue = changes?.[0]?.value || leadPayload;
 
       // Extract all key-value pairs from the webhook payload.
       const leadData: { [key: string]: string } = {};
-      for (const key in leadgenValue) {
-        if (Object.prototype.hasOwnProperty.call(leadgenValue, key)) {
-          // Flatten nested objects if any, like 'field_data' from Meta
-          if (key === 'field_data' && Array.isArray(leadgenValue[key])) {
-             leadgenValue[key].forEach((field: {name: string, values: string[]}) => {
-                leadData[field.name] = field.values[0];
-            });
-          } else {
-            leadData[key] = String(leadgenValue[key]);
+      
+      // Directly map known fields from the payload
+      const knownMappings: Record<string, keyof typeof leadData> = {
+        telephone: 'telephone',
+        nom_campagne: 'nom_campagne',
+        objectif: 'objectif',
+        budget: 'budget',
+        email: 'email',
+        temps: 'temps',
+        nom: 'nom',
+        'Create Time': 'Create Time',
+        campaign_name: 'nom_campagne', // Handle alternative field name
+      };
+
+      for(const key in leadgenValue) {
+          if (Object.prototype.hasOwnProperty.call(leadgenValue, key)) {
+              if (knownMappings[key]) {
+                  leadData[knownMappings[key]] = String(leadgenValue[key]);
+              } else if (key === 'field_data' && Array.isArray(leadgenValue[key])) {
+                 // Fallback for deeply nested Meta structure
+                 leadgenValue[key].forEach((field: {name: string, values: string[]}) => {
+                    leadData[field.name] = field.values[0];
+                });
+              } else {
+                 // Store any other unexpected fields
+                 leadData[key] = String(leadgenValue[key]);
+              }
           }
-        }
       }
 
       const leadDataString = JSON.stringify(leadData);
 
-      // --- QUALIFICATION (Temporarily disabled as requested) ---
+      // --- QUALIFICATION (Temporarily disabled) ---
       const qualification = await qualifyLead({ leadData: leadDataString });
 
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
-      if (leadData['Create Time'] || leadgenValue.created_time) {
+      const dateString = leadData['Create Time'] || leadgenValue.created_time;
+      if (dateString) {
         // Meta sends date strings like "2024-05-21T10:30:00+0000"
-        const dateString = leadData['Create Time'] || leadgenValue.created_time;
         const date = new Date(dateString);
         // Check if the date is valid before creating a Timestamp
         if (!isNaN(date.getTime())) {
@@ -94,12 +112,12 @@ export async function POST(request: Request) {
           phone: leadData.telephone || null,
           company: leadData.company || null,
           username: null,
-          status: 'New',
+          status: 'New', // Automatically set status to 'New'
           leadData: leadDataString,
           assignedCollaboratorId: null,
           createdAt: createdAt as Timestamp, // We cast it here for type consistency
           campaignId: leadgenValue.campaign_id || null,
-          campaignName: leadData.nom_campagne || leadgenValue.campaign_name || null,
+          campaignName: leadData.nom_campagne || null,
           score: qualification.score,
           tier: qualification.tier,
       };
