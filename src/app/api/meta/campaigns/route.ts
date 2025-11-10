@@ -23,12 +23,39 @@ type Page = {
 };
 
 /**
+ * Generates an App Access Token using the App ID and App Secret.
+ * This token is used for server-to-server calls.
+ */
+async function getAppAccessToken(): Promise<string | null> {
+    const appId = process.env.META_APP_ID;
+    const appSecret = process.env.META_APP_SECRET;
+
+    if (!appId || !appSecret) {
+        console.warn("META_APP_ID or META_APP_SECRET not set. Cannot generate App Access Token.");
+        return null;
+    }
+
+    try {
+        const url = `${META_GRAPH_API_URL}/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&grant_type=client_credentials`;
+        const response = await fetch(url);
+        const data = await response.json() as any;
+        return data.access_token || null;
+    } catch (e) {
+        console.error("Error generating App Access Token:", e);
+        return null;
+    }
+}
+
+
+/**
  * Checks which pages are currently subscribed to the leadgen webhook.
  */
-async function getSubscribedPages(pageIds: string[], userAccessToken: string): Promise<Set<string>> {
+async function getSubscribedPages(pageIds: string[]): Promise<Set<string>> {
     const appId = process.env.META_APP_ID;
-    if (!appId) {
-        console.warn("META_APP_ID not set. Cannot check subscription status.");
+    const appAccessToken = await getAppAccessToken();
+
+    if (!appId || !appAccessToken) {
+        console.warn("META_APP_ID or App Access Token not available. Cannot check subscription status.");
         return new Set();
     }
     
@@ -36,7 +63,7 @@ async function getSubscribedPages(pageIds: string[], userAccessToken: string): P
 
     for (const pageId of pageIds) {
          try {
-            const url = `${META_GRAPH_API_URL}/${pageId}/subscribed_apps?subscribed_fields=leadgen&access_token=${userAccessToken}`;
+            const url = `${META_GRAPH_API_URL}/${pageId}/subscribed_apps?subscribed_fields=leadgen&access_token=${appAccessToken}`;
             const response = await fetch(url);
             const data = await response.json() as any;
             // Check if our app (by its ID) is in the list of subscribed apps for the 'leadgen' field.
@@ -120,7 +147,7 @@ export async function GET(request: Request) {
             const pagesData = await pagesResponse.json() as { data: Page[] };
             if (pagesData.data && pagesData.data.length > 0) {
                 const pageIds = pagesData.data.map(p => p.id);
-                const subscribedPageIds = await getSubscribedPages(pageIds, userAccessToken);
+                const subscribedPageIds = await getSubscribedPages(pageIds);
 
                 const pageCampaignPromises = pagesData.data.map(page => 
                     fetchCampaignsFromPage(page, subscribedPageIds.has(page.id))
