@@ -1,5 +1,5 @@
 'use client';
-import { FieldValue, Timestamp } from "firebase/firestore";
+import { Timestamp } from "firebase/firestore";
 
 export const leadTiers = ['Haut de gamme', 'Moyenne gamme', 'Bas de gamme'] as const;
 export type LeadTier = (typeof leadTiers)[number];
@@ -68,5 +68,5 @@ export type IntegrationSetting = {
   integrationName: 'meta';
   enabledCampaignIds: string[];
   accessToken: string;
-  lastSync?: FieldValue;
+  lastSync?: Timestamp;
 };

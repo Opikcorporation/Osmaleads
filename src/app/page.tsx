@@ -33,7 +33,7 @@ import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { leadStatuses, leadTiers } from '@/lib/types';
 import { collection, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, User, X, Trash2 } from 'lucide-react';
 import { LeadImportDialog } from './dashboard/_components/lead-import-dialog';
@@ -57,7 +57,6 @@ export const parseCSV = (
 
   const headers = lines[0].split(',').map((h) => h.trim());
   const rows = lines.slice(1).map((line) => {
-    // A more robust way to handle commas inside quoted fields
     const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
     return headers.reduce((obj, header, index) => {
       const value = values[index]?.trim().replace(/"/g, '') || '';
@@ -66,7 +65,7 @@ export const parseCSV = (
     }, {} as Record<string, string>);
   });
 
-  return { headers: [], rows };
+  return { headers, rows };
 };
 
 
@@ -74,8 +73,6 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { collaborator } = useFirebase();
-
-  // --- FIX EST ICI ---
   const isAdmin = collaborator?.role === 'admin';
 
   const [isImporting, setIsImporting] = useState(false);
@@ -86,10 +83,8 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
-  // La ligne "isAdmin" a été retirée d'ici
 
   const leadsQuery = useMemo(() => {
-    // ** THE GUARD **: Do not create a query if we don't have a fully authenticated user and profile.
     if (!firestore || !collaborator) {
       return null;
     }
@@ -156,7 +151,6 @@ export default function DashboardPage() {
         for (const row of rows) {
           const leadDataString = JSON.stringify(row);
           
-          // --- AI QUALIFICATION ---
           const aiQualification = await qualifyLead({ leadData: leadDataString });
 
           const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
@@ -170,9 +164,9 @@ export default function DashboardPage() {
               status: 'New',
               tier: aiQualification.tier,
               score: aiQualification.score,
-              leadData: leadDataString, // Store original row data
+              leadData: leadDataString, 
               assignedCollaboratorId: null,
-              createdAt: serverTimestamp(),
+              createdAt: serverTimestamp() as Timestamp,
               campaignId: null,
               campaignName: null,
           };
@@ -229,7 +223,7 @@ export default function DashboardPage() {
             title: 'Assignation réussie',
             description: `${selectedLeads.length} lead(s) assigné(s) avec succès.`,
         });
-        setSelectedLeads([]); // Clear selection
+        setSelectedLeads([]); 
     } catch(error) {
         toast({
             variant: 'destructive',
@@ -257,7 +251,7 @@ export default function DashboardPage() {
             title: 'Suppression réussie',
             description: `${selectedLeads.length} lead(s) ont été supprimé(s).`,
         });
-        setSelectedLeads([]); // Clear selection
+        setSelectedLeads([]); 
     } catch(error) {
         toast({
             variant: 'destructive',
@@ -390,7 +384,6 @@ export default function DashboardPage() {
                         data-state={selectedLeads.includes(lead.id) ? 'selected' : ''}
                         className="cursor-pointer"
                         onClick={(e) => {
-                            // Prevents row click from triggering when clicking on checkbox
                             if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
                             handleOpenLead(lead.id)
                         }}
