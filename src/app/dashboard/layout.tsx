@@ -91,7 +91,7 @@ export default function DashboardLayout({
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
                 <Image src="/logo.png" alt="Osmaleads Logo" width={120} height={30} />
             </Link>
           </div>
