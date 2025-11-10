@@ -7,11 +7,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 
 interface MetaConnectDialogProps {
@@ -36,12 +42,12 @@ export function MetaConnectDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Connecter votre compte Meta</DialogTitle>
             <DialogDescription>
-              Entrez votre jeton d'accès pour commencer.
+              Entrez votre jeton d'accès pour commencer. Assurez-vous qu'il dispose des bonnes permissions.
             </DialogDescription>
           </DialogHeader>
           <div className="py-6 space-y-4">
@@ -50,11 +56,7 @@ export function MetaConnectDialog({
                     Jeton d'accès de l'API Graph
                 </Label>
                 <p className="text-sm text-muted-foreground mt-1 mb-3">
-                    Générez un jeton depuis votre application dans le 
-                    <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline hover:text-primary/80">
-                        Graph API Explorer de Meta
-                    </Link>
-                    et collez-le ici.
+                    Collez le jeton d'accès que vous avez généré.
                 </p>
                 <Input
                     id="meta-token"
@@ -64,6 +66,32 @@ export function MetaConnectDialog({
                     onChange={(e) => setAccessToken(e.target.value)}
                 />
             </div>
+            <Accordion type="single" collapsible>
+              <AccordionItem value="help">
+                <AccordionTrigger>
+                  <div className='flex items-center gap-2'>
+                    <HelpCircle className="h-4 w-4" />
+                    Comment obtenir un jeton valide ?
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                    <li>
+                      Allez sur le <Link href="https://developers.facebook.com/tools/explorer/" target="_blank" className="text-primary underline">Graph API Explorer</Link> de Meta.
+                    </li>
+                    <li>
+                      À droite, sous "Permissions", assurez-vous de sélectionner au minimum :
+                      <ul className="list-disc list-inside ml-4 mt-1 font-mono text-xs bg-muted p-2 rounded-md">
+                        <li>ads_read</li>
+                        <li>leads_retrieval</li>
+                      </ul>
+                    </li>
+                    <li>Cliquez sur le bouton "Generate Access Token".</li>
+                    <li>Copiez le jeton généré et collez-le dans le champ ci-dessus.</li>
+                  </ol>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>

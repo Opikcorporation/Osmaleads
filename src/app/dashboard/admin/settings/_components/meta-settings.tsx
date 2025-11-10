@@ -71,22 +71,21 @@ export function MetaSettings() {
                     const errorMessage = errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.';
                     setCampaignsError(errorMessage);
                 } catch(e) {
-                    setCampaignsError(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`);
+                    setCampaignsError(`Erreur de communication avec l'API Meta. Le token est probablement invalide, a expiré ou n'a pas les bonnes permissions (ads_read, leads_retrieval).`);
                 }
-                return; // Stop processing
+                return;
             }
             
             const data = await res.json();
              if(data.error) {
                 const errorMessage = data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.';
                 setCampaignsError(errorMessage);
-                return; // Stop processing
+                return;
             }
 
             setCampaigns(data.campaigns || []);
         })
         .catch(err => {
-            // This will catch network errors or other unexpected issues during fetch.
             console.error("Meta campaigns fetch error:", err);
             setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez la connexion réseau.');
         })
@@ -216,7 +215,12 @@ export function MetaSettings() {
                             <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Erreur de chargement</AlertTitle>
-                            <AlertDescription>{campaignsError}</AlertDescription>
+                            <AlertDescription>
+                              {campaignsError}
+                              <Button variant="link" className="p-0 h-auto mt-2" asChild>
+                                <a onClick={() => setIsConnectDialogOpen(true)}>Réessayer avec un nouveau token ?</a>
+                              </Button>
+                            </AlertDescription>
                             </Alert>
                         ) : campaigns.length > 0 ? (
                             campaigns.map(campaign => (
@@ -233,7 +237,7 @@ export function MetaSettings() {
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-muted-foreground">Aucune campagne active trouvée ou le jeton est invalide.</p>
+                            <p className="text-sm text-muted-foreground">Aucune campagne active trouvée. Assurez-vous que votre token est valide et dispose des bonnes permissions.</p>
                         )}
                     </ScrollArea>
                 </CardContent>
