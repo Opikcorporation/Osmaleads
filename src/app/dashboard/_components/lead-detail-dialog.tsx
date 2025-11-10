@@ -251,7 +251,17 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   <div className="flex items-start justify-between">
                       <div>
                           <CardTitle className="text-2xl">{leadName}</CardTitle>
-                          <CardDescription>{leadEmail} &middot; {leadPhone}</CardDescription>
+                          <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                            <span>{leadEmail}</span>
+                            {leadPhone && isPhoneNumber(leadPhone) ? (
+                                 <a href={`https://wa.me/${formatPhoneNumberForLink(leadPhone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                                    <WhatsAppIcon />
+                                    <span>{leadPhone}</span>
+                                </a>
+                            ) : (
+                                <span>{leadPhone}</span>
+                            )}
+                          </div>
                       </div>
                       {assignedUser && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
