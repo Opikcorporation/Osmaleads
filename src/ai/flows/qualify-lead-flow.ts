@@ -117,7 +117,18 @@ const qualifyLeadFlow = ai.defineFlow(
     outputSchema: QualifyLeadOutputSchema,
   },
   async (input) => {
-    const leadData = JSON.parse(input.leadData) as Record<string, string>;
+    let leadData: Record<string, string> = {};
+    try {
+        leadData = JSON.parse(input.leadData);
+    } catch (e) {
+        console.error("Could not parse leadData JSON", e);
+        // Return a default low-quality score if data is unparsable
+        return {
+            score: 0,
+            tier: 'Bas de gamme',
+            justification: 'Données du prospect invalides ou illisibles.',
+        };
+    }
 
     // Calculate score using deterministic logic
     const { score, justification } = calculateScore(leadData);

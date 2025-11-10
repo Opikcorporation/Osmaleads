@@ -52,13 +52,19 @@ export async function POST(request: Request) {
                     const leadgenValue = change.value;
                     const leadData : {[key:string]: string} = {};
                     
-                    if (leadgenValue.field_data) { // Structure for leadgen field
+                    // Handle standard Meta 'leadgen' format
+                    if (leadgenValue.field_data) {
                         leadgenValue.field_data.forEach((field: {name: string, values: string[]}) => {
                             leadData[field.name] = field.values[0];
                         });
-                    } else { // Structure for leads field from Zapier
+                    } 
+                    // Handle flat structure from Zapier
+                    else {
                          Object.keys(leadgenValue).forEach(key => {
-                            leadData[key] = leadgenValue[key];
+                            // Exclude Meta's internal fields if they exist
+                            if (!key.startsWith('ad_') && !key.startsWith('form_') && !key.startsWith('campaign_') && key !== 'created_time') {
+                               leadData[key] = leadgenValue[key];
+                            }
                         });
                     }
 
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
                         company: leadData.company || null,
                         username: null,
                         status: 'New',
-                        leadData: leadDataString, // Store all original mapped data
+                        leadData: leadDataString,
                         assignedCollaboratorId: null,
                         createdAt: FieldValue.serverTimestamp(),
                         campaignId: leadgenValue.campaign_id || null,
