@@ -23,6 +23,7 @@ import {
 import type { IntegrationSetting } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { MetaConnectDialog } from './meta-connect-dialog';
 
 type MetaCampaign = {
   id: string;
@@ -32,15 +33,13 @@ type MetaCampaign = {
   subscribed: boolean;
 };
 
-// Paste your Meta User Access Token here.
-const USER_ACCESS_TOKEN = "EAAIf0kHxShoBP387FcoyG0pg5WBHIQSTqJIpVdzuLN0sQDLFYFZAYTPBAwXGVHPbtXnqboBaWv5IE7od2otvDLAQCiM0WWhbWYjCaceZBXXAHXhlhuLQfVdJ66EhgDAqVraUrmHHsoolVFXZCtX5Tmxg2zclC1IR8VZBA5jgvOR3GrZBj2VcQvzfvneUaCcNIWhQi40EGnGo4";
-
 
 export function MetaSettings() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [subscribingPageId, setSubscribingPageId] = useState<string | null>(null);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
@@ -106,43 +105,30 @@ export function MetaSettings() {
   }, [isConnected]);
 
 
-  const handleConnect = async () => {
-    const userAccessToken = USER_ACCESS_TOKEN;
-    
-    if (!userAccessToken || userAccessToken.includes("REMPLACEZ") || userAccessToken.includes("PASTE")) {
-      toast({
-        variant: "destructive",
-        title: "Action requise",
-        description: "Veuillez fournir un jeton d'accès utilisateur Meta valide.",
-      });
-      return;
-    }
-
+  const handleConnect = async (accessToken: string) => {
     setIsSaving(true);
+    setIsConnectDialogOpen(false);
     try {
-      const settingsCollection = collection(firestore, 'integrationSettings');
-      // If settings already exist, don't create a new one.
-      if(metaSettings) {
-        toast({ title: 'Déjà connecté', description: "L'intégration Meta est déjà active." });
-        setIsSaving(false);
-        return;
-      }
-      
-      await addDocumentNonBlocking(settingsCollection, {
-        integrationName: 'meta',
-        accessToken: userAccessToken,
-        enabledCampaignIds: [],
-        subscribedPageIds: []
-      });
+        const response = await fetch('/api/meta/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken }),
+        });
+
+        if (!response.ok) {
+            const result = await response.json();
+            throw new Error(result.error || "Une erreur inconnue est survenue lors de la connexion.");
+        }
+
       toast({
         title: 'Connecté !',
         description: "L'intégration Meta a été activée.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: "Impossible d'enregistrer les paramètres.",
+        description: error.message || "Impossible d'enregistrer les paramètres.",
       });
     } finally {
       setIsSaving(false);
@@ -246,13 +232,13 @@ export function MetaSettings() {
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Le jeton d'accès est pré-configuré.
+                   Cliquez sur le bouton ci-dessous pour fournir votre jeton d'accès et activer la synchronisation.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={handleConnect} disabled={isSaving}>
+                <Button onClick={() => setIsConnectDialogOpen(true)} disabled={isSaving}>
                     <Plug className="mr-2 h-4 w-4" /> 
-                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta'}
+                    {isSaving ? 'Connexion...' : 'Se connecter à Meta'}
                 </Button>
             </CardContent>
          </Card>
@@ -348,6 +334,13 @@ export function MetaSettings() {
             </div>
         </>
       )}
+
+      <MetaConnectDialog
+        isOpen={isConnectDialogOpen}
+        onClose={() => setIsConnectDialogOpen(false)}
+        onConnect={handleConnect}
+        isConnecting={isSaving}
+      />
     </div>
   );
 }
