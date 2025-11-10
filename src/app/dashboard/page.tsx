@@ -32,7 +32,7 @@ import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { leadStatuses, leadTiers } from '@/lib/types';
-import { collection, query, where, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, User, X, Trash2, CheckSquare } from 'lucide-react';
@@ -83,63 +83,42 @@ export default function DashboardPage() {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
-  const [useFallbackQuery, setUseFallbackQuery] = useState(false);
 
-  // Query for the main leads table with filters
-  const leadsQuery = useMemo(() => {
-    if (!firestore || !collaborator) {
-      return null;
-    }
-
-    let q = collection(firestore, 'leads');
-    
-    // Conditionally add ordering
-    if (!useFallbackQuery) {
-        q = query(q, orderBy('createdAt', 'desc'));
-    }
-
-    if (collaborator.role !== 'admin') {
-      q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
-    }
-
-    if (filterStatus !== 'All') {
-      q = query(q, where('status', '==', filterStatus));
-    }
-    
-    if (isAdmin && filterTier !== 'All') {
-        q = query(q, where('tier', '==', filterTier));
-    }
-
-    return q;
-  }, [firestore, collaborator, filterStatus, filterTier, isAdmin, useFallbackQuery]);
-
-  const { data: leads, isLoading: leadsLoading, error: leadsError } = useCollection<Lead>(leadsQuery);
-
-  // Effect to switch to fallback query if the primary one fails
-  useEffect(() => {
-    if (leadsError && leadsError.message.includes('firestore/failed-precondition')) {
-      setUseFallbackQuery(true);
-    }
-  }, [leadsError]);
-
-
-  // Query for the last lead to get the timestamp
-  const lastLeadQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'), limit(1));
-  }, [firestore]);
-
-  // Query to get all leads for the total count.
+  // --- Simplified Data Fetching ---
+  // Use a single, simple query to fetch all leads. Filtering and sorting will be done client-side.
   const allLeadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
+  const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
-  const { data: allLeads, isLoading: allLeadsLoading } = useCollection<Lead>(allLeadsQuery);
-  const { data: lastLeadArr, isLoading: lastLeadLoading } = useCollection<Lead>(lastLeadQuery);
-  const lastLead = lastLeadArr?.[0];
-  
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(allUsersQuery);
-  
+
   const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
+  
+  // --- Client-Side Filtering and Sorting ---
+  const filteredAndSortedLeads = useMemo(() => {
+    if (!allLeads) return [];
+
+    const sorted = [...allLeads].sort((a, b) => {
+      const dateA = a.createdAt?.toDate()?.getTime() || 0;
+      const dateB = b.createdAt?.toDate()?.getTime() || 0;
+      return dateB - dateA;
+    });
+
+    return sorted.filter(lead => {
+      const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
+      const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
+      const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
+      return userFilter && statusFilter && tierFilter;
+    });
+  }, [allLeads, collaborator, isAdmin, filterStatus, filterTier]);
+
+
+  const lastLead = useMemo(() => {
+    if (!allLeads || allLeads.length === 0) return null;
+    // This assumes the data is sorted by date descending after fetching.
+    return filteredAndSortedLeads[0];
+  }, [filteredAndSortedLeads]);
+
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
     return allUsers?.find(u => u.id === id);
@@ -231,7 +210,7 @@ export default function DashboardPage() {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(leads?.map(l => l.id) || []);
+      setSelectedLeads(filteredAndSortedLeads?.map(l => l.id) || []);
     } else {
       setSelectedLeads([]);
     }
@@ -298,7 +277,7 @@ export default function DashboardPage() {
     }
   };
   
-  const isLoading = leadsLoading || usersLoading || allLeadsLoading || lastLeadLoading;
+  const isLoading = allLeadsLoading || usersLoading;
 
   return (
     <>
@@ -447,7 +426,7 @@ export default function DashboardPage() {
                      {isAdmin && (
                       <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={selectedLeads.length > 0 && !!leads && selectedLeads.length === leads.length}
+                          checked={selectedLeads.length > 0 && !!filteredAndSortedLeads && selectedLeads.length === filteredAndSortedLeads.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -464,8 +443,8 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leads && leads.length > 0 ? (
-                    leads.map((lead) => {
+                  {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
+                    filteredAndSortedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       return (
                       <TableRow
@@ -486,7 +465,7 @@ export default function DashboardPage() {
                             />
                           </TableCell>
                         )}
-                        <TableCell className="font-medium">{lead.name}</TableCell>
+                        <TableCell className="font-medium">{lead.name || 'Nom Inconnu'}</TableCell>
                         <TableCell>{lead.phone || '-'}</TableCell>
                          {isAdmin && (
                           <TableCell>
@@ -526,7 +505,7 @@ export default function DashboardPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
-                        Aucun lead à afficher pour ce filtre.
+                        { leadsError ? "Une erreur est survenue lors du chargement des leads." : "Aucun lead à afficher pour ce filtre." }
                       </TableCell>
                     </TableRow>
                   )}
@@ -564,3 +543,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
