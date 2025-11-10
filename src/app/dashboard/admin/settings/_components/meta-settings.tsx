@@ -64,11 +64,17 @@ export function MetaSettings() {
       setCampaignsLoading(true);
       setCampaignsError(null);
       fetch('/api/meta/campaigns')
-        .then(res => {
+        .then(async res => {
             if (!res.ok) {
-                return res.json().then(errData => {
-                   throw new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.');
-                });
+                // Try to parse JSON, but handle cases where body is not JSON
+                try {
+                    const errData = await res.json();
+                     throw new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.');
+                } catch(e) {
+                    // If res.json() fails, it means the response was not valid JSON.
+                    // This can happen with some network errors or non-JSON API error responses.
+                    throw new Error(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`);
+                }
             }
             return res.json();
         })
