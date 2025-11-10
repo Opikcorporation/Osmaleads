@@ -66,29 +66,29 @@ export function MetaSettings() {
       fetch('/api/meta/campaigns')
         .then(async res => {
             if (!res.ok) {
-                // Try to parse JSON, but handle cases where body is not JSON
                 try {
                     const errData = await res.json();
-                    // This is now a return, not a throw. It will be caught by .catch()
-                    return Promise.reject(new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.'));
+                    const errorMessage = errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.';
+                    setCampaignsError(errorMessage);
                 } catch(e) {
-                    // If res.json() fails, it means the response was not valid JSON.
-                    return Promise.reject(new Error(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`));
+                    setCampaignsError(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`);
                 }
+                return; // Stop processing
             }
-            return res.json();
-        })
-        .then(data => {
-            if(data.error) {
-                 // This is now a return, not a throw.
-                 return Promise.reject(new Error(data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.'));
+            
+            const data = await res.json();
+             if(data.error) {
+                const errorMessage = data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.';
+                setCampaignsError(errorMessage);
+                return; // Stop processing
             }
+
             setCampaigns(data.campaigns || []);
         })
         .catch(err => {
-            // All errors (thrown or rejected promises) are caught here.
-            console.error("Meta campaigns fetch error:", err); // Keep for debugging
-            setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez le jeton d\'accès.');
+            // This will catch network errors or other unexpected issues during fetch.
+            console.error("Meta campaigns fetch error:", err);
+            setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez la connexion réseau.');
         })
         .finally(() => {
             setCampaignsLoading(false);
