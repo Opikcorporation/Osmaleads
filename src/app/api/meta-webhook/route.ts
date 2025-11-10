@@ -46,53 +46,39 @@ export async function POST(request: Request) {
     // Meta sends data in an 'entry' array. We process each entry.
     if (body.object === 'page' && body.entry) {
       
-        // --- Get Meta Integration Settings ---
-        const settingsSnap = await firestore.collection('integrationSettings').where('integrationName', '==', 'meta').limit(1).get();
-        if (settingsSnap.empty) {
-            console.log("Meta integration not configured. Ignoring webhook.");
-            // We return 200 OK to prevent Meta from retrying.
-            return NextResponse.json({ message: 'Integration not configured, lead ignored.' }, { status: 200 });
-        }
-        const metaSettings = settingsSnap.docs[0].data() as IntegrationSetting;
-        const allowedCampaigns = metaSettings.enabledCampaignIds || [];
-
         for (const entry of body.entry) {
             for (const change of entry.changes) {
-                if (change.field === 'leadgen') {
-                    const leadData = change.value;
-
-                    // --- FILTERING LOGIC ---
-                    if (allowedCampaigns.length > 0 && !allowedCampaigns.includes(leadData.campaign_id)) {
-                        console.log(`Lead from campaign ${leadData.campaign_id} ignored as it's not in the allowed list.`);
-                        continue; // Skip to the next lead
+                if (change.field === 'leadgen' || change.field === 'leads') {
+                    const leadgenValue = change.value;
+                    const leadData : {[key:string]: string} = {};
+                    
+                    if (leadgenValue.field_data) { // Structure for leadgen field
+                        leadgenValue.field_data.forEach((field: {name: string, values: string[]}) => {
+                            leadData[field.name] = field.values[0];
+                        });
+                    } else { // Structure for leads field from Zapier
+                         Object.keys(leadgenValue).forEach(key => {
+                            leadData[key] = leadgenValue[key];
+                        });
                     }
-                    
-                    // --- Map Meta fields to our Lead structure ---
-                    const mappedData: {[key: string]: string} = {};
-                    leadData.field_data.forEach((field: {name: string, values: string[]}) => {
-                        mappedData[field.name] = field.values[0];
-                    });
-                    
-                    const leadName = mappedData.nom || 'Nom Inconnu';
-                    const email = mappedData.email || null;
-                    const phone = mappedData.telephone || null;
-                    const leadDataString = JSON.stringify(mappedData);
+
+                    const leadDataString = JSON.stringify(leadData);
 
                     // --- QUALIFICATION ---
                     const qualification = await qualifyLead({ leadData: leadDataString });
 
                     const newLead: Omit<Lead, 'id'> = {
-                        name: leadName,
-                        email: email,
-                        phone: phone,
-                        company: mappedData.company || null,
+                        name: leadData.nom || 'Nom Inconnu',
+                        email: leadData.email || null,
+                        phone: leadData.telephone || null,
+                        company: leadData.company || null,
                         username: null,
                         status: 'New',
                         leadData: leadDataString, // Store all original mapped data
                         assignedCollaboratorId: null,
                         createdAt: FieldValue.serverTimestamp(),
-                        campaignId: leadData.campaign_id,
-                        campaignName: mappedData.nom_campagne || leadData.campaign_name || null,
+                        campaignId: leadgenValue.campaign_id || null,
+                        campaignName: leadData.nom_campagne || leadgenValue.campaign_name || null,
                         score: qualification.score,
                         tier: qualification.tier
                     };
