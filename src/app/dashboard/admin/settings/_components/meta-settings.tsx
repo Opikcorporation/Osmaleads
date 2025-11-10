@@ -23,8 +23,6 @@ import {
 import type { IntegrationSetting } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { MetaConnectDialog } from './meta-connect-dialog';
-
 
 type MetaCampaign = {
   id: string;
@@ -36,7 +34,6 @@ export function MetaSettings() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
@@ -98,28 +95,20 @@ export function MetaSettings() {
   }, [isConnected]);
 
 
-  const handleConnect = async (accessToken: string) => {
-    if (!accessToken.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Jeton manquant',
-        description: "Veuillez fournir un jeton d'accès.",
-      });
-      return;
-    }
+  const handleConnect = async () => {
     setIsSaving(true);
     try {
       const settingsCollection = collection(firestore, 'integrationSettings');
+      // This is a placeholder for a real OAuth flow.
       await addDocumentNonBlocking(settingsCollection, {
         integrationName: 'meta',
-        accessToken: accessToken,
+        accessToken: 'TEMP_TOKEN_NEEDS_OAUTH',
         enabledCampaignIds: [],
       });
       toast({
         title: 'Connecté !',
         description: "L'intégration Meta a été activée avec succès.",
       });
-      setIsConnectDialogOpen(false); // Close dialog on success
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -175,19 +164,19 @@ export function MetaSettings() {
   }
 
   return (
-    <>
     <div className="space-y-8">
       {!isConnected ? (
          <Card>
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Cliquez sur le bouton ci-dessous pour fournir un jeton d'accès et activer la synchronisation des leads.
+                   Cliquez sur le bouton ci-dessous pour lancer l'authentification et activer la synchronisation des leads.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={() => setIsConnectDialogOpen(true)}>
-                    <Plug className="mr-2 h-4 w-4" /> Connecter mon compte Meta
+                <Button onClick={handleConnect} disabled={isSaving}>
+                    <Plug className="mr-2 h-4 w-4" /> 
+                    {isSaving ? 'Connexion en cours...' : 'Se connecter à Meta'}
                 </Button>
             </CardContent>
          </Card>
@@ -217,8 +206,8 @@ export function MetaSettings() {
                             <AlertTitle>Erreur de chargement</AlertTitle>
                             <AlertDescription>
                               {campaignsError}
-                              <Button variant="link" className="p-0 h-auto mt-2" asChild>
-                                <a onClick={() => setIsConnectDialogOpen(true)}>Réessayer avec un nouveau token ?</a>
+                              <Button variant="link" className="p-0 h-auto mt-2" onClick={handleDisconnect}>
+                                Se déconnecter et réessayer ?
                               </Button>
                             </AlertDescription>
                             </Alert>
@@ -254,12 +243,5 @@ export function MetaSettings() {
         </>
       )}
     </div>
-    <MetaConnectDialog 
-        isOpen={isConnectDialogOpen}
-        onClose={() => setIsConnectDialogOpen(false)}
-        onSave={handleConnect}
-        isSaving={isSaving}
-    />
-    </>
   );
 }
