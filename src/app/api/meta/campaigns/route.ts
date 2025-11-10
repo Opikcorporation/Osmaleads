@@ -27,12 +27,10 @@ type Page = {
  */
 async function getSubscribedPages(pageIds: string[], userAccessToken: string): Promise<Set<string>> {
     const appId = process.env.META_APP_ID;
-    const appSecret = process.env.META_APP_SECRET;
-    if (!appId || !appSecret) {
-        console.warn("META_APP_ID or META_APP_SECRET not set. Cannot check subscription status.");
+    if (!appId) {
+        console.warn("META_APP_ID not set. Cannot check subscription status.");
         return new Set();
     }
-    const appAccessToken = `${appId}|${appSecret}`;
     
     const subscribedPages = new Set<string>();
 
@@ -41,7 +39,8 @@ async function getSubscribedPages(pageIds: string[], userAccessToken: string): P
             const url = `${META_GRAPH_API_URL}/${pageId}/subscribed_apps?subscribed_fields=leadgen&access_token=${userAccessToken}`;
             const response = await fetch(url);
             const data = await response.json() as any;
-            if (data.data?.some((app: any) => app.id === appId)) {
+            // Check if our app (by its ID) is in the list of subscribed apps for the 'leadgen' field.
+            if (data.data?.some((app: any) => app.id === appId && app.subscribed_fields?.includes('leadgen'))) {
                 subscribedPages.add(pageId);
             }
         } catch(e) {
