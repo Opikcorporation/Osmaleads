@@ -33,7 +33,7 @@ import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { leadStatuses, leadTiers } from '@/lib/types';
 import { collection, query, where, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, User, X, Trash2, CheckSquare } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
@@ -83,6 +83,7 @@ export default function DashboardPage() {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+  const [useFallbackQuery, setUseFallbackQuery] = useState(false);
 
   // Query for the main leads table with filters
   const leadsQuery = useMemo(() => {
@@ -90,7 +91,12 @@ export default function DashboardPage() {
       return null;
     }
 
-    let q = query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'));
+    let q = collection(firestore, 'leads');
+    
+    // Conditionally add ordering
+    if (!useFallbackQuery) {
+        q = query(q, orderBy('createdAt', 'desc'));
+    }
 
     if (collaborator.role !== 'admin') {
       q = query(q, where('assignedCollaboratorId', '==', collaborator.id));
@@ -105,19 +111,27 @@ export default function DashboardPage() {
     }
 
     return q;
-  }, [firestore, collaborator, filterStatus, filterTier, isAdmin]);
+  }, [firestore, collaborator, filterStatus, filterTier, isAdmin, useFallbackQuery]);
+
+  const { data: leads, isLoading: leadsLoading, error: leadsError } = useCollection<Lead>(leadsQuery);
+
+  // Effect to switch to fallback query if the primary one fails
+  useEffect(() => {
+    if (leadsError && leadsError.message.includes('firestore/failed-precondition')) {
+      setUseFallbackQuery(true);
+    }
+  }, [leadsError]);
+
 
   // Query for the last lead to get the timestamp
   const lastLeadQuery = useMemo(() => {
     if (!firestore) return null;
-    // We only need the very last document based on creation time.
     return query(collection(firestore, 'leads'), orderBy('createdAt', 'desc'), limit(1));
   }, [firestore]);
 
-  // Query to get all leads for the total count. No filters applied here.
+  // Query to get all leads for the total count.
   const allLeadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
 
-  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: allLeads, isLoading: allLeadsLoading } = useCollection<Lead>(allLeadsQuery);
   const { data: lastLeadArr, isLoading: lastLeadLoading } = useCollection<Lead>(lastLeadQuery);
   const lastLead = lastLeadArr?.[0];
