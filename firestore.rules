@@ -27,10 +27,11 @@ service cloud.firestore {
     
     // --- Leads Rules ---
     match /leads/{leadId} {
-      // Admins can read any lead.
-      // Collaborators can only read leads assigned to them.
-      // This rule implicitly forces 'list' queries for non-admins to have a 'where' clause on their ID.
-      allow read: if isAdmin() || resource.data.assignedCollaboratorId == request.auth.uid;
+      // Admins can get any lead. Collaborators can get leads assigned to them.
+      allow get: if isAdmin() || resource.data.assignedCollaboratorId == request.auth.uid;
+      
+      // Any authenticated user can list leads. The query in the app filters them.
+      allow list: if isAuth();
 
       // Write rules will be secured in the next step. For now, any auth user can write.
       allow write: if isAuth();
