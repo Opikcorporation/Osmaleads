@@ -31,9 +31,11 @@ export async function POST(request: Request) {
     // This ensures the token is not completely fake before saving it.
     const validationUrl = `https://graph.facebook.com/v19.0/me?access_token=${accessToken}`;
     const validationResponse = await fetch(validationUrl);
-    if (!validationResponse.ok) {
-        const errorData = await validationResponse.json();
-        const errorMessage = errorData?.error?.message || "Le jeton d'accès fourni est invalide ou a expiré.";
+    const validationData = await validationResponse.json() as any;
+
+    // A valid token will return a response with an 'id' field. An invalid one will have an 'error' field.
+    if (!validationResponse.ok || !validationData.id) {
+        const errorMessage = validationData?.error?.message || "Le jeton d'accès fourni est invalide ou a expiré.";
         return NextResponse.json({ error: errorMessage }, { status: 401 });
     }
 
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
     const settingsCollection = firestore.collection('integrationSettings');
     const settingsQuery = await settingsCollection.where('integrationName', '==', 'meta').limit(1).get();
 
-    const newSettings: Omit<IntegrationSetting, 'id'> = {
+    const newSettings: Omit<IntegrationSetting, 'id' | 'createdAt' | 'assignedAt' > = {
       integrationName: 'meta',
       accessToken: accessToken,
       enabledCampaignIds: [],

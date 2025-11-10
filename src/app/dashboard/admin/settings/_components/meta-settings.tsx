@@ -24,6 +24,7 @@ import type { IntegrationSetting } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { MetaConnectDialog } from './meta-connect-dialog';
+import { Badge } from '@/components/ui/badge';
 
 type MetaCampaign = {
   id: string;
@@ -107,7 +108,6 @@ export function MetaSettings() {
 
   const handleConnect = async (accessToken: string) => {
     setIsSaving(true);
-    setIsConnectDialogOpen(false);
     try {
         const response = await fetch('/api/meta/connect', {
             method: 'POST',
@@ -115,8 +115,8 @@ export function MetaSettings() {
             body: JSON.stringify({ accessToken }),
         });
 
+        const result = await response.json();
         if (!response.ok) {
-            const result = await response.json();
             throw new Error(result.error || "Une erreur inconnue est survenue lors de la connexion.");
         }
 
@@ -124,6 +124,8 @@ export function MetaSettings() {
         title: 'Connecté !',
         description: "L'intégration Meta a été activée.",
       });
+      // Only close the dialog on success
+      setIsConnectDialogOpen(false);
     } catch (error: any) {
       toast({
         variant: 'destructive',
