@@ -69,23 +69,25 @@ export function MetaSettings() {
                 // Try to parse JSON, but handle cases where body is not JSON
                 try {
                     const errData = await res.json();
-                     throw new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.');
+                    // This is now a return, not a throw. It will be caught by .catch()
+                    return Promise.reject(new Error(errData.details?.error?.message || errData.error || 'La réponse du serveur n\'était pas OK.'));
                 } catch(e) {
                     // If res.json() fails, it means the response was not valid JSON.
-                    // This can happen with some network errors or non-JSON API error responses.
-                    throw new Error(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`);
+                    return Promise.reject(new Error(`Erreur de communication avec l'API Meta. Le token est probablement invalide ou a expiré.`));
                 }
             }
             return res.json();
         })
         .then(data => {
             if(data.error) {
-                 throw new Error(data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.');
+                 // This is now a return, not a throw.
+                 return Promise.reject(new Error(data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.'));
             }
             setCampaigns(data.campaigns || []);
         })
         .catch(err => {
-            console.error(err);
+            // All errors (thrown or rejected promises) are caught here.
+            console.error("Meta campaigns fetch error:", err); // Keep for debugging
             setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez le jeton d\'accès.');
         })
         .finally(() => {
