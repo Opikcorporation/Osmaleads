@@ -85,7 +85,6 @@ export function MetaSettings() {
           setCampaigns(data.campaigns || []);
       })
       .catch(err => {
-          console.error("Meta campaigns fetch error:", err);
           setCampaignsError(err.message || 'Impossible de charger les campagnes. Vérifiez la connexion réseau.');
       })
       .finally(() => {
@@ -104,14 +103,14 @@ export function MetaSettings() {
 
 
   const handleConnect = async () => {
-    // IMPORTANT: Remplacez cette valeur par votre vrai jeton d'accès utilisateur.
-    const userAccessToken = "EAAIf0kHxShoBP387FcoyG0pg5WBHIQSTqJIpVdzuLN0sQDLFYFZAYTPBAwXGVHPbtXnqboBaWv5IE7od2otvDLAQCiM0WWhbWYjCaceZBXXAHXhlhuLQfVdJ66EhgDAqVraUrmHHsoolVFXZCtX5Tmxg2zclC1IR8VZBA5jgvOR3GrZBj2VcQvzfvneUaCcNIWhQi40EGnGo4";
+    // IMPORTANT: This now reads the token from the environment variable.
+    const userAccessToken = process.env.NEXT_PUBLIC_META_USER_ACCESS_TOKEN;
     
-    if (userAccessToken === "REMPLACEZ_PAR_VOTRE_VRAI_JETON") {
+    if (!userAccessToken || userAccessToken === "REMPLACEZ_PAR_VOTRE_VRAI_JETON") {
       toast({
         variant: "destructive",
         title: "Action requise",
-        description: "Veuillez modifier le code pour remplacer le jeton d'accès temporaire par votre vrai jeton.",
+        description: "Veuillez ajouter votre jeton d'accès utilisateur Meta dans le fichier .env sous la clé NEXT_PUBLIC_META_USER_ACCESS_TOKEN.",
       });
       return;
     }
@@ -237,7 +236,7 @@ export function MetaSettings() {
             <CardHeader>
                 <CardTitle>Étape 1 : Connecter votre compte Meta</CardTitle>
                 <CardDescription>
-                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Assurez-vous d'avoir inséré votre jeton d'accès dans le code.
+                   Cliquez sur le bouton ci-dessous pour activer la synchronisation des leads. Assurez-vous d'avoir inséré votre jeton d'accès dans le fichier .env.
                 </CardDescription>
             </CardHeader>
             <CardContent>
