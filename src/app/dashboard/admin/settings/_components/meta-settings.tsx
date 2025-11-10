@@ -73,15 +73,13 @@ export function MetaSettings() {
               } catch(e) {
                   // Keep the generic error message if response is not JSON
               }
-              setCampaignsError(errorMessage);
-              return;
+              throw new Error(errorMessage);
           }
           
           const data = await res.json();
            if(data.error) {
               const errorMessage = data.details?.error?.message || data.error || 'Erreur lors de la récupération des campagnes.';
-              setCampaignsError(errorMessage);
-              return;
+              throw new Error(errorMessage);
           }
 
           setCampaigns(data.campaigns || []);

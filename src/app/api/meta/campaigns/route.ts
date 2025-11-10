@@ -143,29 +143,32 @@ export async function GET(request: Request) {
 
     try {
         const pagesResponse = await fetch(`${META_GRAPH_API_URL}/me/accounts?fields=name,access_token&access_token=${userAccessToken}`);
-        if(pagesResponse.ok) {
-            const pagesData = await pagesResponse.json() as { data: Page[] };
-            if (pagesData.data && pagesData.data.length > 0) {
-                const pageIds = pagesData.data.map(p => p.id);
-                const subscribedPageIds = await getSubscribedPages(pageIds);
-
-                const pageCampaignPromises = pagesData.data.map(page => 
-                    fetchCampaignsFromPage(page, subscribedPageIds.has(page.id))
-                );
-                
-                const results = await Promise.all(pageCampaignPromises);
-                results.flat().forEach(campaign => {
-                    allCampaigns[campaign.id] = campaign;
-                });
-            }
-        } else {
+        
+        // --- CRITICAL ERROR HANDLING ---
+        if(!pagesResponse.ok) {
              const errorData = await pagesResponse.json();
-             console.warn("Could not fetch pages, will try other methods.", errorData);
-             fetchError = errorData;
+             console.error("Critical Error: Could not fetch pages from Meta.", errorData);
+             // Directly return the error instead of continuing
+             return NextResponse.json({ error: 'Failed to fetch pages from Meta. The token might be invalid or miss permissions.', details: errorData }, { status: 500 });
         }
-    } catch(e) {
-         console.warn("Could not fetch via Pages.", e);
-         fetchError = e;
+
+        const pagesData = await pagesResponse.json() as { data: Page[] };
+        if (pagesData.data && pagesData.data.length > 0) {
+            const pageIds = pagesData.data.map(p => p.id);
+            const subscribedPageIds = await getSubscribedPages(pageIds);
+
+            const pageCampaignPromises = pagesData.data.map(page => 
+                fetchCampaignsFromPage(page, subscribedPageIds.has(page.id))
+            );
+            
+            const results = await Promise.all(pageCampaignPromises);
+            results.flat().forEach(campaign => {
+                allCampaigns[campaign.id] = campaign;
+            });
+        }
+    } catch(e: any) {
+         console.error("Could not fetch via Pages.", e);
+         fetchError = { message: e.message }; // Make sure error is serializable
     }
     
     const uniqueCampaigns = Object.values(allCampaigns);
