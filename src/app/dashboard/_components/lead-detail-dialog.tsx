@@ -144,7 +144,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const renderLeadData = () => {
     if (!lead) return null;
 
-    let parsedLeadData: Record<string, any> | null = null;
+    let parsedLeadData: Record<string, any> = {};
     if (lead.leadData) {
         try {
             parsedLeadData = JSON.parse(lead.leadData);
@@ -153,18 +153,18 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         }
     }
 
-    // Combine root properties and parsed leadData for a complete view, ensuring no overwrites of parsedData by empty root properties.
-    const combinedData = {
-        ...parsedLeadData,
-        nom: parsedLeadData?.nom || lead.name || lead.nom,
-        email: parsedLeadData?.email || lead.email,
-        telephone: parsedLeadData?.telephone || lead.phone,
-        nom_campagne: parsedLeadData?.nom_campagne || lead.campaignName,
+    // Combine root properties and parsed leadData for a complete view.
+    // Give priority to values from the root lead object if they exist, otherwise use parsed data.
+    const combinedData: Record<string, any> = {
+      ...parsedLeadData,
+      nom: lead.name || lead.nom || parsedLeadData.nom,
+      email: lead.email || parsedLeadData.email,
+      telephone: lead.phone || lead.telephone || parsedLeadData.telephone,
+      nom_campagne: lead.campaignName || lead.nom_campagne || parsedLeadData.nom_campagne,
     };
     
     const displayOrder = ['nom', 'email', 'telephone', 'type_de_bien', 'temps', 'budget', 'objectif', 'nom_campagne', 'created_time', 'Create Time'];
     
-    // Sort keys based on displayOrder, then alphabetically for any other keys
     const sortedKeys = Object.keys(combinedData).sort((a, b) => {
         const indexA = displayOrder.indexOf(a);
         const indexB = displayOrder.indexOf(b);
