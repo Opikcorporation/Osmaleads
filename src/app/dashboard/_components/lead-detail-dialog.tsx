@@ -72,7 +72,8 @@ const leadDataLabels: Record<string, string> = {
     objectif: 'Objectif',
     budget: 'Budget',
     temps: 'Échéance',
-    'Create Time': 'Date de Création (Meta)',
+    'Create Time': 'Date de Création',
+    created_time: 'Date de Création',
     // Add any other fields you want to display with a friendly name
 };
 
@@ -142,75 +143,64 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const renderLeadData = () => {
     if (!lead) return null;
 
-    // Use the entire lead object as the source of data
-    const data: Record<string, any> = lead;
-    
-    // Filter out keys that are already displayed prominently
-    const filteredKeys = Object.keys(data).filter(key => 
-      !['id', 'name', 'nom', 'email', 'phone', 'telephone', 'status', 'tier', 'score', 'assignedCollaboratorId', 'createdAt', 'assignedAt', 'leadData'].includes(key) && data[key]
-    );
-
-    if (filteredKeys.length === 0 && !lead.leadData) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
-    }
-
-    // First, try to parse leadData if it exists
+    let parsedLeadData: Record<string, any> | null = null;
     if (lead.leadData) {
         try {
-            const parsedLeadData = JSON.parse(lead.leadData);
-             return (
-                <ul className="space-y-3 text-sm text-foreground">
-                {Object.keys(parsedLeadData).map((key) => {
-                    const label = leadDataLabels[key] || key.replace(/_/g, ' ');
-                    const value = parsedLeadData[key];
-                    if (!value) return null;
-                    const stringValue = String(value);
-
-                    if (isPhoneNumber(stringValue)) {
-                    return (
-                        <li key={key}>
-                        <strong className="capitalize">{label}:</strong>{' '}
-                        <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                            <WhatsAppIcon />
-                            <span>{stringValue}</span>
-                        </a>
-                        </li>
-                    );
-                    }
-                    return (
-                    <li key={key}>
-                        <strong className="capitalize">{label}:</strong> {stringValue}
-                    </li>
-                    );
-                })}
-                </ul>
-            );
-        } catch(e) {
-            // If leadData is not JSON, display it as raw text
+            parsedLeadData = JSON.parse(lead.leadData);
+        } catch (e) {
+            // If leadData is not JSON, display it as raw text and stop.
             return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
         }
     }
 
+    // Combine root properties and parsed leadData for a complete view
+    const combinedData = {
+        ...parsedLeadData,
+        // Add root properties if they don't exist in parsedData
+        nom: parsedLeadData?.nom || lead.name || lead.nom,
+        email: parsedLeadData?.email || lead.email,
+        telephone: parsedLeadData?.telephone || lead.phone || lead.telephone,
+        nom_campagne: parsedLeadData?.nom_campagne || lead.campaignName || lead.nom_campagne,
+    };
+    
+    // Define the order in which to display the fields
+    const displayOrder = ['nom', 'email', 'telephone', 'nom_campagne', 'objectif', 'budget', 'temps', 'created_time', 'Create Time'];
+    
+    // Get all keys from combinedData and sort them according to displayOrder
+    const sortedKeys = Object.keys(combinedData).sort((a, b) => {
+        const indexA = displayOrder.indexOf(a);
+        const indexB = displayOrder.indexOf(b);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return a.localeCompare(b);
+    });
 
-    // Fallback to displaying root-level properties if leadData is not available
+    // Remove duplicates like 'name' if 'nom' is present
+    const uniqueKeys = Array.from(new Set(sortedKeys));
+
+    if (uniqueKeys.length === 0) {
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
+    }
+
     return (
         <ul className="space-y-3 text-sm text-foreground">
-        {filteredKeys.map((key) => {
+        {uniqueKeys.map((key) => {
             const label = leadDataLabels[key] || key.replace(/_/g, ' ');
-            const value = data[key];
+            const value = combinedData[key];
             if (!value) return null;
             const stringValue = String(value);
 
             if (isPhoneNumber(stringValue)) {
-                return (
-                    <li key={key}>
-                    <strong className="capitalize">{label}:</strong>{' '}
-                    <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                        <WhatsAppIcon />
-                        <span>{stringValue}</span>
-                    </a>
-                    </li>
-                );
+            return (
+                <li key={key}>
+                <strong className="capitalize">{label}:</strong>{' '}
+                <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                    <WhatsAppIcon />
+                    <span>{stringValue}</span>
+                </a>
+                </li>
+            );
             }
             return (
             <li key={key}>

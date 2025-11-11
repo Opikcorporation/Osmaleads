@@ -52,11 +52,9 @@ export async function POST(request: Request) {
       // Use the raw payload from Zapier, or dig into the Meta structure if it exists.
       const leadgenValue = changes?.[0]?.value || leadPayload;
 
-      // Extract all key-value pairs from the webhook payload.
-      const leadData: { [key: string]: string } = {};
-      
-      // Directly map known fields from the payload to an object
-      const data: Record<string, string> = {
+      // Extract all key-value pairs from the webhook payload into a clean object.
+      // This ensures all relevant data is captured in a consistent format.
+      const data: Record<string, string | null> = {
           nom: leadgenValue.nom || null,
           email: leadgenValue.email || null,
           telephone: leadgenValue.telephone || null,
@@ -64,7 +62,7 @@ export async function POST(request: Request) {
           objectif: leadgenValue.objectif || null,
           budget: leadgenValue.budget || null,
           temps: leadgenValue.temps || null,
-          "Create Time": leadgenValue['Create Time'] || leadgenValue.created_time || null
+          created_time: leadgenValue['created_time'] || leadgenValue['Create Time'] || null
       };
 
       const leadDataString = JSON.stringify(data);
@@ -74,7 +72,7 @@ export async function POST(request: Request) {
 
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
-      const dateString = data['Create Time'];
+      const dateString = data['created_time'];
       if (dateString) {
         // Meta sends date strings like "2024-05-21T10:30:00+0000"
         const date = new Date(dateString);
@@ -93,7 +91,7 @@ export async function POST(request: Request) {
           name: data.nom || 'Nom Inconnu',
           email: data.email || null,
           phone: data.telephone || null,
-          company: null, // No company field from zapier
+          company: null, // No company field from this source
           username: null,
           status: 'New', // Automatically set status to 'New'
           leadData: leadDataString,
