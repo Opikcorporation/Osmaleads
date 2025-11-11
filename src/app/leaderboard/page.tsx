@@ -1,13 +1,14 @@
 'use client';
 
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
 import { collection } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Trophy, Award, Crown } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 const getInitials = (name: string) => {
     if (!name) return '';
@@ -20,11 +21,19 @@ const getInitials = (name: string) => {
 
 export default function LeaderboardPage() {
   const firestore = useFirestore();
+  const { user, collaborator, isLoading: isAuthLoading } = useFirebase();
+  const router = useRouter();
 
-  const leadsQuery = useMemo(() => collection(firestore, 'leads'), [firestore]);
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push('/login');
+    }
+  }, [isAuthLoading, user, router]);
+
+  const leadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
 
-  const usersQuery = useMemo(() => collection(firestore, 'collaborators'), [firestore]);
+  const usersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: collaborators, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
 
   const leaderboards = useMemo(() => {
@@ -60,13 +69,21 @@ export default function LeaderboardPage() {
     return { topSellers, topQualifiers };
   }, [leads, collaborators]);
 
-  const isLoading = leadsLoading || usersLoading;
+  const isLoading = isAuthLoading || leadsLoading || usersLoading;
 
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <p className="text-2xl font-semibold animate-pulse">Chargement du classement...</p>
       </div>
+    );
+  }
+  
+  if (!collaborator) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+            <p>Redirection...</p>
+        </div>
     );
   }
 
