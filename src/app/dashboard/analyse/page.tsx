@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
@@ -130,6 +130,8 @@ const getCampaignName = (l: Lead): string => {
 
 export default function AnalysePage() {
   const firestore = useFirestore();
+  const { collaborator } = useFirebase();
+  const isAdmin = collaborator?.role === 'admin';
   const [period, setPeriod] = useState('this_month');
   
   const leadsQuery = useMemo(
@@ -142,10 +144,18 @@ export default function AnalysePage() {
     () => collection(firestore, 'collaborators'),
     [firestore]
   );
-  const { data: collaborators, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
+  const { data: collaboratorsData, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
+
+  const relevantLeads = useMemo(() => {
+      if (!allLeads || !collaborator) return [];
+      if (isAdmin) {
+          return allLeads;
+      }
+      return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+  }, [allLeads, collaborator, isAdmin]);
 
   const filteredLeads = useMemo(() => {
-    if (!allLeads) return [];
+    if (!relevantLeads) return [];
     
     const now = new Date();
     let startDate: Date;
@@ -170,17 +180,17 @@ export default function AnalysePage() {
         break;
       case 'all_time':
       default:
-        return allLeads;
+        return relevantLeads;
     }
 
-    return allLeads.filter(lead => {
+    return relevantLeads.filter(lead => {
       const leadDate = getCreationDate(lead);
       if (leadDate) {
         return leadDate >= startDate && leadDate <= endDate;
       }
       return false;
     });
-  }, [allLeads, period]);
+  }, [relevantLeads, period]);
 
   const stats = useMemo(() => {
     if (!filteredLeads) {
@@ -253,9 +263,9 @@ export default function AnalysePage() {
   }, [filteredLeads]);
 
   const performanceByCollaborator = useMemo(() => {
-    if (!filteredLeads || !collaborators) return [];
+    if (!filteredLeads || !collaboratorsData) return [];
     
-    const collaboratorData = collaborators.map(c => {
+    const collaboratorStats = collaboratorsData.map(c => {
         const assignedLeads = filteredLeads.filter(l => l.assignedCollaboratorId === c.id);
         const statusCounts = assignedLeads.reduce((acc, lead) => {
             const status = lead.status || 'New';
@@ -270,8 +280,8 @@ export default function AnalysePage() {
         }
     });
 
-    return collaboratorData.filter(c => c.total > 0);
-  }, [filteredLeads, collaborators]);
+    return collaboratorStats.filter(c => c.total > 0);
+  }, [filteredLeads, collaboratorsData]);
 
   const isLoading = leadsLoading || usersLoading;
 
@@ -285,7 +295,7 @@ export default function AnalysePage() {
         <div>
             <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Performances</h1>
             <p className="text-muted-foreground">
-                Visualisez la performance de vos campagnes, collaborateurs et leads.
+                {isAdmin ? 'Visualisez la performance globale des campagnes et des collaborateurs.' : 'Visualisez la performance de vos leads assignés.'}
             </p>
         </div>
         <div className="w-full sm:w-auto">
@@ -309,7 +319,7 @@ export default function AnalysePage() {
         <Card>
           <CardHeader>
             <CardTitle>Total des Leads</CardTitle>
-            <CardDescription>Nombre total de leads importés.</CardDescription>
+            <CardDescription>Nombre total de leads sur la période.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold">{stats.totalLeads}</p>
@@ -405,61 +415,65 @@ export default function AnalysePage() {
             </Card>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Performance par Campagne</CardTitle>
-                    <CardDescription>Nombre de leads générés par chaque campagne.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ChartContainer config={{}} className="min-h-[300px] w-full">
-                        <BarChart data={leadsByCampaign} accessibilityLayer>
-                            <CartesianGrid vertical={false} />
-                            <XAxis
-                                dataKey="name"
-                                tickLine={false}
-                                tickMargin={10}
-                                axisLine={false}
-                            />
-                            <YAxis />
-                            <Tooltip
-                                cursor={false}
-                                content={<ChartTooltipContent indicator="dot" />}
-                            />
-                            <Bar dataKey="leads" fill="hsl(var(--primary))" radius={4}>
-                                <LabelList dataKey="leads" position="top" offset={8} className="fill-foreground" fontSize={12} />
-                            </Bar>
-                        </BarChart>
-                    </ChartContainer>
-                </CardContent>
-            </Card>
-        </div>
+        {isAdmin && (
+            <>
+                <div className="mt-6 grid grid-cols-1 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Performance par Campagne</CardTitle>
+                            <CardDescription>Nombre de leads générés par chaque campagne.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ChartContainer config={{}} className="min-h-[300px] w-full">
+                                <BarChart data={leadsByCampaign} accessibilityLayer>
+                                    <CartesianGrid vertical={false} />
+                                    <XAxis
+                                        dataKey="name"
+                                        tickLine={false}
+                                        tickMargin={10}
+                                        axisLine={false}
+                                    />
+                                    <YAxis />
+                                    <Tooltip
+                                        cursor={false}
+                                        content={<ChartTooltipContent indicator="dot" />}
+                                    />
+                                    <Bar dataKey="leads" fill="hsl(var(--primary))" radius={4}>
+                                        <LabelList dataKey="leads" position="top" offset={8} className="fill-foreground" fontSize={12} />
+                                    </Bar>
+                                </BarChart>
+                            </ChartContainer>
+                        </CardContent>
+                    </Card>
+                </div>
 
-         <div className="mt-6 grid grid-cols-1 gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Performance par Collaborateur</CardTitle>
-                    <CardDescription>Répartition des statuts des leads pour chaque collaborateur.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ChartContainer config={chartConfigStatus} className="min-h-[400px] w-full">
-                        <BarChart data={performanceByCollaborator} accessibilityLayer layout="vertical">
-                            <CartesianGrid horizontal={false} />
-                            <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} />
-                            <XAxis dataKey="total" type="number" hide />
-                            <Tooltip content={<ChartTooltipContent hideLabel />} />
-                            <Legend />
-                            <Bar dataKey="New" stackId="a" fill={chartConfigStatus.New.color} name={chartConfigStatus.New.label} />
-                            <Bar dataKey="Qualified" stackId="a" fill={chartConfigStatus.Qualified.color} name={chartConfigStatus.Qualified.label} />
-                            <Bar dataKey="Signed" stackId="a" fill={chartConfigStatus.Signed.color} name={chartConfigStatus.Signed.label} />
-                            <Bar dataKey="Not Qualified" stackId="a" fill={chartConfigStatus['Not Qualified'].color} name={chartConfigStatus['Not Qualified'].label} />
-                            <Bar dataKey="No Answer" stackId="a" fill={chartConfigStatus['No Answer'].color} name={chartConfigStatus['No Answer'].label} />
-                            <Bar dataKey="Not Interested" stackId="a" fill={chartConfigStatus['Not Interested'].color} name={chartConfigStatus['Not Interested'].label} />
-                        </BarChart>
-                    </ChartContainer>
-                </CardContent>
-            </Card>
-        </div>
+                <div className="mt-6 grid grid-cols-1 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Performance par Collaborateur</CardTitle>
+                            <CardDescription>Répartition des statuts des leads pour chaque collaborateur.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ChartContainer config={chartConfigStatus} className="min-h-[400px] w-full">
+                                <BarChart data={performanceByCollaborator} accessibilityLayer layout="vertical">
+                                    <CartesianGrid horizontal={false} />
+                                    <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} />
+                                    <XAxis dataKey="total" type="number" hide />
+                                    <Tooltip content={<ChartTooltipContent hideLabel />} />
+                                    <Legend />
+                                    <Bar dataKey="New" stackId="a" fill={chartConfigStatus.New.color} name={chartConfigStatus.New.label} />
+                                    <Bar dataKey="Qualified" stackId="a" fill={chartConfigStatus.Qualified.color} name={chartConfigStatus.Qualified.label} />
+                                    <Bar dataKey="Signed" stackId="a" fill={chartConfigStatus.Signed.color} name={chartConfigStatus.Signed.label} />
+                                    <Bar dataKey="Not Qualified" stackId="a" fill={chartConfigStatus['Not Qualified'].color} name={chartConfigStatus['Not Qualified'].label} />
+                                    <Bar dataKey="No Answer" stackId="a" fill={chartConfigStatus['No Answer'].color} name={chartConfigStatus['No Answer'].label} />
+                                    <Bar dataKey="Not Interested" stackId="a" fill={chartConfigStatus['Not Interested'].color} name={chartConfigStatus['Not Interested'].label} />
+                                </BarChart>
+                            </ChartContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+            </>
+        )}
     </>
   );
 }

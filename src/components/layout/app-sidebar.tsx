@@ -29,7 +29,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       href: '/dashboard/analyse',
       label: 'Analyse',
       icon: LineChart,
-      roles: ['admin'],
+      roles: ['admin', 'collaborator'],
     },
     {
         href: '/leaderboard',
