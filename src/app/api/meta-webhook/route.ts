@@ -62,6 +62,7 @@ export async function POST(request: Request) {
           objectif: leadgenValue.objectif || null,
           budget: leadgenValue.budget || null,
           temps: leadgenValue.temps || null,
+          type_de_bien: leadgenValue.type_de_bien || null,
           created_time: leadgenValue['created_time'] || leadgenValue['Create Time'] || null
       };
 

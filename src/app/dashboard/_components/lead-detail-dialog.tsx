@@ -74,6 +74,7 @@ const leadDataLabels: Record<string, string> = {
     temps: 'Échéance',
     'Create Time': 'Date de Création',
     created_time: 'Date de Création',
+    type_de_bien: 'Type de bien',
     // Add any other fields you want to display with a friendly name
 };
 
@@ -164,7 +165,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     };
     
     // Define the order in which to display the fields
-    const displayOrder = ['nom', 'email', 'telephone', 'nom_campagne', 'objectif', 'budget', 'temps', 'created_time', 'Create Time'];
+    const displayOrder = ['nom', 'email', 'telephone', 'type_de_bien', 'temps', 'budget', 'objectif', 'nom_campagne', 'created_time', 'Create Time'];
     
     // Get all keys from combinedData and sort them according to displayOrder
     const sortedKeys = Object.keys(combinedData).sort((a, b) => {
