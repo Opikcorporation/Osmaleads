@@ -59,14 +59,8 @@ const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
 };
 
-// This maps the standardized field names to user-friendly labels.
-const leadDataLabels: Record<string, string> = {
-    intention: "Intention d'achat",
-    budget: 'Budget',
-    objectif: 'Objectif',
-    typeDeBien: 'Type de bien',
-    campaignName: 'Campagne',
-    createdAt: 'Date de Création',
+const capitalizeFirstLetter = (string: string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1);
 };
 
 
@@ -135,51 +129,66 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   const renderLeadData = () => {
     if (!lead) {
-      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
 
-    const importantFields = [
-        { key: 'intention', label: "Intention d'achat" },
-        { key: 'budget', label: 'Budget' },
-        { key: 'objectif', label: 'Objectif' },
-        { key: 'typeDeBien', label: 'Type de bien' },
-        { key: 'campaignName', label: 'Campagne' },
-        { key: 'createdAt', label: 'Date de Création' },
-    ];
+    let parsedData = {};
+    try {
+        if (lead.leadData) {
+            parsedData = JSON.parse(lead.leadData);
+        }
+    } catch (e) {
+        console.error("Could not parse leadData JSON:", e);
+    }
+    
+    // Combine main lead object with parsed leadData for a full picture
+    const allData = { ...lead, ...parsedData };
 
-    const dataToDisplay = importantFields
-        .map(field => {
-            const value = lead[field.key as keyof Lead];
-            if (!value) return null;
+    // Define keys to exclude from the detail list (already shown in the header)
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt'];
 
+    const dataToDisplay = Object.entries(allData)
+        .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
+        .map(([key, value]) => {
             let displayValue: string;
-            if (field.key === 'createdAt' && value instanceof Timestamp) {
-                displayValue = format(value.toDate(), 'dd/MM/yyyy HH:mm');
+            // Format timestamp values nicely
+            if (key === 'created_time' || key === 'Created Time') {
+                const date = new Date(value as string);
+                if (!isNaN(date.getTime())) {
+                    displayValue = format(date, 'dd/MM/yyyy HH:mm');
+                } else {
+                    displayValue = String(value);
+                }
             } else {
                 displayValue = String(value);
             }
+
+            // Clean up the key for display
+            const displayKey = key
+                .replace(/_/g, ' ')
+                .replace(/Raw/g, '')
+                .trim();
             
             return {
-                label: field.label,
-                value: displayValue
+                label: capitalizeFirstLetter(displayKey),
+                value: displayValue,
             };
-        })
-        .filter(item => item !== null) as { label: string; value: string }[];
+        });
 
     if (dataToDisplay.length === 0) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
 
     return (
         <ul className="space-y-3 text-sm text-foreground">
-        {dataToDisplay.map(({ label, value }) => (
-            <li key={label}>
-                <strong className="capitalize">{label}:</strong> {value}
-            </li>
-        ))}
+            {dataToDisplay.map(({ label, value }) => (
+                <li key={label}>
+                    <strong className="capitalize">{label}:</strong> {value}
+                </li>
+            ))}
         </ul>
     );
-  };
+};
 
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
