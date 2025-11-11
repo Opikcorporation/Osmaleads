@@ -51,16 +51,36 @@ const qualificationPrompt = ai.definePrompt({
     input: { schema: QualifyLeadInputSchema },
     output: { schema: QualifyLeadOutputSchema },
     prompt: `
-        You are an expert in lead qualification for a marketing agency. Your goal is to analyze a prospect's answers and assign a score from 0 to 100.
+        Tu es un expert en qualification de prospects pour une agence marketing. Ton objectif est d'analyser les réponses d'un prospect et de lui attribuer un score de 0 à 100 en suivant ce barème de notation précis.
 
-        Here is the ideal prospect profile (highest score):
-        - Objective: "Générer plus de prospects" or "Augmenter les ventes en ligne". An objective of "Notoriété" is a lower priority.
-        - Budget: A monthly budget of "2000€ - 5000€" or "plus de 5000€" is excellent. A budget of "moins de 500€" is very low.
-        - Timeline: A project that needs to start "Dès que possible" or "Dans les 3 prochains mois" is a high priority.
+        ---
+        **BARÈME DE NOTATION**
 
-        Analyze the prospect's data below. Assign a score, a tier ('Haut de gamme', 'Moyenne gamme', 'Bas de gamme' based on the score >66, >33), and a one-sentence justification.
+        **1. Échéance du projet (Poids : 40%)**
+        - "Dès que possible" : Excellent (Score maximum pour ce critère)
+        - "Dans les 3 prochains mois" : Bon (Score élevé, mais inférieur à "Dès que possible")
+        - "Dans 6 mois ou plus" : Moyen (Score faible)
+        - "Juste pour information" : Très faible (Score proche de zéro pour ce critère)
 
-        Prospect Data:
+        **2. Budget Mensuel (Poids : 40%)**
+        - "plus de 5000€" : Excellent
+        - "2000€ - 5000€" : Très bon
+        - "1000€ - 2000€" : Correct
+        - "500€ - 1000€" : Faible
+        - "moins de 500€" : Très faible
+
+        **3. Objectif Principal (Poids : 20%)**
+        - "Générer plus de prospects" ou "Augmenter les ventes en ligne" : Très Pertinent (Score élevé)
+        - "Améliorer l'image de marque (Notoriété)" : Moins Pertinent (Score moyen)
+        - Autre chose : À évaluer au cas par cas.
+
+        ---
+
+        **INSTRUCTIONS**
+
+        Analyse les données du prospect ci-dessous. Pèse chaque critère selon le barème, calcule un score global, attribue un tier ('Haut de gamme' > 66, 'Moyenne gamme' > 33) et fournis une justification concise en français.
+
+        Données du prospect :
         {{{leadData}}}
     `,
 });
