@@ -93,29 +93,12 @@ const qualifyLeadFlow = ai.defineFlow(
     outputSchema: QualifyLeadOutputSchema,
   },
   async (input) => {
-    let leadDataJson: Record<string, string> = {};
-    try {
-        leadDataJson = JSON.parse(input.leadData);
-    } catch (e) {
-        console.error("Could not parse leadData JSON", e);
-        return {
-            score: 0,
-            tier: 'Bas de gamme',
-            justification: 'Données du prospect invalides ou illisibles.',
-        };
-    }
-    
-    // Use the AI prompt to get the qualification
-    const { output } = await qualificationPrompt(input);
-    
-    if (!output) {
-         return {
-            score: 0,
-            tier: 'Bas de gamme',
-            justification: "L'IA n'a pas pu qualifier ce prospect.",
-        };
-    }
-
-    return output;
+    // AI qualification is currently disabled as requested.
+    // Returning default values.
+    return {
+        score: 0,
+        tier: 'Bas de gamme',
+        justification: "La qualification IA est désactivée.",
+    };
   }
 );
