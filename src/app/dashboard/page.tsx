@@ -95,21 +95,21 @@ export default function DashboardPage() {
   const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
   
     const getCreationDate = (l: Lead): Date | null => {
-      // 1. Check for a standard Firestore Timestamp
-      if (l.createdAt?.toDate) return l.createdAt.toDate();
-
-      // 2. Check for root-level string dates from Zapier
-      if (l['Create Time']) return new Date(l['Create Time']);
-      if (l.created_time) return new Date(l.created_time);
-
-      // 3. Check inside the leadData JSON string
+      // 1. Check for a standard Firestore Timestamp at the root
+      if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
+    
+      // 2. Check for root-level string dates from Zapier/Meta
+      if (typeof l['Create Time'] === 'string' && l['Create Time']) return new Date(l['Create Time']);
+      if (typeof l.created_time === 'string' && l.created_time) return new Date(l.created_time);
+    
+      // 3. Check inside the leadData JSON string as a fallback
       if (l.leadData) {
         try {
           const parsedData = JSON.parse(l.leadData);
           const dateStr = parsedData['Create Time'] || parsedData.created_time;
-          if (dateStr) return new Date(dateStr);
+          if (dateStr && typeof dateStr === 'string') return new Date(dateStr);
         } catch (e) {
-          // JSON parsing failed, do nothing
+          // JSON parsing failed, do nothing and proceed to return null
         }
       }
       return null;
@@ -117,13 +117,20 @@ export default function DashboardPage() {
     
     // Helper function to reliably get the campaign name
     const getCampaignName = (l: Lead): string | null => {
+        // 1. Check for standard root-level fields
         if (l.campaignName) return l.campaignName;
         if (l.nom_campagne) return l.nom_campagne;
+    
+        // 2. Check inside the leadData JSON string as a fallback
         if (l.leadData) {
             try {
                 const parsedData = JSON.parse(l.leadData);
-                if (parsedData.nom_campagne) return parsedData.nom_campagne;
-            } catch(e) { /* ignore */ }
+                if (parsedData.nom_campagne && typeof parsedData.nom_campagne === 'string') {
+                    return parsedData.nom_campagne;
+                }
+            } catch(e) { 
+                // JSON parsing failed, do nothing
+            }
         }
         return null;
     }
