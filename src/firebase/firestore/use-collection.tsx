@@ -103,7 +103,7 @@ export function useCollection<T = any>(
         const path: string =
           targetRefOrQuery.type === 'collection'
             ? (targetRefOrQuery as CollectionReference).path
-            : (targetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+            : (targetRefOrQuery as unknown as InternalQuery)._query.path.toString()
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
