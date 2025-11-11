@@ -205,9 +205,10 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
-  const leadName = lead?.name || 'Lead Inconnu';
-  const leadEmail = lead?.email;
-  const leadPhone = lead?.phone;
+  // --- ROBUST DATA GETTERS ---
+  const leadName = lead?.name || lead?.nom || (lead && lead.leadData ? JSON.parse(lead.leadData)['FULL NAME'] : null) || 'Lead Inconnu';
+  const leadEmail = lead?.email || (lead && lead.leadData ? JSON.parse(lead.leadData)['EMAIL'] : null);
+  const leadPhone = lead?.phone || lead?.telephone || (lead && lead.leadData ? JSON.parse(lead.leadData)['PHONE'] : null);
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
@@ -360,3 +361,5 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+
+    
