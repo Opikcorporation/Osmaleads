@@ -34,6 +34,7 @@ import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/no
 import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/status-badge';
 import { Badge } from '@/components/ui/badge';
+import { fr } from 'date-fns/locale';
 
 interface LeadDetailDialogProps {
   leadId: string;
@@ -60,6 +61,7 @@ const formatPhoneNumberForLink = (value: string): string => {
 };
 
 const capitalizeFirstLetter = (string: string) => {
+    if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
 };
 
@@ -145,23 +147,12 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     const allData = { ...parsedData, ...lead };
 
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company'];
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time'];
 
     const dataToDisplay = Object.entries(allData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
         .map(([key, value]) => {
-            let displayValue: string;
-            // Format timestamp values nicely
-            if (key === 'created_time' || key === 'Created Time') {
-                const date = new Date(value as string);
-                if (!isNaN(date.getTime())) {
-                    displayValue = format(date, 'dd/MM/yyyy HH:mm');
-                } else {
-                    displayValue = String(value);
-                }
-            } else {
-                displayValue = String(value);
-            }
+            let displayValue: string = String(value);
 
             // Clean up the key for display
             const displayKey = key
@@ -189,6 +180,27 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         </ul>
     );
 };
+  
+    const getCreationDate = (l: Lead | null | undefined): Date | null => {
+      if (!l) return null;
+      if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
+      
+      let dateString: string | undefined | null = null;
+      
+      if (l.leadData) {
+        try {
+          const parsedData = JSON.parse(l.leadData);
+          dateString = parsedData['created_time'] || parsedData['Created Time'];
+        } catch (e) { /* ignore */ }
+      }
+
+      if (dateString) {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) return date;
+      }
+      
+      return null;
+    };
 
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
@@ -197,6 +209,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const leadEmail = lead?.email;
   const leadPhone = lead?.phone;
   const leadStatus = lead?.status || 'New';
+  const creationDate = getCreationDate(lead);
 
 
   return (
@@ -219,7 +232,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   <div className="flex items-start justify-between">
                       <div>
                           <CardTitle className="text-2xl">{leadName}</CardTitle>
-                          <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                          <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
                             <span>{leadEmail}</span>
                             {leadPhone && isPhoneNumber(leadPhone) ? (
                                  <a href={`https://wa.me/${formatPhoneNumberForLink(leadPhone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
@@ -230,6 +243,12 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                                 <span>{leadPhone}</span>
                             )}
                           </div>
+                           {creationDate && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <span>Créé le {format(creationDate, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</span>
+                            </div>
+                          )}
                       </div>
                       {assignedUser && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
