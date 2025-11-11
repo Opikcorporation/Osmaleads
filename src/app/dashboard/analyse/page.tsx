@@ -92,19 +92,17 @@ const getCreationDate = (l: Lead): Date | null => {
   
   let dateString: string | undefined | null = null;
   
-  // Look for various possible date fields from Zapier data
-  if (l.leadData) {
+  if ((l as any).created_time) {
+    dateString = (l as any).created_time;
+  } else if ((l as any)['Created Time']) {
+    dateString = (l as any)['Created Time'];
+  } else if (l.leadData) {
     try {
       const parsedData = JSON.parse(l.leadData);
       dateString = parsedData.created_time || parsedData['Created Time'];
     } catch (e) {
       // It's okay if parsing fails, we'll try other fields.
     }
-  }
-
-  // Fallback to top-level properties if they exist
-  if (!dateString) {
-    dateString = (l as any).created_time || (l as any)['Created Time'];
   }
   
   if (dateString && typeof dateString === 'string') {
@@ -116,6 +114,18 @@ const getCreationDate = (l: Lead): Date | null => {
   
   return null;
 };
+
+// Helper function to reliably get the campaign name
+const getCampaignName = (l: Lead): string => {
+    let campaign = l.campaignName || (l as any).nom_campagne || (l as any)['Form Name'];
+    if (!campaign && l.leadData) {
+        try {
+            const parsedData = JSON.parse(l.leadData);
+            campaign = parsedData.nom_campagne || parsedData['Form Name'];
+        } catch(e) { /* ignore */ }
+    }
+    return campaign || 'Inconnue';
+}
 
 
 export default function AnalysePage() {
@@ -231,7 +241,7 @@ export default function AnalysePage() {
   const leadsByCampaign = useMemo(() => {
     if (!filteredLeads) return [];
     const campaignCounts = filteredLeads.reduce((acc, lead) => {
-      const campaignName = lead.campaignName || (lead as any).nom_campagne || 'Inconnue';
+      const campaignName = getCampaignName(lead);
       acc[campaignName] = (acc[campaignName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);

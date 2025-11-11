@@ -106,12 +106,12 @@ export default function DashboardPage() {
     const getCreationDate = (l: Lead): Date | null => {
       if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
       
-      let dateString: string | undefined | null = l['Created Time'] || l.created_time;
+      let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
 
       if (!dateString && l.leadData) {
         try {
           const parsedData = JSON.parse(l.leadData);
-          dateString = parsedData['Created Time'];
+          dateString = parsedData.created_time || parsedData['Created Time'];
         } catch (e) { /* ignore */ }
       }
 
@@ -124,12 +124,11 @@ export default function DashboardPage() {
     };
     
     const getCampaignName = (l: Lead): string | null => {
-        let campaign = l.campaignName || l['Form Name'];
-
+        let campaign = l.campaignName || (l as any).nom_campagne || (l as any)['Form Name'];
         if (!campaign && l.leadData) {
             try {
                 const parsedData = JSON.parse(l.leadData);
-                campaign = parsedData['Form Name'];
+                campaign = parsedData.nom_campagne || parsedData['Form Name'];
             } catch(e) { /* ignore */ }
         }
         return campaign || null;
