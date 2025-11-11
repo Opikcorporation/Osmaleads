@@ -147,7 +147,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     const allData = { ...parsedData, ...lead };
 
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time'];
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne'];
 
     const dataToDisplay = Object.entries(allData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
