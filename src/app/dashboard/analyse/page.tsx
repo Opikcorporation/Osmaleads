@@ -12,12 +12,21 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCollection, useFirestore } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { collection } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { collection, Timestamp } from 'firebase/firestore';
+import { useState, useMemo } from 'react';
 import { Bar, BarChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns';
+
 
 const chartConfigStatus = {
   leads: {
@@ -67,14 +76,23 @@ const chartConfigTier = {
   },
 } satisfies React.ComponentProps<typeof ChartContainer>['config'];
 
+const periodOptions = [
+    { value: 'this_month', label: 'Ce mois-ci' },
+    { value: 'last_month', label: 'Le mois précédent' },
+    { value: 'last_3_months', label: 'Les 3 derniers mois' },
+    { value: 'this_year', label: 'Cette année' },
+    { value: 'all_time', label: 'Toujours' },
+];
+
 export default function AnalysePage() {
   const firestore = useFirestore();
+  const [period, setPeriod] = useState('this_month');
   
   const leadsQuery = useMemo(
     () => collection(firestore, 'leads'),
     [firestore]
   );
-  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
+  const { data: allLeads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   
   const usersQuery = useMemo(
     () => collection(firestore, 'collaborators'),
@@ -82,8 +100,50 @@ export default function AnalysePage() {
   );
   const { data: collaborators, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
 
+  const filteredLeads = useMemo(() => {
+    if (!allLeads) return [];
+    
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'this_month':
+        startDate = startOfMonth(now);
+        break;
+      case 'last_month':
+        startDate = startOfMonth(subMonths(now, 1));
+        break;
+      case 'last_3_months':
+        startDate = startOfMonth(subMonths(now, 2));
+        break;
+      case 'this_year':
+        startDate = startOfYear(now);
+        break;
+      case 'all_time':
+      default:
+        return allLeads;
+    }
+
+    let endDate : Date;
+    switch (period) {
+        case 'last_month':
+            endDate = endOfMonth(subMonths(now, 1));
+            break;
+        default:
+            endDate = new Date(); // now
+    }
+
+    return allLeads.filter(lead => {
+      if (lead.createdAt && lead.createdAt.toDate) {
+        const leadDate = lead.createdAt.toDate();
+        return leadDate >= startDate && leadDate <= endDate;
+      }
+      return false;
+    });
+  }, [allLeads, period]);
+
   const stats = useMemo(() => {
-    if (!leads) {
+    if (!filteredLeads) {
       return {
         totalLeads: 0,
         qualificationRate: 0,
@@ -91,10 +151,10 @@ export default function AnalysePage() {
         signedLeads: 0,
       };
     }
-    const totalLeads = leads.length;
-    const qualifiedLeads = leads.filter(l => l.status === 'Qualified').length;
-    const signedLeads = leads.filter(l => l.status === 'Signed').length;
-    const processedLeads = leads.filter(l => l.status === 'Qualified' || l.status === 'Not Qualified').length;
+    const totalLeads = filteredLeads.length;
+    const qualifiedLeads = filteredLeads.filter(l => l.status === 'Qualified').length;
+    const signedLeads = filteredLeads.filter(l => l.status === 'Signed').length;
+    const processedLeads = filteredLeads.filter(l => l.status === 'Qualified' || l.status === 'Not Qualified').length;
     
     const qualificationRate = processedLeads > 0 ? (qualifiedLeads / processedLeads) * 100 : 0;
     const signatureRate = totalLeads > 0 ? (signedLeads / totalLeads) * 100 : 0;
@@ -105,11 +165,11 @@ export default function AnalysePage() {
       signatureRate,
       signedLeads,
     };
-  }, [leads]);
+  }, [filteredLeads]);
   
   const leadsByStatus = useMemo(() => {
-    if (!leads) return [];
-    const statusCounts = leads.reduce((acc, lead) => {
+    if (!filteredLeads) return [];
+    const statusCounts = filteredLeads.reduce((acc, lead) => {
         const status = lead.status || 'New';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
@@ -120,11 +180,11 @@ export default function AnalysePage() {
         leads: count,
         fill: chartConfigStatus[status as LeadStatus]?.color || 'hsl(var(--muted))'
     }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   const leadsByTier = useMemo(() => {
-     if (!leads) return [];
-     const tierCounts = leads.reduce((acc, lead) => {
+     if (!filteredLeads) return [];
+     const tierCounts = filteredLeads.reduce((acc, lead) => {
         if(lead.tier) {
             acc[lead.tier] = (acc[lead.tier] || 0) + 1;
         }
@@ -136,11 +196,11 @@ export default function AnalysePage() {
         leads: count,
         fill: chartConfigTier[tier as LeadTier]?.color || 'hsl(var(--muted))'
     }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   const leadsByCampaign = useMemo(() => {
-    if (!leads) return [];
-    const campaignCounts = leads.reduce((acc, lead) => {
+    if (!filteredLeads) return [];
+    const campaignCounts = filteredLeads.reduce((acc, lead) => {
       const campaignName = lead.campaignName || lead.nom_campagne || 'Inconnue';
       acc[campaignName] = (acc[campaignName] || 0) + 1;
       return acc;
@@ -150,13 +210,13 @@ export default function AnalysePage() {
       name: campaign,
       leads: count,
     }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   const performanceByCollaborator = useMemo(() => {
-    if (!leads || !collaborators) return [];
+    if (!filteredLeads || !collaborators) return [];
     
     const collaboratorData = collaborators.map(c => {
-        const assignedLeads = leads.filter(l => l.assignedCollaboratorId === c.id);
+        const assignedLeads = filteredLeads.filter(l => l.assignedCollaboratorId === c.id);
         const statusCounts = assignedLeads.reduce((acc, lead) => {
             const status = lead.status || 'New';
             acc[status] = (acc[status] || 0) + 1;
@@ -171,7 +231,7 @@ export default function AnalysePage() {
     });
 
     return collaboratorData.filter(c => c.total > 0);
-  }, [leads, collaborators]);
+  }, [filteredLeads, collaborators]);
 
   const isLoading = leadsLoading || usersLoading;
 
@@ -181,12 +241,29 @@ export default function AnalysePage() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Performances</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Performances</h1>
+            <p className="text-muted-foreground">
+                Visualisez la performance de vos campagnes, collaborateurs et leads.
+            </p>
+        </div>
+        <div className="w-full sm:w-auto">
+            <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="min-w-[180px]">
+                    <SelectValue placeholder="Sélectionner une période" />
+                </SelectTrigger>
+                <SelectContent>
+                    {periodOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       </div>
-      <p className="text-muted-foreground">
-        Visualisez la performance de vos campagnes, collaborateurs et leads.
-      </p>
+      
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
