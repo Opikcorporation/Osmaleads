@@ -49,8 +49,8 @@ const WhatsAppIcon = () => (
     </svg>
 );
 
-const isPhoneNumber = (value: string): boolean => {
-    if (typeof value !== 'string') return false;
+const isPhoneNumber = (value: string | null | undefined): boolean => {
+    if (!value || typeof value !== 'string') return false;
     const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
     return phoneRegex.test(value);
 };
@@ -59,23 +59,15 @@ const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
 };
 
+// This maps the standardized field names to user-friendly labels.
 const leadDataLabels: Record<string, string> = {
-    'FULL NAME': 'Nom Complet',
-    'EMAIL': 'Email',
-    'PHONE': 'Téléphone',
-    'Quel Est Votre Budget': 'Budget',
-    'Vous Recherchez': 'Recherche',
-    'Votre Intention Dachat': 'Intention d\'achat',
-    'Form Name': 'Campagne',
-    'Created Time': 'Date de Création',
-    'temps': 'Échéance',
-    'objectif': 'Objectif',
-    'budget': 'Budget',
-    'nom_campagne': 'Campagne',
-    'type_de_bien': 'Type de bien',
+    intention: "Intention d'achat",
+    budget: 'Budget',
+    objectif: 'Objectif',
+    typeDeBien: 'Type de bien',
+    campaignName: 'Campagne',
+    createdAt: 'Date de Création',
 };
-
-const displayOrder = ['FULL NAME', 'EMAIL', 'PHONE', 'Vous Recherchez', 'Votre Intention Dachat', 'Quel Est Votre Budget', 'Form Name', 'Created Time'];
 
 
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
@@ -146,77 +138,45 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
     }
 
-    let parsedLeadData: Record<string, any> = {};
-    if (lead.leadData) {
-      try {
-        parsedLeadData = JSON.parse(lead.leadData);
-      } catch (e) {
-        console.error("Failed to parse leadData:", e);
-      }
+    const importantFields = [
+        { key: 'intention', label: "Intention d'achat" },
+        { key: 'budget', label: 'Budget' },
+        { key: 'objectif', label: 'Objectif' },
+        { key: 'typeDeBien', label: 'Type de bien' },
+        { key: 'campaignName', label: 'Campagne' },
+        { key: 'createdAt', label: 'Date de Création' },
+    ];
+
+    const dataToDisplay = importantFields
+        .map(field => {
+            const value = lead[field.key as keyof Lead];
+            if (!value) return null;
+
+            let displayValue: string;
+            if (field.key === 'createdAt' && value instanceof Timestamp) {
+                displayValue = format(value.toDate(), 'dd/MM/yyyy HH:mm');
+            } else {
+                displayValue = String(value);
+            }
+            
+            return {
+                label: field.label,
+                value: displayValue
+            };
+        })
+        .filter(item => item !== null) as { label: string; value: string }[];
+
+    if (dataToDisplay.length === 0) {
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
     }
-    
-    // Combine all available data sources into one object
-    const combinedData = {
-        // Start with the raw data from the webhook/Zapier
-        ...parsedLeadData,
-        // Then, overwrite with data from the root of the Lead document if it exists.
-        // This ensures that manually edited fields or primary fields are always correct.
-        'FULL NAME': lead.name || lead.nom,
-        'EMAIL': lead.email,
-        'PHONE': lead.phone || lead.telephone,
-        'Form Name': lead.campaignName || lead.nom_campagne || parsedLeadData['Form Name'],
-        'Created Time': lead.createdAt ? lead.createdAt.toDate().toISOString() : (lead['Created Time'] || lead.created_time),
-        'Vous Recherchez': lead['Vous Recherchez'] || lead.objectif,
-        'Quel Est Votre Budget': lead['Quel Est Votre Budget'] || lead.budget,
-        'Votre Intention Dachat': lead['Votre Intention Dachat'] || lead.temps,
-    };
-    
-    // Create a final, cleaned-up object of all available key-value pairs
-    const finalData = { ...lead, ...parsedLeadData, ...combinedData };
-
-
-    // Get all unique keys from the final combined object
-    const allKeys = Object.keys(finalData);
-
-    const sortedKeys = [...allKeys].sort((a, b) => {
-        const indexA = displayOrder.indexOf(a);
-        const indexB = displayOrder.indexOf(b);
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Both in displayOrder, sort by it
-        if (indexA !== -1) return -1; // Only A is in displayOrder, A comes first
-        if (indexB !== -1) return 1;  // Only B is in displayOrder, B comes first
-        return a.localeCompare(b); // Neither are in displayOrder, sort alphabetically
-    });
 
     return (
         <ul className="space-y-3 text-sm text-foreground">
-        {sortedKeys.map((key) => {
-            const label = leadDataLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            const value = finalData[key as keyof typeof finalData];
-            
-            // Skip fields that shouldn't be displayed
-            if (!value || typeof value === 'object' && value !== null || ['id', 'assignedCollaboratorId', 'leadData'].includes(key)) {
-                 return null;
-            }
-
-            const stringValue = String(value);
-
-            if (key === 'PHONE' && isPhoneNumber(stringValue)) {
-                return (
-                    <li key={key}>
-                    <strong className="capitalize">{label}:</strong>{' '}
-                    <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                        <WhatsAppIcon />
-                        <span>{stringValue}</span>
-                    </a>
-                    </li>
-                );
-            }
-            return (
-            <li key={key}>
-                <strong className="capitalize">{label}:</strong> {stringValue}
+        {dataToDisplay.map(({ label, value }) => (
+            <li key={label}>
+                <strong className="capitalize">{label}:</strong> {value}
             </li>
-            );
-        })}
+        ))}
         </ul>
     );
   };
@@ -224,9 +184,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
-  const leadName = lead?.name || lead?.nom || 'Lead Inconnu';
+  const leadName = lead?.name || 'Lead Inconnu';
   const leadEmail = lead?.email;
-  const leadPhone = lead?.phone || lead?.telephone;
+  const leadPhone = lead?.phone;
   const leadStatus = lead?.status || 'New';
 
 
@@ -372,5 +332,3 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
-
-    

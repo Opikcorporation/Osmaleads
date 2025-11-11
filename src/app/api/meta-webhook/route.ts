@@ -50,31 +50,31 @@ export async function POST(request: Request) {
       // The actual lead data might be nested inside `entry` for direct Meta webhooks
       const changes = leadPayload.entry?.[0]?.changes;
       // Use the raw payload from Zapier, or dig into the Meta structure if it exists.
-      const leadgenValue = changes?.[0]?.value || leadPayload;
+      const rawData = changes?.[0]?.value || leadPayload;
 
-      // --- DATA MAPPING FROM ZAPIER/META ---
-      // This maps the various possible field names from your screenshots to a consistent object.
-      const data: Record<string, string | null> = {
-          'FULL NAME': leadgenValue['FULL NAME'] || leadgenValue.nom || null,
-          'EMAIL': leadgenValue['EMAIL'] || leadgenValue.email || null,
-          'PHONE': leadgenValue['PHONE'] || leadgenValue.telephone || null,
-          'Form Name': leadgenValue['Form Name'] || leadgenValue.nom_campagne || null,
-          'Votre Intention Dachat': leadgenValue['Votre Intention Dachat'] || leadgenValue.temps || null,
-          'Quel Est Votre Budget': leadgenValue['Quel Est Votre Budget'] || leadgenValue.budget || null,
-          'Vous Recherchez': leadgenValue['Vous Recherchez'] || leadgenValue.type_de_bien || leadgenValue.objectif || null,
-          'Created Time': leadgenValue['Created Time'] || leadgenValue['created_time'] || null
+      // --- DATA STANDARDIZATION ---
+      // This maps all possible field names from your Zaps to a single, consistent structure.
+      const standardizedData = {
+          name: rawData.nom || rawData['FULL NAME'] || 'Nom Inconnu',
+          email: rawData.email || rawData['EMAIL'] || null,
+          phone: rawData.telephone || rawData['PHONE'] || null,
+          campaignName: rawData.nom_campagne || rawData['Form Name'] || null,
+          intention: rawData.temps || rawData['Votre Intention Dachat'] || null,
+          budget: rawData.budget || rawData['Quel Est Votre Budget'] || null,
+          objectif: rawData.objectif || null, // Only exists in one form
+          typeDeBien: rawData.type_de_bien || rawData['Vous Recherchez'] || null,
+          createdTime: rawData.created_time || rawData['Created Time'] || null,
       };
 
-      const leadDataString = JSON.stringify(data);
+      const leadDataString = JSON.stringify(rawData);
 
       // --- QUALIFICATION (Currently Disabled) ---
       const qualification = await qualifyLead({ leadData: leadDataString });
 
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
-      const dateString = data['Created Time'];
-      if (dateString) {
-        const date = new Date(dateString);
+      if (standardizedData.createdTime) {
+        const date = new Date(standardizedData.createdTime);
         if (!isNaN(date.getTime())) {
           createdAt = Timestamp.fromDate(date);
         } else {
@@ -85,20 +85,24 @@ export async function POST(request: Request) {
       }
 
       // --- CREATE FINAL LEAD OBJECT ---
+      // We now use our standardized fields.
       const newLead: Omit<Lead, 'id'> = {
-          name: data['FULL NAME'] || 'Nom Inconnu',
-          email: data['EMAIL'] || null,
-          phone: data['PHONE'] || null,
-          company: null, 
-          username: null,
+          name: standardizedData.name,
+          email: standardizedData.email,
+          phone: standardizedData.phone,
+          campaignName: standardizedData.campaignName,
           status: 'New',
           leadData: leadDataString,
-          assignedCollaboratorId: null,
           createdAt: createdAt as Timestamp,
-          campaignId: leadgenValue.campaign_id || null,
-          campaignName: data['Form Name'] || null,
+          assignedCollaboratorId: null,
           score: qualification.score,
           tier: qualification.tier,
+          // Store the other important fields at the top level for easy access
+          intention: standardizedData.intention,
+          budget: standardizedData.budget,
+          objectif: standardizedData.objectif,
+          typeDeBien: standardizedData.typeDeBien,
+          campaignId: rawData.campaign_id || null, // Keep original campaign_id if present
       };
 
       // Add the new lead to our Firestore 'leads' collection.

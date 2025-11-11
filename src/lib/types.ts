@@ -15,37 +15,33 @@ export const leadStatuses = [
 
 export type LeadStatus = (typeof leadStatuses)[number];
 
-// This type is now more flexible to handle data directly from Zapier
+// This type represents the final, clean structure of a Lead document in Firestore.
 export type Lead = {
   id: string;
-  name?: string; // App's standard field
-  nom?: string;   // Zapier's field (legacy)
+  name: string;
   email: string | null;
-  phone?: string | null; // App's standard field
-  telephone?: string | null; // Zapier's field (legacy)
-  company: string | null;
-  username: string | null;
-  status?: LeadStatus; // Status might not be present on Zapier-created leads
+  phone: string | null;
+  company: string | null; // Kept for potential manual entry
+  username: string | null; // Kept for potential manual entry
+  status: LeadStatus;
   tier: LeadTier | null;
   score: number | null;
-  leadData?: string; // May or may not be used
+  
+  // This stores the original, unmodified JSON payload from Zapier.
+  // Useful for debugging and future-proofing if new fields are added to forms.
+  leadData: string; 
+  
   assignedCollaboratorId: string | null;
-  createdAt?: Timestamp; // May not be present on all docs
-  'Created Time'?: string; // Zapier's field
-  created_time?: string; // Zapier's field (alternative)
+  createdAt: Timestamp;
   assignedAt?: Timestamp;
+  
+  // Standardized fields extracted from the Zapier payload for easy querying and display
   campaignId: string | null;
-  campaignName?: string | null; // App's standard field
-  nom_campagne?: string; // Zapier's field (legacy)
-  'Form Name'?: string; // New campaign name field from Zapier
-
-  // Direct Zapier fields that might exist at the root
-  objectif?: string;
-  budget?: string;
-  temps?: string;
-  'Quel Est Votre Budget'?: string;
-  'Vous Recherchez'?: string;
-  'Votre Intention Dachat'?: string;
+  campaignName: string | null;
+  intention: string | null; // e.g., "Dans les 3 prochains mois"
+  budget: string | null; // e.g., "1000€ - 2000€"
+  objectif: string | null; // e.g., "rendement_locatif"
+  typeDeBien: string | null; // e.g., "studio"
 };
 
 
