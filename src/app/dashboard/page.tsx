@@ -85,7 +85,6 @@ export default function DashboardPage() {
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
   // --- Simplified Data Fetching ---
-  // Use a single, simple query to fetch all leads. Filtering and sorting will be done client-side.
   const allLeadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
@@ -95,44 +94,35 @@ export default function DashboardPage() {
   const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
   
     const getCreationDate = (l: Lead): Date | null => {
-      // 1. Check for a standard Firestore Timestamp at the root
       if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
-    
-      // 2. Check for root-level string dates from Zapier/Meta
-      if (typeof l['Create Time'] === 'string' && l['Create Time']) return new Date(l['Create Time']);
-      if (typeof l.created_time === 'string' && l.created_time) return new Date(l.created_time);
-    
-      // 3. Check inside the leadData JSON string as a fallback
-      if (l.leadData) {
+      
+      let dateString: string | undefined | null = l['Created Time'] || l.created_time;
+
+      if (!dateString && l.leadData) {
         try {
           const parsedData = JSON.parse(l.leadData);
-          const dateStr = parsedData['Create Time'] || parsedData.created_time;
-          if (dateStr && typeof dateStr === 'string') return new Date(dateStr);
-        } catch (e) {
-          // JSON parsing failed, do nothing and proceed to return null
-        }
+          dateString = parsedData['Created Time'];
+        } catch (e) { /* ignore */ }
       }
+
+      if (dateString) {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) return date;
+      }
+      
       return null;
     };
     
-    // Helper function to reliably get the campaign name
     const getCampaignName = (l: Lead): string | null => {
-        // 1. Check for standard root-level fields
-        if (l.campaignName) return l.campaignName;
-        if (l.nom_campagne) return l.nom_campagne;
-    
-        // 2. Check inside the leadData JSON string as a fallback
-        if (l.leadData) {
+        let campaign = l.campaignName || l['Form Name'];
+
+        if (!campaign && l.leadData) {
             try {
                 const parsedData = JSON.parse(l.leadData);
-                if (parsedData.nom_campagne && typeof parsedData.nom_campagne === 'string') {
-                    return parsedData.nom_campagne;
-                }
-            } catch(e) { 
-                // JSON parsing failed, do nothing
-            }
+                campaign = parsedData['Form Name'];
+            } catch(e) { /* ignore */ }
         }
-        return null;
+        return campaign || null;
     }
 
 

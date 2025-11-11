@@ -51,7 +51,6 @@ const WhatsAppIcon = () => (
 
 const isPhoneNumber = (value: string): boolean => {
     if (typeof value !== 'string') return false;
-    // Basic regex to check for a string that is mostly numbers, possibly with a leading +, and some common phone characters.
     const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
     return phoneRegex.test(value);
 };
@@ -60,23 +59,19 @@ const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
 };
 
-// A map for user-friendly labels for lead data keys
 const leadDataLabels: Record<string, string> = {
-    nom: 'Nom',
-    name: 'Nom',
-    telephone: 'Téléphone',
-    phone: 'Téléphone',
-    email: 'Email',
-    nom_campagne: 'Campagne',
-    campaignName: 'Campagne',
-    objectif: 'Objectif',
-    budget: 'Budget',
-    temps: 'Échéance',
-    'Create Time': 'Date de Création',
-    created_time: 'Date de Création',
-    type_de_bien: 'Type de bien',
-    // Add any other fields you want to display with a friendly name
+    'FULL NAME': 'Nom Complet',
+    'EMAIL': 'Email',
+    'PHONE': 'Téléphone',
+    'Quel Est Votre Budget': 'Budget',
+    'Vous Recherchez': 'Recherche',
+    'Votre Intention Dachat': 'Intention d\'achat',
+    'Form Name': 'Campagne',
+    'Created Time': 'Date de Création',
 };
+
+const displayOrder = ['FULL NAME', 'EMAIL', 'PHONE', 'Vous Recherchez', 'Votre Intention Dachat', 'Quel Est Votre Budget', 'Form Name', 'Created Time'];
+
 
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
@@ -142,52 +137,38 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   }
 
   const renderLeadData = () => {
-    if (!lead) return null;
-
-    let parsedLeadData: Record<string, any> = {};
-    if (lead.leadData) {
-        try {
-            parsedLeadData = JSON.parse(lead.leadData);
-        } catch (e) {
-            return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
-        }
-    }
-
-    // Combine root properties and parsed leadData for a complete view.
-    // Give priority to values from the root lead object if they exist, otherwise use parsed data.
-    const combinedData: Record<string, any> = {
-      ...parsedLeadData,
-      nom: lead.name || lead.nom || parsedLeadData.nom,
-      email: lead.email || parsedLeadData.email,
-      telephone: lead.phone || lead.telephone || parsedLeadData.telephone,
-      nom_campagne: lead.campaignName || lead.nom_campagne || parsedLeadData.nom_campagne,
-    };
-    
-    const displayOrder = ['nom', 'email', 'telephone', 'type_de_bien', 'temps', 'budget', 'objectif', 'nom_campagne', 'created_time', 'Create Time'];
-    
-    const sortedKeys = Object.keys(combinedData).sort((a, b) => {
-        const indexA = displayOrder.indexOf(a);
-        const indexB = displayOrder.indexOf(b);
-
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Both are in the order array
-        if (indexA !== -1) return -1; // Only A is in the order array, so it comes first
-        if (indexB !== -1) return 1;  // Only B is in the order array, so it comes first
-        return a.localeCompare(b); // Neither are in order array, sort alphabetically
-    });
-
-    if (sortedKeys.length === 0) {
+    if (!lead || !lead.leadData) {
         return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
     }
+
+    let parsedLeadData: Record<string, any> = {};
+    try {
+        parsedLeadData = JSON.parse(lead.leadData);
+    } catch (e) {
+        console.error("Failed to parse leadData:", e);
+        return <p className="text-sm text-destructive">Erreur: Impossible de lire les données du prospect.</p>;
+    }
+    
+    const allKeys = Object.keys(parsedLeadData);
+
+    const sortedKeys = [...allKeys].sort((a, b) => {
+        const indexA = displayOrder.indexOf(a);
+        const indexB = displayOrder.indexOf(b);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return a.localeCompare(b);
+    });
 
     return (
         <ul className="space-y-3 text-sm text-foreground">
         {sortedKeys.map((key) => {
             const label = leadDataLabels[key] || key.replace(/_/g, ' ');
-            const value = combinedData[key];
-            if (!value) return null; // Don't render empty fields
+            const value = parsedLeadData[key];
+            if (!value) return null; 
             const stringValue = String(value);
 
-            if (isPhoneNumber(stringValue) && key.match(/phone|telephone/i)) { // Only format phone numbers
+            if (key === 'PHONE' && isPhoneNumber(stringValue)) {
                 return (
                     <li key={key}>
                     <strong className="capitalize">{label}:</strong>{' '}

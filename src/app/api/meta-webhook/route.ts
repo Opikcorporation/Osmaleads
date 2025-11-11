@@ -52,54 +52,51 @@ export async function POST(request: Request) {
       // Use the raw payload from Zapier, or dig into the Meta structure if it exists.
       const leadgenValue = changes?.[0]?.value || leadPayload;
 
-      // Extract all key-value pairs from the webhook payload into a clean object.
-      // This ensures all relevant data is captured in a consistent format.
+      // --- DATA MAPPING FROM ZAPIER/META ---
+      // This maps the various possible field names from your screenshots to a consistent object.
       const data: Record<string, string | null> = {
-          nom: leadgenValue.nom || null,
-          email: leadgenValue.email || null,
-          telephone: leadgenValue.telephone || null,
-          nom_campagne: leadgenValue.nom_campagne || null,
-          objectif: leadgenValue.objectif || null,
-          budget: leadgenValue.budget || null,
-          temps: leadgenValue.temps || null,
-          type_de_bien: leadgenValue.type_de_bien || null,
-          created_time: leadgenValue['created_time'] || leadgenValue['Create Time'] || null
+          'FULL NAME': leadgenValue['FULL NAME'] || leadgenValue.nom || null,
+          'EMAIL': leadgenValue['EMAIL'] || leadgenValue.email || null,
+          'PHONE': leadgenValue['PHONE'] || leadgenValue.telephone || null,
+          'Form Name': leadgenValue['Form Name'] || leadgenValue.nom_campagne || null,
+          'Votre Intention Dachat': leadgenValue['Votre Intention Dachat'] || leadgenValue.temps || null,
+          'Quel Est Votre Budget': leadgenValue['Quel Est Votre Budget'] || leadgenValue.budget || null,
+          'Vous Recherchez': leadgenValue['Vous Recherchez'] || leadgenValue.type_de_bien || leadgenValue.objectif || null,
+          'Created Time': leadgenValue['Created Time'] || leadgenValue['created_time'] || null
       };
 
       const leadDataString = JSON.stringify(data);
 
-      // --- QUALIFICATION (Temporarily disabled) ---
+      // --- QUALIFICATION (Currently Disabled) ---
       const qualification = await qualifyLead({ leadData: leadDataString });
 
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
-      const dateString = data['created_time'];
+      const dateString = data['Created Time'];
       if (dateString) {
-        // Meta sends date strings like "2024-05-21T10:30:00+0000"
         const date = new Date(dateString);
-        // Check if the date is valid before creating a Timestamp
         if (!isNaN(date.getTime())) {
           createdAt = Timestamp.fromDate(date);
         } else {
-          // Fallback to server time if the date is invalid
           createdAt = FieldValue.serverTimestamp();
         }
       } else {
         createdAt = FieldValue.serverTimestamp();
       }
 
+      // --- CREATE FINAL LEAD OBJECT ---
       const newLead: Omit<Lead, 'id'> = {
-          name: data.nom || 'Nom Inconnu',
-          email: data.email || null,
-          phone: data.telephone || null,
-          company: null, // No company field from this source
+          name: data['FULL NAME'] || 'Nom Inconnu',
+          email: data['EMAIL'] || null,
+          phone: data['PHONE'] || null,
+          company: null, 
           username: null,
-          status: 'New', // Automatically set status to 'New'
+          status: 'New',
           leadData: leadDataString,
           assignedCollaboratorId: null,
-          createdAt: createdAt as Timestamp, // We cast it here for type consistency
+          createdAt: createdAt as Timestamp,
           campaignId: leadgenValue.campaign_id || null,
-          campaignName: data.nom_campagne || null,
+          campaignName: data['Form Name'] || null,
           score: qualification.score,
           tier: qualification.tier,
       };

@@ -19,10 +19,10 @@ export type LeadStatus = (typeof leadStatuses)[number];
 export type Lead = {
   id: string;
   name?: string; // App's standard field
-  nom?: string;   // Zapier's field
+  nom?: string;   // Zapier's field (legacy)
   email: string | null;
   phone?: string | null; // App's standard field
-  telephone?: string | null; // Zapier's field
+  telephone?: string | null; // Zapier's field (legacy)
   company: string | null;
   username: string | null;
   status?: LeadStatus; // Status might not be present on Zapier-created leads
@@ -31,17 +31,21 @@ export type Lead = {
   leadData?: string; // May or may not be used
   assignedCollaboratorId: string | null;
   createdAt?: Timestamp; // May not be present on all docs
-  'Create Time'?: string; // Zapier's field
+  'Created Time'?: string; // Zapier's field
   created_time?: string; // Zapier's field (alternative)
   assignedAt?: Timestamp;
   campaignId: string | null;
   campaignName?: string | null; // App's standard field
-  nom_campagne?: string; // Zapier's field
+  nom_campagne?: string; // Zapier's field (legacy)
+  'Form Name'?: string; // New campaign name field from Zapier
 
   // Direct Zapier fields that might exist at the root
   objectif?: string;
   budget?: string;
   temps?: string;
+  'Quel Est Votre Budget'?: string;
+  'Vous Recherchez'?: string;
+  'Votre Intention Dachat'?: string;
 };
 
 
