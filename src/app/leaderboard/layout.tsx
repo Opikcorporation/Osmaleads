@@ -1,10 +1,7 @@
+'use client';
+
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase';
-
-export const metadata = {
-  title: 'Classement - LeadFlowAI',
-  description: 'Classement des performances en temps réel.',
-};
 
 export default function LeaderboardLayout({
   children,
@@ -14,6 +11,7 @@ export default function LeaderboardLayout({
   return (
     <html lang="en" suppressHydrationWarning>
        <head>
+        <title>Classement - LeadFlowAI</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
