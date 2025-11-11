@@ -149,59 +149,54 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         try {
             parsedLeadData = JSON.parse(lead.leadData);
         } catch (e) {
-            // If leadData is not JSON, display it as raw text and stop.
             return <p className="text-sm text-foreground whitespace-pre-wrap">{lead.leadData}</p>;
         }
     }
 
-    // Combine root properties and parsed leadData for a complete view
+    // Combine root properties and parsed leadData for a complete view, ensuring no overwrites of parsedData by empty root properties.
     const combinedData = {
         ...parsedLeadData,
-        // Add root properties if they don't exist in parsedData
         nom: parsedLeadData?.nom || lead.name || lead.nom,
         email: parsedLeadData?.email || lead.email,
-        telephone: parsedLeadData?.telephone || lead.phone || lead.telephone,
-        nom_campagne: parsedLeadData?.nom_campagne || lead.campaignName || lead.nom_campagne,
+        telephone: parsedLeadData?.telephone || lead.phone,
+        nom_campagne: parsedLeadData?.nom_campagne || lead.campaignName,
     };
     
-    // Define the order in which to display the fields
     const displayOrder = ['nom', 'email', 'telephone', 'type_de_bien', 'temps', 'budget', 'objectif', 'nom_campagne', 'created_time', 'Create Time'];
     
-    // Get all keys from combinedData and sort them according to displayOrder
+    // Sort keys based on displayOrder, then alphabetically for any other keys
     const sortedKeys = Object.keys(combinedData).sort((a, b) => {
         const indexA = displayOrder.indexOf(a);
         const indexB = displayOrder.indexOf(b);
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        return a.localeCompare(b);
+
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Both are in the order array
+        if (indexA !== -1) return -1; // Only A is in the order array, so it comes first
+        if (indexB !== -1) return 1;  // Only B is in the order array, so it comes first
+        return a.localeCompare(b); // Neither are in order array, sort alphabetically
     });
 
-    // Remove duplicates like 'name' if 'nom' is present
-    const uniqueKeys = Array.from(new Set(sortedKeys));
-
-    if (uniqueKeys.length === 0) {
+    if (sortedKeys.length === 0) {
         return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
     }
 
     return (
         <ul className="space-y-3 text-sm text-foreground">
-        {uniqueKeys.map((key) => {
+        {sortedKeys.map((key) => {
             const label = leadDataLabels[key] || key.replace(/_/g, ' ');
             const value = combinedData[key];
-            if (!value) return null;
+            if (!value) return null; // Don't render empty fields
             const stringValue = String(value);
 
-            if (isPhoneNumber(stringValue)) {
-            return (
-                <li key={key}>
-                <strong className="capitalize">{label}:</strong>{' '}
-                <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                    <WhatsAppIcon />
-                    <span>{stringValue}</span>
-                </a>
-                </li>
-            );
+            if (isPhoneNumber(stringValue) && key.match(/phone|telephone/i)) { // Only format phone numbers
+                return (
+                    <li key={key}>
+                    <strong className="capitalize">{label}:</strong>{' '}
+                    <a href={`https://wa.me/${formatPhoneNumberForLink(stringValue)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                        <WhatsAppIcon />
+                        <span>{stringValue}</span>
+                    </a>
+                    </li>
+                );
             }
             return (
             <li key={key}>
