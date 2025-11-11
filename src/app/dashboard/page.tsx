@@ -106,14 +106,27 @@ export default function DashboardPage() {
       if (l.leadData) {
         try {
           const parsedData = JSON.parse(l.leadData);
-          if (parsedData['Create Time']) return new Date(parsedData['Create Time']);
-          if (parsedData.created_time) return new Date(parsedData.created_time);
+          const dateStr = parsedData['Create Time'] || parsedData.created_time;
+          if (dateStr) return new Date(dateStr);
         } catch (e) {
           // JSON parsing failed, do nothing
         }
       }
       return null;
     };
+    
+    // Helper function to reliably get the campaign name
+    const getCampaignName = (l: Lead): string | null => {
+        if (l.campaignName) return l.campaignName;
+        if (l.nom_campagne) return l.nom_campagne;
+        if (l.leadData) {
+            try {
+                const parsedData = JSON.parse(l.leadData);
+                if (parsedData.nom_campagne) return parsedData.nom_campagne;
+            } catch(e) { /* ignore */ }
+        }
+        return null;
+    }
 
 
   // --- Client-Side Filtering and Sorting ---
@@ -411,7 +424,7 @@ export default function DashboardPage() {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       const leadName = lead.name || lead.nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || lead.telephone || '-';
-                      const leadCampaign = lead.campaignName || lead.nom_campagne || '-';
+                      const leadCampaign = getCampaignName(lead) || '-';
                       const leadStatus = lead.status; // Can be undefined
                       
                       const creationDate = getCreationDate(lead);
