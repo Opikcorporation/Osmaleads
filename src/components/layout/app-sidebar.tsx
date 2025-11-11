@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
-import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart, Trophy } from 'lucide-react';
 import { useUser } from '@/firebase';
 import Image from 'next/image';
 
@@ -30,6 +30,12 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       label: 'Analyse',
       icon: LineChart,
       roles: ['admin'],
+    },
+    {
+        href: '/leaderboard',
+        label: 'Classement',
+        icon: Trophy,
+        roles: ['admin'],
     },
     {
       href: '/dashboard/admin/collaborators',
@@ -65,9 +71,10 @@ export default function AppSidebar({ user }: AppSidebarProps) {
             <Link
               key={item.label}
               href={item.href}
+              target={item.href === '/leaderboard' ? '_blank' : '_self'}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                pathname.startsWith(item.href) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
+                pathname.startsWith(item.href) && item.href !== '/leaderboard' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''
               )}
             >
               <item.icon className="h-5 w-5" />

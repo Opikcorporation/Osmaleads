@@ -18,7 +18,6 @@ import { collection } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Bar, BarChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Trophy, Award } from 'lucide-react';
 
 const chartConfigStatus = {
   leads: {
@@ -67,15 +66,6 @@ const chartConfigTier = {
     color: 'hsl(var(--chart-3))',
   },
 } satisfies React.ComponentProps<typeof ChartContainer>['config'];
-
-const getInitials = (name: string) => {
-    if (!name) return '';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('');
-}
 
 export default function AnalysePage() {
   const firestore = useFirestore();
@@ -183,38 +173,6 @@ export default function AnalysePage() {
     return collaboratorData.filter(c => c.total > 0);
   }, [leads, collaborators]);
 
-   const leaderboards = useMemo(() => {
-    if (!leads || !collaborators) {
-      return { topSellers: [], topQualifiers: [] };
-    }
-
-    const collaboratorStats = collaborators.map(c => {
-      const assignedLeads = leads.filter(l => l.assignedCollaboratorId === c.id);
-      const signedLeads = assignedLeads.filter(l => l.status === 'Signed').length;
-      const qualifiedLeads = assignedLeads.filter(l => l.status === 'Qualified').length;
-      const totalLeads = assignedLeads.length;
-      const qualificationRate = totalLeads > 0 ? (qualifiedLeads / totalLeads) * 100 : 0;
-      
-      return {
-        ...c,
-        signedLeads,
-        qualificationRate,
-      };
-    });
-
-    const topSellers = [...collaboratorStats]
-      .filter(c => c.signedLeads > 0)
-      .sort((a, b) => b.signedLeads - a.signedLeads)
-      .slice(0, 20);
-
-    const topQualifiers = [...collaboratorStats]
-      .filter(c => c.qualificationRate > 0)
-      .sort((a, b) => b.qualificationRate - a.qualificationRate)
-      .slice(0, 20);
-
-    return { topSellers, topQualifiers };
-  }, [leads, collaborators]);
-
   const isLoading = leadsLoading || usersLoading;
 
   if (isLoading) {
@@ -268,62 +226,6 @@ export default function AnalysePage() {
           </CardContent>
         </Card>
       </div>
-
-       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Trophy className="text-yellow-500"/> Meilleurs Vendeurs</CardTitle>
-                    <CardDescription>Top 20 des collaborateurs par nombre de leads signés.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
-                        {leaderboards.topSellers.map((seller, index) => (
-                            <div key={seller.id} className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-lg w-6 text-center">{index + 1}</span>
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarFallback style={{backgroundColor: seller.avatarColor}} className="text-white font-bold">{getInitials(seller.name)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{seller.name}</p>
-                                        <p className="text-sm text-muted-foreground">@{seller.username}</p>
-                                    </div>
-                                </div>
-                                <p className="font-bold text-lg">{seller.signedLeads} <span className="text-sm font-normal text-muted-foreground">ventes</span></p>
-                            </div>
-                        ))}
-                         {leaderboards.topSellers.length === 0 && <p className="text-sm text-muted-foreground text-center p-4">Aucune vente enregistrée pour le moment.</p>}
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Award className="text-green-500"/> Meilleurs Qualifieurs</CardTitle>
-                    <CardDescription>Top 20 des collaborateurs par taux de qualification des leads.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <div className="space-y-3">
-                        {leaderboards.topQualifiers.map((qualifier, index) => (
-                            <div key={qualifier.id} className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-lg w-6 text-center">{index + 1}</span>
-                                     <Avatar className="h-9 w-9">
-                                        <AvatarFallback style={{backgroundColor: qualifier.avatarColor}} className="text-white font-bold">{getInitials(qualifier.name)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{qualifier.name}</p>
-                                        <p className="text-sm text-muted-foreground">@{qualifier.username}</p>
-                                    </div>
-                                </div>
-                                <p className="font-bold text-lg">{qualifier.qualificationRate.toFixed(1)}%</p>
-                            </div>
-                        ))}
-                        {leaderboards.topQualifiers.length === 0 && <p className="text-sm text-muted-foreground text-center p-4">Aucun lead qualifié pour le moment.</p>}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-
 
        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>
