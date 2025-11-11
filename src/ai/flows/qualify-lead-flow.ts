@@ -46,19 +46,25 @@ export async function qualifyLead(
   return qualifyLeadFlow(input);
 }
 
+const qualificationPrompt = ai.definePrompt({
+    name: 'qualifyLeadPrompt',
+    input: { schema: QualifyLeadInputSchema },
+    output: { schema: QualifyLeadOutputSchema },
+    prompt: `
+        You are an expert in lead qualification for a marketing agency. Your goal is to analyze a prospect's answers and assign a score from 0 to 100.
 
-// Function to calculate score based on defined business rules
-const calculateScore = (data: Record<string, string>): { score: number, justification: string } => {
-  let score = 0;
-  // Scoring is temporarily disabled as requested by the user.
-  // We will re-enable this later.
-  return { score, justification: "Scoring en attente." };
-};
+        Here is the ideal prospect profile (highest score):
+        - Objective: "Générer plus de prospects" or "Augmenter les ventes en ligne". An objective of "Notoriété" is a lower priority.
+        - Budget: A monthly budget of "2000€ - 5000€" or "plus de 5000€" is excellent. A budget of "moins de 500€" is very low.
+        - Timeline: A project that needs to start "Dès que possible" or "Dans les 3 prochains mois" is a high priority.
 
-const getTier = (score: number): 'Haut de gamme' | 'Moyenne gamme' | 'Bas de gamme' => {
-  // Scoring is temporarily disabled.
-  return 'Bas de gamme';
-};
+        Analyze the prospect's data below. Assign a score, a tier ('Haut de gamme', 'Moyenne gamme', 'Bas de gamme' based on the score >66, >33), and a one-sentence justification.
+
+        Prospect Data:
+        {{{leadData}}}
+    `,
+});
+
 
 const qualifyLeadFlow = ai.defineFlow(
   {
@@ -67,30 +73,29 @@ const qualifyLeadFlow = ai.defineFlow(
     outputSchema: QualifyLeadOutputSchema,
   },
   async (input) => {
-    let leadData: Record<string, string> = {};
+    let leadDataJson: Record<string, string> = {};
     try {
-        leadData = JSON.parse(input.leadData);
+        leadDataJson = JSON.parse(input.leadData);
     } catch (e) {
         console.error("Could not parse leadData JSON", e);
-        // Return a default low-quality score if data is unparsable
         return {
             score: 0,
             tier: 'Bas de gamme',
             justification: 'Données du prospect invalides ou illisibles.',
         };
     }
+    
+    // Use the AI prompt to get the qualification
+    const { output } = await qualificationPrompt(input);
+    
+    if (!output) {
+         return {
+            score: 0,
+            tier: 'Bas de gamme',
+            justification: "L'IA n'a pas pu qualifier ce prospect.",
+        };
+    }
 
-    // Calculate score using deterministic logic
-    const { score, justification } = calculateScore(leadData);
-
-    // Determine tier based on score
-    const tier = getTier(score);
-
-    // The output is now based on calculation, not an AI prompt.
-    return {
-      score,
-      tier,
-      justification,
-    };
+    return output;
   }
 );
