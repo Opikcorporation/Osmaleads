@@ -68,6 +68,11 @@ const leadDataLabels: Record<string, string> = {
     'Votre Intention Dachat': 'Intention d\'achat',
     'Form Name': 'Campagne',
     'Created Time': 'Date de Création',
+    'temps': 'Échéance',
+    'objectif': 'Objectif',
+    'budget': 'Budget',
+    'nom_campagne': 'Campagne',
+    'type_de_bien': 'Type de bien',
 };
 
 const displayOrder = ['FULL NAME', 'EMAIL', 'PHONE', 'Vous Recherchez', 'Votre Intention Dachat', 'Quel Est Votre Budget', 'Form Name', 'Created Time'];
@@ -137,19 +142,33 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   }
 
   const renderLeadData = () => {
-    if (!lead || !lead.leadData) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
+    if (!lead) {
+      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>
     }
 
     let parsedLeadData: Record<string, any> = {};
-    try {
+    if (lead.leadData) {
+      try {
         parsedLeadData = JSON.parse(lead.leadData);
-    } catch (e) {
+      } catch (e) {
         console.error("Failed to parse leadData:", e);
-        return <p className="text-sm text-destructive">Erreur: Impossible de lire les données du prospect.</p>;
+      }
     }
     
-    const allKeys = Object.keys(parsedLeadData);
+    // Combine all available data
+    const combinedData = {
+      ...parsedLeadData,
+      'FULL NAME': lead.name || lead.nom || parsedLeadData['FULL NAME'],
+      'EMAIL': lead.email || parsedLeadData['EMAIL'],
+      'PHONE': lead.phone || lead.telephone || parsedLeadData['PHONE'],
+      'Form Name': lead.campaignName || lead.nom_campagne || parsedLeadData['Form Name'],
+      'Created Time': lead['Created Time'] || lead.created_time || (lead.createdAt ? lead.createdAt.toDate().toISOString() : parsedLeadData['Created Time']),
+      'Vous Recherchez': lead['Vous Recherchez'] || lead.objectif || parsedLeadData['Vous Recherchez'],
+      'Quel Est Votre Budget': lead['Quel Est Votre Budget'] || lead.budget || parsedLeadData['Quel Est Votre Budget'],
+      'Votre Intention Dachat': lead['Votre Intention Dachat'] || lead.temps || parsedLeadData['Votre Intention Dachat'],
+    };
+
+    const allKeys = Object.keys(combinedData);
 
     const sortedKeys = [...allKeys].sort((a, b) => {
         const indexA = displayOrder.indexOf(a);
@@ -164,7 +183,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         <ul className="space-y-3 text-sm text-foreground">
         {sortedKeys.map((key) => {
             const label = leadDataLabels[key] || key.replace(/_/g, ' ');
-            const value = parsedLeadData[key];
+            const value = combinedData[key];
             if (!value) return null; 
             const stringValue = String(value);
 
@@ -340,3 +359,5 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+
+    
