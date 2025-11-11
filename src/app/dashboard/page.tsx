@@ -138,9 +138,9 @@ export default function DashboardPage() {
     });
 
     return sorted.filter(lead => {
-      const leadStatus = lead.status || 'New'; // Default to 'New' if status is missing
+      const leadStatus = lead.status;
       const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
-      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus;
+      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus || (filterStatus === 'New' && !leadStatus);
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
       return userFilter && statusFilter && tierFilter;
     });
@@ -425,7 +425,7 @@ export default function DashboardPage() {
                       const leadName = lead.name || lead.nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || lead.telephone || '-';
                       const leadCampaign = getCampaignName(lead) || '-';
-                      const leadStatus = lead.status; // Can be undefined
+                      const leadStatus = lead.status;
                       
                       const creationDate = getCreationDate(lead);
                       
@@ -480,7 +480,7 @@ export default function DashboardPage() {
                         <TableCell>
                             {creationDate ? (
                                 <span className="text-sm text-muted-foreground">
-                                    {format(creationDate, "dd/MM/yyyy HH:mm")}
+                                    {format(creationDate, "dd/MM/yy HH:mm")}
                                 </span>
                             ) : (
                                 <span className="text-sm text-muted-foreground">-</span>
