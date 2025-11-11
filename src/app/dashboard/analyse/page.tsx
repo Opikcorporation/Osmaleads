@@ -84,6 +84,40 @@ const periodOptions = [
     { value: 'all_time', label: 'Toujours' },
 ];
 
+// Helper function to reliably get the creation date from a lead object
+const getCreationDate = (l: Lead): Date | null => {
+  if (l.createdAt && l.createdAt instanceof Timestamp) {
+    return l.createdAt.toDate();
+  }
+  
+  let dateString: string | undefined | null = null;
+  
+  // Look for various possible date fields from Zapier data
+  if (l.leadData) {
+    try {
+      const parsedData = JSON.parse(l.leadData);
+      dateString = parsedData.created_time || parsedData['Created Time'];
+    } catch (e) {
+      // It's okay if parsing fails, we'll try other fields.
+    }
+  }
+
+  // Fallback to top-level properties if they exist
+  if (!dateString) {
+    dateString = (l as any).created_time || (l as any)['Created Time'];
+  }
+  
+  if (dateString && typeof dateString === 'string') {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  
+  return null;
+};
+
+
 export default function AnalysePage() {
   const firestore = useFirestore();
   const [period, setPeriod] = useState('this_month');
@@ -110,7 +144,7 @@ export default function AnalysePage() {
     switch (period) {
       case 'this_month':
         startDate = startOfMonth(now);
-        endDate = endOfMonth(now); // Corrected to end of the current month
+        endDate = endOfMonth(now);
         break;
       case 'last_month':
         startDate = startOfMonth(subMonths(now, 1));
@@ -118,7 +152,7 @@ export default function AnalysePage() {
         break;
       case 'last_3_months':
         startDate = startOfMonth(subMonths(now, 2));
-        endDate = endOfMonth(now); // From start of 2 months ago to end of current month
+        endDate = endOfMonth(now);
         break;
       case 'this_year':
         startDate = startOfYear(now);
@@ -130,9 +164,8 @@ export default function AnalysePage() {
     }
 
     return allLeads.filter(lead => {
-      if (lead.createdAt && lead.createdAt.toDate) {
-        const leadDate = lead.createdAt.toDate();
-        // Ensure the comparison is correct
+      const leadDate = getCreationDate(lead);
+      if (leadDate) {
         return leadDate >= startDate && leadDate <= endDate;
       }
       return false;
@@ -198,7 +231,7 @@ export default function AnalysePage() {
   const leadsByCampaign = useMemo(() => {
     if (!filteredLeads) return [];
     const campaignCounts = filteredLeads.reduce((acc, lead) => {
-      const campaignName = lead.campaignName || lead.nom_campagne || 'Inconnue';
+      const campaignName = lead.campaignName || (lead as any).nom_campagne || 'Inconnue';
       acc[campaignName] = (acc[campaignName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
