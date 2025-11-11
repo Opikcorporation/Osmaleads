@@ -105,37 +105,34 @@ export default function AnalysePage() {
     
     const now = new Date();
     let startDate: Date;
+    let endDate: Date = now;
 
     switch (period) {
       case 'this_month':
         startDate = startOfMonth(now);
+        endDate = endOfMonth(now); // Corrected to end of the current month
         break;
       case 'last_month':
         startDate = startOfMonth(subMonths(now, 1));
+        endDate = endOfMonth(subMonths(now, 1));
         break;
       case 'last_3_months':
         startDate = startOfMonth(subMonths(now, 2));
+        endDate = endOfMonth(now); // From start of 2 months ago to end of current month
         break;
       case 'this_year':
         startDate = startOfYear(now);
+        endDate = endOfYear(now);
         break;
       case 'all_time':
       default:
         return allLeads;
     }
 
-    let endDate : Date;
-    switch (period) {
-        case 'last_month':
-            endDate = endOfMonth(subMonths(now, 1));
-            break;
-        default:
-            endDate = new Date(); // now
-    }
-
     return allLeads.filter(lead => {
       if (lead.createdAt && lead.createdAt.toDate) {
         const leadDate = lead.createdAt.toDate();
+        // Ensure the comparison is correct
         return leadDate >= startDate && leadDate <= endDate;
       }
       return false;

@@ -27,6 +27,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
@@ -35,7 +44,7 @@ import { leadStatuses, leadTiers } from '@/lib/types';
 import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X, Trash2, CheckSquare } from 'lucide-react';
+import { PlusCircle, User, X, Trash2, CheckSquare, ListFilter } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -80,6 +89,7 @@ export default function DashboardPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
   const [filterTier, setFilterTier] = useState<LeadTier | 'All'>('All');
+  const [filterCollaborator, setFilterCollaborator] = useState<string>('all');
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
@@ -139,9 +149,10 @@ export default function DashboardPage() {
       const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
       const statusFilter = filterStatus === 'All' || leadStatus === filterStatus || (filterStatus === 'New' && !leadStatus);
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
-      return userFilter && statusFilter && tierFilter;
+      const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
+      return userFilter && statusFilter && tierFilter && collaboratorFilter;
     });
-  }, [allLeads, collaborator, isAdmin, filterStatus, filterTier]);
+  }, [allLeads, collaborator, isAdmin, filterStatus, filterTier, filterCollaborator]);
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
     return allUsers?.find(u => u.id === id);
@@ -339,6 +350,7 @@ export default function DashboardPage() {
                 </TabsList>
             </Tabs>
             {isAdmin && (
+              <>
                 <Tabs onValueChange={(value) => setFilterTier(value as any)} defaultValue="All">
                     <TabsList>
                         <TabsTrigger value="All">Tous les tiers</TabsTrigger>
@@ -347,6 +359,25 @@ export default function DashboardPage() {
                         ))}
                     </TabsList>
                 </Tabs>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="ml-auto">
+                            <ListFilter className="mr-2 h-4 w-4" />
+                            {filterCollaborator === 'all' ? 'Tous les collaborateurs' : getCollaboratorById(filterCollaborator)?.name || 'Filtrer par collaborateur'}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Filtrer par collaborateur</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup value={filterCollaborator} onValueChange={setFilterCollaborator}>
+                            <DropdownMenuRadioItem value="all">Tous les collaborateurs</DropdownMenuRadioItem>
+                            {collaborators.map(c => (
+                                <DropdownMenuRadioItem key={c.id} value={c.id}>{c.name}</DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </div>
         </CardHeader>
