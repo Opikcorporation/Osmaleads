@@ -233,7 +233,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                       <div>
                           <CardTitle className="text-2xl">{leadName}</CardTitle>
                           <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
-                            <span>{leadEmail}</span>
+                            {leadEmail && <span>{leadEmail}</span>}
                             {leadPhone && isPhoneNumber(leadPhone) ? (
                                  <a href={`https://wa.me/${formatPhoneNumberForLink(leadPhone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
                                     <WhatsAppIcon />
@@ -266,7 +266,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 <CardContent>
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Status:</span>
+                            <span className="text-sm font-medium">Statut:</span>
                             <Select defaultValue={leadStatus} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2">
                                   <SelectValue>
