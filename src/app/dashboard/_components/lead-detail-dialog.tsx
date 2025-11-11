@@ -155,36 +155,49 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       }
     }
     
-    // Combine all available data
+    // Combine all available data sources into one object
     const combinedData = {
-      ...parsedLeadData,
-      'FULL NAME': lead.name || lead.nom || parsedLeadData['FULL NAME'],
-      'EMAIL': lead.email || parsedLeadData['EMAIL'],
-      'PHONE': lead.phone || lead.telephone || parsedLeadData['PHONE'],
-      'Form Name': lead.campaignName || lead.nom_campagne || parsedLeadData['Form Name'],
-      'Created Time': lead['Created Time'] || lead.created_time || (lead.createdAt ? lead.createdAt.toDate().toISOString() : parsedLeadData['Created Time']),
-      'Vous Recherchez': lead['Vous Recherchez'] || lead.objectif || parsedLeadData['Vous Recherchez'],
-      'Quel Est Votre Budget': lead['Quel Est Votre Budget'] || lead.budget || parsedLeadData['Quel Est Votre Budget'],
-      'Votre Intention Dachat': lead['Votre Intention Dachat'] || lead.temps || parsedLeadData['Votre Intention Dachat'],
+        // Start with the raw data from the webhook/Zapier
+        ...parsedLeadData,
+        // Then, overwrite with data from the root of the Lead document if it exists.
+        // This ensures that manually edited fields or primary fields are always correct.
+        'FULL NAME': lead.name || lead.nom,
+        'EMAIL': lead.email,
+        'PHONE': lead.phone || lead.telephone,
+        'Form Name': lead.campaignName || lead.nom_campagne || parsedLeadData['Form Name'],
+        'Created Time': lead.createdAt ? lead.createdAt.toDate().toISOString() : (lead['Created Time'] || lead.created_time),
+        'Vous Recherchez': lead['Vous Recherchez'] || lead.objectif,
+        'Quel Est Votre Budget': lead['Quel Est Votre Budget'] || lead.budget,
+        'Votre Intention Dachat': lead['Votre Intention Dachat'] || lead.temps,
     };
+    
+    // Create a final, cleaned-up object of all available key-value pairs
+    const finalData = { ...lead, ...parsedLeadData, ...combinedData };
 
-    const allKeys = Object.keys(combinedData);
+
+    // Get all unique keys from the final combined object
+    const allKeys = Object.keys(finalData);
 
     const sortedKeys = [...allKeys].sort((a, b) => {
         const indexA = displayOrder.indexOf(a);
         const indexB = displayOrder.indexOf(b);
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        return a.localeCompare(b);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB; // Both in displayOrder, sort by it
+        if (indexA !== -1) return -1; // Only A is in displayOrder, A comes first
+        if (indexB !== -1) return 1;  // Only B is in displayOrder, B comes first
+        return a.localeCompare(b); // Neither are in displayOrder, sort alphabetically
     });
 
     return (
         <ul className="space-y-3 text-sm text-foreground">
         {sortedKeys.map((key) => {
-            const label = leadDataLabels[key] || key.replace(/_/g, ' ');
-            const value = combinedData[key];
-            if (!value) return null; 
+            const label = leadDataLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const value = finalData[key as keyof typeof finalData];
+            
+            // Skip fields that shouldn't be displayed
+            if (!value || typeof value === 'object' && value !== null || ['id', 'assignedCollaboratorId', 'leadData'].includes(key)) {
+                 return null;
+            }
+
             const stringValue = String(value);
 
             if (key === 'PHONE' && isPhoneNumber(stringValue)) {
