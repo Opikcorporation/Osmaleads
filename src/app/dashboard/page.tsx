@@ -94,32 +94,29 @@ export default function DashboardPage() {
             return [];
         }
 
-        // Start with the full list of leads
-        let leadsToDisplay: Lead[] = allLeads;
+        let leadsToDisplay: Lead[] = [...allLeads];
 
-        // 1. Apply general filters first (Status and Tier)
+        // 1. General filters (Applied to everyone)
         if (statusFilter !== 'All') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
         }
-
-        if (isAdmin && tierFilter !== 'All') {
+        if (tierFilter !== 'All') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === tierFilter);
         }
 
-        // 2. Apply role-based and assignment filters
+        // 2. Role-based and assignment filters
         if (isAdmin) {
             // Admin can further filter by a specific collaborator
             if (collaboratorFilter !== 'All') {
                 leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
             }
         } else {
-            // Collaborator view:
-            // If filtering by "New", show all "New" leads (assigned or not).
-            // Otherwise, show only their own assigned leads that match the status filter.
+            // Collaborator view logic
+            // If filtering by "New", show all "New" leads.
             if (statusFilter === 'New') {
-                 // The list is already filtered to 'New' status, so no more filtering is needed for this case.
-                 // Collaborators can see all new leads.
+                 // The list is already filtered to 'New' status, so no more filtering is needed. Collaborators see all new leads.
             } else {
+                 // For any other status (or 'All' statuses), only show leads assigned to the current collaborator.
                  leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
             }
         }
@@ -326,5 +323,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
