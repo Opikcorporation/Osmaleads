@@ -78,11 +78,20 @@ export default function DashboardPage() {
         if (!allLeads || !collaborator) {
             return [];
         }
-        if (isAdmin) {
-            return allLeads; // Return all leads for admin users
+
+        let leadsToDisplay = allLeads;
+
+        if (!isAdmin) {
+            leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
         }
-        // For non-admin users, filter to show only their assigned leads.
-        return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+        
+        // This sort was missing, and is better done here in JS
+        return leadsToDisplay.sort((a, b) => {
+            const dateA = getCreationDate(a)?.getTime() || 0;
+            const dateB = getCreationDate(b)?.getTime() || 0;
+            return dateB - dateA;
+        });
+
     }, [allLeads, collaborator, isAdmin]);
 
   
