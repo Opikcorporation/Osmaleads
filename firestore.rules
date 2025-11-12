@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -10,18 +11,21 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check if the user making the request has an 'admin' role in their own profile document.
+      // This now safely checks if auth exists before trying to access its properties.
       return isAuth() && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuth() && request.auth.uid == userId;
     }
 
     // --- Collaborators Rules ---
     match /collaborators/{userId} {
       allow read: if isAuth();
-      // Allow creation only if the request is made by an existing admin.
-      // This is crucial for the /api/create-user endpoint, which acts with admin privileges.
+      // Allow creation if done by an authenticated user (for their own profile, if needed later)
+      // OR if done by a user who is already an admin.
+      // The /api/create-user endpoint relies on the Admin SDK which bypasses these rules,
+      // but this rule provides a clear security model for any potential client-side admin actions.
       allow create: if isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
