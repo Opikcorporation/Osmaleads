@@ -123,18 +123,15 @@ export default function DashboardPage() {
     }
 
 
-  // --- Simplified role-based filtering ---
   const filteredLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
-
     if (isAdmin) {
       return allLeads;
     }
-    
     return allLeads.filter(
-        (lead) => lead.assignedCollaboratorId === collaborator.id
+      (lead) => lead.assignedCollaboratorId === collaborator.id
     );
   }, [allLeads, collaborator, isAdmin]);
   
@@ -507,7 +504,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
-
-    
