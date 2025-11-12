@@ -141,32 +141,27 @@ export default function DashboardPage() {
       return [];
     }
 
-    let leadsToFilter: Lead[];
+    // 1. Get base leads based on user role
+    let baseLeads = isAdmin
+      ? [...allLeads]
+      : allLeads.filter((lead) => lead.assignedCollaboratorId === collaborator.id);
 
-    // 1. Start with a base set of leads depending on the user's role.
-    if (isAdmin) {
-      leadsToFilter = [...allLeads]; // Use a copy
-    } else {
-      leadsToFilter = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
-    }
-    
-    // 2. Apply Status filter
+    // 2. Apply status filter
     if (filterStatus !== 'All') {
-        leadsToFilter = leadsToFilter.filter(lead => lead.status === filterStatus);
+      baseLeads = baseLeads.filter((lead) => lead.status === filterStatus);
     }
 
-    // 3. Apply Admin-only filters
+    // 3. Apply admin-only filters
     if (isAdmin) {
-        if (filterTier !== 'All') {
-            leadsToFilter = leadsToFilter.filter(lead => lead.tier === filterTier);
-        }
-        if (filterCollaborator !== 'all') {
-            leadsToFilter = leadsToFilter.filter(lead => lead.assignedCollaboratorId === filterCollaborator);
-        }
+      if (filterTier !== 'All') {
+        baseLeads = baseLeads.filter((lead) => lead.tier === filterTier);
+      }
+      if (filterCollaborator !== 'all') {
+        baseLeads = baseLeads.filter((lead) => lead.assignedCollaboratorId === filterCollaborator);
+      }
     }
 
-    return leadsToFilter;
-
+    return baseLeads;
   }, [allLeads, collaborator, isAdmin, filterStatus, filterTier, filterCollaborator]);
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
