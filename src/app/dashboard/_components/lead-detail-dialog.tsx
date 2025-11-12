@@ -245,7 +245,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 sm:mx-4">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[calc(100%-2rem)] mx-auto rounded-lg">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="sr-only">Fiche de {leadName}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
