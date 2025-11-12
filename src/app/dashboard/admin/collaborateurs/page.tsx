@@ -113,7 +113,7 @@ export default function AdminCollaboratorsPage() {
               let errorMessage = `Erreur HTTP ${response.status}: La création a échoué.`;
               try {
                   const errorResult = await response.json();
-                  errorMessage = errorResult.error || errorMessage;
+                  errorMessage = errorResult.error || errorResult.details || errorMessage;
               } catch (e) {
                   // This catches "Unexpected end of JSON input" if the error response isn't JSON.
                   console.error("Could not parse error response JSON:", e);
