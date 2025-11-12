@@ -57,6 +57,10 @@ export default function DashboardPage() {
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(allUsersQuery);
   
+  const collaboratorsForFilter = useMemo(() => {
+    return allUsers?.filter(user => user.role === 'collaborator') || [];
+  }, [allUsers]);
+
   const getCreationDate = (l: Lead): Date | null => {
     if (!l) return null;
     if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
@@ -89,36 +93,30 @@ export default function DashboardPage() {
       return campaign || null;
   }
   
-  const displayedLeads = useMemo(() => {
+ const displayedLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
 
-    // 1. Start with the full list and apply general filters first.
+    // Start with all leads and apply universal filters
     let filteredLeads = allLeads.filter(lead => {
-        const statusMatch = statusFilter === 'All' || lead.status === statusFilter;
-        const tierMatch = tierFilter === 'All' || lead.tier === tierFilter;
-        const collaboratorMatch = collaboratorFilter === 'All' || lead.assignedCollaboratorId === collaboratorFilter;
-        
-        // For an admin, all filters are applied directly.
-        if (isAdmin) {
-            return statusMatch && tierMatch && collaboratorMatch;
-        }
-        
-        // For a collaborator, we start with status and tier.
-        return statusMatch && tierMatch;
+      const statusMatch = statusFilter === 'All' || lead.status === statusFilter;
+      const tierMatch = tierFilter === 'All' || lead.tier === tierFilter;
+      return statusMatch && tierMatch;
     });
 
-    // 2. Apply visibility rules based on role.
-    if (!isAdmin) {
-        filteredLeads = filteredLeads.filter(lead => {
-            // Special rule: if "New" status is selected, show all "New" leads regardless of assignment.
-            if (statusFilter === 'New') {
-                return lead.status === 'New';
-            }
-            // Otherwise, only show leads assigned to the current collaborator.
-            return lead.assignedCollaboratorId === collaborator.id;
-        });
+    // Apply role-based visibility and collaborator filter
+    if (isAdmin) {
+      // If admin, the collaborator dropdown is just another filter
+      if (collaboratorFilter !== 'All') {
+        filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+      }
+    } else {
+      // If a regular collaborator, apply visibility rules
+      // Exception: if status is "New", show all "New" leads (so they can be seen/taken)
+      if (statusFilter !== 'New') {
+        filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+      }
     }
     
     // 3. Sort the final list by date.
@@ -218,7 +216,7 @@ export default function DashboardPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="All">Tous les collaborateurs</SelectItem>
-                        {allUsers?.map(user => (
+                        {collaboratorsForFilter.map(user => (
                           <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                         ))}
                       </SelectContent>
