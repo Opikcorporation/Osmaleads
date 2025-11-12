@@ -16,40 +16,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import type { Lead, Collaborator } from '@/lib/types';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X, Trash2, Filter } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
-import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
+import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -83,26 +63,15 @@ export default function DashboardPage() {
   const { collaborator } = useFirebase();
   const isAdmin = collaborator?.role === 'admin';
 
-  // --- Filter states ---
-  const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
-  const [filterTier, setFilterTier] = useState<LeadTier | 'all'>('all');
-  const [filterCollaborator, setFilterCollaborator] = useState<string | 'all'>('all');
-
-
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
-
+  
   // --- Data Fetching ---
   const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(allUsersQuery);
-
-  const collaborators = useMemo(() => allUsers?.filter(u => u.role === 'collaborator') || [], [allUsers]);
   
     const getCreationDate = (l: Lead): Date | null => {
       if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
@@ -136,33 +105,17 @@ export default function DashboardPage() {
     }
 
 
-  const filteredAndSortedLeads = useMemo(() => {
-    if (!allLeads) return [];
-    
-    let leadsToDisplay = [...allLeads];
-
-    // 1. Role-based filtering (the most important one)
-    if (!isAdmin) {
-      leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator?.id);
+  const displayedLeads = useMemo(() => {
+    if (!allLeads || !collaborator) {
+        return [];
     }
 
-    // 2. Status filter
-    if (filterStatus !== 'all') {
-      leadsToDisplay = leadsToDisplay.filter(lead => lead.status === filterStatus);
+    if (isAdmin) {
+        return allLeads;
     }
     
-    // 3. Tier filter (for admins)
-    if (isAdmin && filterTier !== 'all') {
-        leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === filterTier);
-    }
-
-    // 4. Collaborator filter (for admins)
-    if (isAdmin && filterCollaborator !== 'all') {
-        leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === filterCollaborator);
-    }
-
-    return leadsToDisplay;
-  }, [allLeads, isAdmin, collaborator, filterStatus, filterTier, filterCollaborator]);
+    return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+  }, [allLeads, collaborator, isAdmin]);
 
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
@@ -252,76 +205,7 @@ export default function DashboardPage() {
         });
     }
   };
-  
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedLeads(filteredAndSortedLeads?.map(l => l.id) || []);
-    } else {
-      setSelectedLeads([]);
-    }
-  };
 
-  const handleSelectOne = (leadId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedLeads(prev => [...prev, leadId]);
-    } else {
-      setSelectedLeads(prev => prev.filter(id => id !== leadId));
-    }
-  };
-  
-  const handleBulkAssign = async (collaboratorId: string) => {
-    if (!firestore || selectedLeads.length === 0) return;
-    setIsAssigning(true);
-
-    try {
-        const batch = writeBatch(firestore);
-        selectedLeads.forEach(leadId => {
-            const leadRef = doc(firestore, 'leads', leadId);
-            batch.update(leadRef, { assignedCollaboratorId: collaboratorId, status: 'New', assignedAt: serverTimestamp() });
-        });
-        await batch.commit();
-        toast({
-            title: 'Assignation réussie',
-            description: `${selectedLeads.length} lead(s) assigné(s) avec succès.`,
-        });
-        setSelectedLeads([]); 
-    } catch(error) {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur d\'assignation',
-            description: 'Un problème est survenu lors de l\'assignation des leads.',
-        });
-    } finally {
-        setIsAssigning(false);
-        setIsBulkAssignDialogOpen(false);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (!firestore || selectedLeads.length === 0) return;
-
-    try {
-        const batch = writeBatch(firestore);
-        selectedLeads.forEach(leadId => {
-            const leadRef = doc(firestore, 'leads', leadId);
-            batch.delete(leadRef);
-        });
-        await batch.commit();
-        toast({
-            variant: 'destructive',
-            title: 'Suppression réussie',
-            description: `${selectedLeads.length} lead(s) ont été supprimé(s).`,
-        });
-        setSelectedLeads([]); 
-    } catch(error) {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur de suppression',
-            description: 'Un problème est survenu lors de la suppression des leads.',
-        });
-    }
-  };
-  
   const isLoading = allLeadsLoading || usersLoading;
 
   return (
@@ -339,7 +223,6 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-lg md:text-2xl">
                 {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
@@ -350,86 +233,8 @@ export default function DashboardPage() {
                   : 'Voici la liste des leads qui vous ont été assignés.'}
               </CardDescription>
             </div>
-             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                {isAdmin && (
-                   <div className="grid grid-cols-2 gap-2 sm:flex">
-                        <Select value={filterTier} onValueChange={(value) => setFilterTier(value as any)}>
-                            <SelectTrigger className="w-full" aria-label="Filtrer par tier">
-                                <SelectValue placeholder="Filtrer par tier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tous les tiers</SelectItem>
-                                <SelectItem value="Haut de gamme">Haut de gamme</SelectItem>
-                                <SelectItem value="Moyenne gamme">Moyenne gamme</SelectItem>
-                                <SelectItem value="Bas de gamme">Bas de gamme</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={filterCollaborator} onValueChange={(value) => setFilterCollaborator(value)}>
-                            <SelectTrigger className="w-full" aria-label="Filtrer par collaborateur">
-                                <SelectValue placeholder="Filtrer par collaborateur..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tous les collaborateurs</SelectItem>
-                                {collaborators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                   </div>
-                )}
-                 <Tabs
-                    defaultValue="all"
-                    className="w-full sm:w-auto"
-                    onValueChange={(value) => setFilterStatus(value as any)}
-                  >
-                    <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:grid-cols-6">
-                      <TabsTrigger value="all">Tous</TabsTrigger>
-                      <TabsTrigger value="New">Nouveau</TabsTrigger>
-                      <TabsTrigger value="Qualified">Qualifié</TabsTrigger>
-                      <TabsTrigger value="No Answer">Sans Réponse</TabsTrigger>
-                      <TabsTrigger value="Not Interested">Pas Intéressé</TabsTrigger>
-                      <TabsTrigger value="Signed">Signé</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-             </div>
-          </div>
         </CardHeader>
         <CardContent>
-          {isAdmin && selectedLeads.length > 0 && (
-             <div className="bg-muted p-3 rounded-lg mb-4 flex items-center justify-between">
-                <span className="text-sm font-medium">{selectedLeads.length} lead(s) sélectionné(s)</span>
-                <div className="space-x-2">
-                    <Button size="sm" onClick={() => setIsBulkAssignDialogOpen(true)}>
-                        <User className="mr-2 h-4 w-4" />
-                        Assigner
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Cette action est irréversible. {selectedLeads.length} lead(s) seront définitivement supprimés.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleBulkDelete}>
-                            Oui, supprimer
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedLeads([])}>
-                        <X className="mr-2 h-4 w-4"/>
-                        Annuler
-                    </Button>
-                </div>
-            </div>
-          )}
           {isLoading ? (
             <div className="text-center p-8">Chargement des leads...</div>
           ) : (
@@ -437,14 +242,6 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                     {isAdmin && (
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={filteredAndSortedLeads.length > 0 && selectedLeads.length === filteredAndSortedLeads.length}
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
-                    )}
                     <TableHead>Nom</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     {isAdmin && <TableHead className="hidden lg:table-cell">Campagne</TableHead>}
@@ -458,8 +255,8 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
-                    filteredAndSortedLeads.map((lead) => {
+                  {displayedLeads && displayedLeads.length > 0 ? (
+                    displayedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       const leadName = lead.name || (lead as any).nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || (lead as any).telephone || '-';
@@ -471,22 +268,9 @@ export default function DashboardPage() {
                       return (
                       <TableRow
                         key={lead.id}
-                        data-state={selectedLeads.includes(lead.id) ? 'selected' : ''}
                         className="cursor-pointer"
-                        onClick={(e) => {
-                            if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
-                            handleOpenLead(lead.id)
-                        }}
+                        onClick={() => handleOpenLead(lead.id)}
                       >
-                         {isAdmin && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={selectedLeads.includes(lead.id)}
-                              onCheckedChange={(checked) => handleSelectOne(lead.id, !!checked)}
-                              aria-label={`Select lead ${leadName}`}
-                            />
-                          </TableCell>
-                        )}
                         <TableCell className="font-medium">{leadName}</TableCell>
                         <TableCell className="hidden md:table-cell">{leadPhone}</TableCell>
                          {isAdmin && (
@@ -535,7 +319,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 9 : 5} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
                         { leadsError ? "Une erreur est survenue lors du chargement des leads." : "Aucun lead à afficher." }
                       </TableCell>
                     </TableRow>
@@ -548,20 +332,11 @@ export default function DashboardPage() {
       </Card>
 
       {isAdmin && (
-        <>
-            <LeadImportDialog
-            isOpen={isImporting}
-            onClose={() => setIsImporting(false)}
-            onSave={handleSaveImport}
-            />
-            <BulkAssignDialog
-                isOpen={isBulkAssignDialogOpen}
-                onClose={() => setIsBulkAssignDialogOpen(false)}
-                onAssign={handleBulkAssign}
-                collaborators={collaborators}
-                isProcessing={isAssigning}
-            />
-        </>
+        <LeadImportDialog
+        isOpen={isImporting}
+        onClose={() => setIsImporting(false)}
+        onSave={handleSaveImport}
+        />
       )}
 
       {selectedLeadId && (
@@ -574,5 +349,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
