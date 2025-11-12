@@ -36,6 +36,7 @@ async function findUniqueUsername(firestore: Firestore, baseUsername: string): P
         if (existingUserQuery.empty) {
             return username; // The username is unique
         }
+        // CRITICAL FIX: Do not re-declare `username`. Assign a new value instead.
         username = `${baseUsername}${counter}`;
         counter++;
     }
