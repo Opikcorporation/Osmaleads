@@ -8,22 +8,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   useCollection,
   useFirestore,
 } from '@/firebase';
-import type { Lead } from '@/lib/types';
+import type { Lead, ScoringRule } from '@/lib/types';
 import { collection } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bot, ChevronRight } from 'lucide-react';
+import { Bot, ChevronRight, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
@@ -36,6 +28,12 @@ export default function AdminScoringPage() {
   );
   const { data: allLeads, isLoading: leadsLoading } =
     useCollection<Lead>(leadsQuery);
+    
+  const rulesQuery = useMemo(
+    () => collection(firestore, 'scoringRules'),
+    [firestore]
+  );
+  const { data: allRules, isLoading: rulesLoading } = useCollection<ScoringRule>(rulesQuery);
 
   const zapNames = useMemo(() => {
     if (!allLeads) return [];
@@ -47,8 +45,18 @@ export default function AdminScoringPage() {
     });
     return Array.from(names);
   }, [allLeads]);
+  
+  const getConfiguredStatus = (zapName: string) => {
+      if (!allRules) return { configured: false, questionCount: 0 };
+      const rule = allRules.find(r => r.zapName === zapName);
+      const questionCount = rule?.configuredQuestions?.length || 0;
+      return {
+          configured: questionCount > 0,
+          questionCount,
+      }
+  }
 
-  const isLoading = leadsLoading;
+  const isLoading = leadsLoading || rulesLoading;
 
   return (
     <>
@@ -77,26 +85,36 @@ export default function AdminScoringPage() {
             </p>
           ) : zapNames.length > 0 ? (
             <div className="divide-y divide-border">
-              {zapNames.map((zapName) => (
-                <div
-                  key={zapName}
-                  className="flex items-center justify-between p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <Bot className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{zapName}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline">Non configuré</Badge>
-                    <Button variant="ghost" size="sm" asChild>
-                       <Link href={`/dashboard/admin/scoring/${encodeURIComponent(zapName)}`}>
-                         Configurer
-                         <ChevronRight className="h-4 w-4 ml-2" />
-                       </Link>
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              {zapNames.map((zapName) => {
+                  const status = getConfiguredStatus(zapName);
+                  return (
+                    <div
+                      key={zapName}
+                      className="flex items-center justify-between p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Bot className="h-5 w-5 text-primary" />
+                        <span className="font-medium">{zapName}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {status.configured ? (
+                           <Badge variant="secondary" className="bg-green-100 text-green-800">
+                             <CheckCircle className="h-4 w-4 mr-2"/>
+                             {status.questionCount} {status.questionCount > 1 ? 'règles' : 'règle'}
+                           </Badge>
+                        ) : (
+                           <Badge variant="outline">Non configuré</Badge>
+                        )}
+                        <Button variant="ghost" size="sm" asChild>
+                           <Link href={`/dashboard/admin/scoring/${encodeURIComponent(zapName)}`}>
+                             {status.configured ? 'Modifier' : 'Configurer'}
+                             <ChevronRight className="h-4 w-4 ml-2" />
+                           </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           ) : (
             <p className="text-center text-muted-foreground p-8">
@@ -108,3 +126,5 @@ export default function AdminScoringPage() {
     </>
   );
 }
+
+    
