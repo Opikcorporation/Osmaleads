@@ -93,33 +93,47 @@ export default function DashboardPage() {
       return campaign || null;
   }
   
- const displayedLeads = useMemo(() => {
+  const displayedLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
 
-    // Start with all leads and apply universal filters
-    let filteredLeads = allLeads.filter(lead => {
-      const statusMatch = statusFilter === 'All' || lead.status === statusFilter;
-      const tierMatch = tierFilter === 'All' || lead.tier === tierFilter;
-      return statusMatch && tierMatch;
-    });
+    let filteredLeads = [...allLeads];
 
-    // Apply role-based visibility and collaborator filter
+    // --- ADMIN LOGIC ---
     if (isAdmin) {
-      // If admin, the collaborator dropdown is just another filter
+      if (statusFilter !== 'All') {
+        filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
+      }
+      if (tierFilter !== 'All') {
+        filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
+      }
       if (collaboratorFilter !== 'All') {
         filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
       }
-    } else {
-      // If a regular collaborator, apply visibility rules
-      // Exception: if status is "New", show all "New" leads (so they can be seen/taken)
-      if (statusFilter !== 'New') {
+    } 
+    // --- COLLABORATOR LOGIC ---
+    else {
+      // First, apply the status and tier filters to the whole list
+      if (statusFilter !== 'All') {
+        filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
+      }
+      if (tierFilter !== 'All') { // Note: Tier filter is not visible to collaborator, but we keep the logic for consistency
+         filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
+      }
+
+      // Now, apply collaborator-specific visibility rules
+      if (statusFilter === 'New') {
+        // If filtering for "New", show all "New" leads, assigned or not.
+        // The list is already filtered to only "New" leads from the step above.
+        // No further filtering needed.
+      } else {
+        // For any other status (or 'All'), only show leads assigned to the current collaborator.
         filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
       }
     }
     
-    // 3. Sort the final list by date.
+    // Finally, sort the resulting list by date.
     return filteredLeads.sort((a, b) => {
         const dateA = getCreationDate(a)?.getTime() || 0;
         const dateB = getCreationDate(b)?.getTime() || 0;
