@@ -208,45 +208,31 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
-  const getLeadProperty = (lead: Lead | null | undefined, primaryKey: keyof Lead, fallbackKeys: string[]): string | null => {
-      if (!lead) return null;
+  // --- DIRECT and ROBUST data extraction ---
+  let leadName = 'Nom Inconnu';
+  let leadEmail = null;
+  let leadPhone = null;
 
-      // 1. Try the top-level standard property.
-      const primaryValue = lead[primaryKey];
-      if (primaryValue) {
-        return primaryValue as string;
-      }
-
-      // 2. If it's missing or empty, parse leadData and search fallbacks.
+  if (lead) {
+      let parsedData: any = {};
       try {
-          if (!lead.leadData) return null;
-          const parsedData = JSON.parse(lead.leadData);
-          for (const key of fallbackKeys) {
-              if(parsedData[key]) {
-                  return parsedData[key];
-              }
+          if (lead.leadData) {
+              parsedData = JSON.parse(lead.leadData);
           }
       } catch {
-          // JSON parsing might fail, that's okay.
-          return null;
+          // It's okay if it fails, parsedData will be an empty object.
       }
       
-      // 3. If nothing is found, return null.
-      return null;
+      // Get Name: Check top-level, then raw data.
+      leadName = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
+      
+      // Get Email: Check top-level, then raw data.
+      leadEmail = lead.email || parsedData.email || parsedData['EMAIL'];
+
+      // Get Phone: Check top-level, then raw data.
+      leadPhone = lead.phone || parsedData.telephone || parsedData['PHONE'];
   }
-
-  // --- ROBUST DATA GETTERS ---
-  const leadName = useMemo(() => {
-    return getLeadProperty(lead, 'name', ['nom', 'FULL NAME']) || 'Nom Inconnu';
-  }, [lead]);
-
-  const leadEmail = useMemo(() => {
-    return getLeadProperty(lead, 'email', ['email', 'EMAIL']);
-  }, [lead]);
-
-  const leadPhone = useMemo(() => {
-    return getLeadProperty(lead, 'phone', ['telephone', 'PHONE']);
-  }, [lead]);
+  // --- End of data extraction ---
 
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
@@ -398,4 +384,3 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
-
