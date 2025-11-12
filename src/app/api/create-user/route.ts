@@ -19,7 +19,7 @@ const getRandomColor = () => {
 const RequestBodySchema = z.object({
   name: z.string().min(2, "Le nom est trop court"),
   role: z.enum(['admin', 'collaborator']),
-  avatarColor: z.string().refine(color => avatarColors.includes(color)),
+  avatarColor: z.string(), // Keep it simple, we'll validate/fallback on the server
 });
 
 /**
@@ -84,13 +84,16 @@ export async function POST(request: Request) {
     }
 
     // 4. --- Create Firestore Profile ---
+    // Server-side validation/fallback for the color
+    const finalAvatarColor = avatarColors.includes(avatarColor) ? avatarColor : getRandomColor();
+
     const userProfile = {
       id: userRecord.uid,
       name: name,
       username: username,
       email: email,
       role: role,
-      avatarColor: avatarColor || getRandomColor(),
+      avatarColor: finalAvatarColor,
     };
 
     await firestore.collection('collaborators').doc(userRecord.uid).set(userProfile);

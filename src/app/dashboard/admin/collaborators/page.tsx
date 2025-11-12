@@ -106,33 +106,20 @@ export default function AdminCollaboratorsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-              // If response is not OK, do not attempt to parse JSON.
-              // Instead, create a generic but informative error message.
-              const errorText = `Erreur HTTP ${response.status}: ${response.statusText}`;
-              let errorMessage = 'Une erreur inconnue est survenue.';
-              
-              try {
-                // Try to get a more specific error from the body, but don't fail if it's not JSON
-                const errorResult = await response.json();
-                errorMessage = errorResult.error || errorMessage;
-              } catch (e) {
-                 // The error response wasn't JSON. Use the HTTP error text.
-                 errorMessage = errorText;
-              }
-              
-              throw new Error(errorMessage);
-            }
             
-            // If response is OK, we expect JSON.
+            // We now expect the body to be JSON in both success and error cases from the API.
             const result = await response.json();
 
+            if (!response.ok) {
+              // The API returned an error. `result.error` should contain the message.
+              throw new Error(result.error || `Erreur HTTP ${response.status}`);
+            }
+
+            // If response is OK, `result` contains the success payload.
             toast({
                 title: 'Collaborateur créé',
                 description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
-            // Stocker les données pour le dialogue de succès et l'ouvrir
             setNewlyCreatedData({ profile: result.profile, generatedPassword: result.generatedPassword });
             setIsCreatedDialogOpen(true);
 
@@ -141,7 +128,8 @@ export default function AdminCollaboratorsPage() {
             toast({
                 variant: 'destructive',
                 title: 'Erreur lors de la création',
-                description: error.message,
+                // Display the specific error message from the API or a generic one.
+                description: error.message || 'Une erreur inconnue est survenue.',
             });
         }
     }
