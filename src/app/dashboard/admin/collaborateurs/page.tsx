@@ -107,18 +107,28 @@ export default function AdminCollaboratorsPage() {
                 body: JSON.stringify(data),
             });
 
-            const result = await response.json();
-
+            // First, check if the response was successful.
             if (!response.ok) {
-                // L'API a renvoyé une erreur (ex: utilisateur existe déjà)
-                throw new Error(result.error || 'Une erreur inconnue est survenue.');
+              // If not, try to parse the error JSON, but handle cases where it might fail.
+              let errorMessage = `Erreur HTTP ${response.status}: La création a échoué.`;
+              try {
+                  const errorResult = await response.json();
+                  errorMessage = errorResult.error || errorMessage;
+              } catch (e) {
+                  // This catches "Unexpected end of JSON input" if the error response isn't JSON.
+                  console.error("Could not parse error response JSON:", e);
+              }
+              
+              throw new Error(errorMessage);
             }
+            
+            // If response is OK, we expect JSON.
+            const result = await response.json();
 
             toast({
                 title: 'Collaborateur créé',
                 description: `${data.name} a été ajouté. Voici ses identifiants.`,
             });
-            // Stocker les données pour le dialogue de succès et l'ouvrir
             setNewlyCreatedData({ profile: result.profile, generatedPassword: result.generatedPassword });
             setIsCreatedDialogOpen(true);
 
@@ -127,7 +137,7 @@ export default function AdminCollaboratorsPage() {
             toast({
                 variant: 'destructive',
                 title: 'Erreur lors de la création',
-                description: error.message,
+                description: error.message || 'Une erreur inconnue est survenue.',
             });
         }
     }
