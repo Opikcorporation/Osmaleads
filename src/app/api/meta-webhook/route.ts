@@ -87,7 +87,7 @@ export async function POST(request: Request) {
           name: standardizedData.name,
           email: standardizedData.email,
           phone: standardizedData.phone,
-          zapName: standardizedData.zapName,
+          zapName: standardizedData.zapName, // Use the extracted zapName
           status: 'New',
           leadData: leadDataString,
           createdAt: createdAt as Timestamp,
