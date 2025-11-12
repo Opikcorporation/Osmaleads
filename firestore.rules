@@ -20,6 +20,8 @@ service cloud.firestore {
     // --- Collaborators Rules ---
     match /collaborators/{userId} {
       allow read: if isAuth();
+      // Allow creation only if the request is made by an existing admin.
+      // This is crucial for the /api/create-user endpoint, which acts with admin privileges.
       allow create: if isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -53,5 +55,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
