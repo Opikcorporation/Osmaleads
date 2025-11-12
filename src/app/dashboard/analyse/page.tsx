@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -25,7 +26,7 @@ import { collection, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Bar, BarChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from 'recharts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter, startOfToday, endOfToday, startOfYesterday, endOfYesterday } from 'date-fns';
 
 
 const chartConfigStatus = {
@@ -77,6 +78,8 @@ const chartConfigTier = {
 } satisfies React.ComponentProps<typeof ChartContainer>['config'];
 
 const periodOptions = [
+    { value: 'today', label: "Aujourd'hui" },
+    { value: 'yesterday', label: 'Hier' },
     { value: 'this_month', label: 'Ce mois-ci' },
     { value: 'last_month', label: 'Le mois précédent' },
     { value: 'last_3_months', label: 'Les 3 derniers mois' },
@@ -162,6 +165,14 @@ export default function AnalysePage() {
     let endDate: Date = now;
 
     switch (period) {
+      case 'today':
+        startDate = startOfToday();
+        endDate = endOfToday();
+        break;
+      case 'yesterday':
+        startDate = startOfYesterday();
+        endDate = endOfYesterday();
+        break;
       case 'this_month':
         startDate = startOfMonth(now);
         endDate = endOfMonth(now);
