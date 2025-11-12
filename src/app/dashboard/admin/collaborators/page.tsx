@@ -108,16 +108,21 @@ export default function AdminCollaboratorsPage() {
             });
 
             if (!response.ok) {
-                // If response is not OK, try to parse for an error message, but handle failures.
-                let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
-                try {
-                    const errorResult = await response.json();
-                    errorMessage = errorResult.error || 'Une erreur inconnue est survenue.';
-                } catch (e) {
-                    // This catches cases where the error response is not valid JSON.
-                    console.error("Could not parse error JSON:", e);
-                }
-                throw new Error(errorMessage);
+              // If response is not OK, do not attempt to parse JSON.
+              // Instead, create a generic but informative error message.
+              const errorText = `Erreur HTTP ${response.status}: ${response.statusText}`;
+              let errorMessage = 'Une erreur inconnue est survenue.';
+              
+              try {
+                // Try to get a more specific error from the body, but don't fail if it's not JSON
+                const errorResult = await response.json();
+                errorMessage = errorResult.error || errorMessage;
+              } catch (e) {
+                 // The error response wasn't JSON. Use the HTTP error text.
+                 errorMessage = errorText;
+              }
+              
+              throw new Error(errorMessage);
             }
             
             // If response is OK, we expect JSON.
