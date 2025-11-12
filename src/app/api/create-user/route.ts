@@ -4,6 +4,8 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { UserRecord } from 'firebase-admin/auth';
+import type { Firestore } from 'firebase-admin/firestore';
+
 
 // --- SELF-CONTAINED COLOR LOGIC ---
 const avatarColors = [
@@ -26,7 +28,7 @@ const RequestBodySchema = z.object({
 /**
  * Finds a unique username by appending a number if the base username is taken.
  */
-async function findUniqueUsername(firestore: FirebaseFirestore.Firestore, baseUsername: string): Promise<string> {
+async function findUniqueUsername(firestore: Firestore, baseUsername: string): Promise<string> {
     let username = baseUsername;
     let counter = 1;
     while (true) {
