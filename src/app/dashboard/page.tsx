@@ -217,36 +217,27 @@ export default function DashboardPage() {
 
     let leadsToFilter: Lead[] = [...allLeads];
 
-    // --- ADMIN LOGIC ---
     if (isAdmin) {
-        if (statusFilter !== 'All') {
-            leadsToFilter = leadsToFilter.filter(lead => lead.status === statusFilter);
-        }
-        if (tierFilter !== 'All') {
-            leadsToFilter = leadsToFilter.filter(lead => lead.tier === tierFilter);
-        }
-        if (collaboratorFilter !== 'All') {
-            leadsToFilter = leadsToFilter.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
-        }
-    } 
-    // --- COLLABORATOR LOGIC ---
-    else {
-        let filteredByStatus = leadsToFilter;
-        if (statusFilter !== 'All') {
-            filteredByStatus = leadsToFilter.filter(lead => lead.status === statusFilter);
-        }
-        if (tierFilter !== 'All') {
-            // Apply tier filter to the already status-filtered list
-            filteredByStatus = filteredByStatus.filter(lead => lead.tier === tierFilter);
-        }
-
-        if (statusFilter === 'New') {
-            // For 'New' status, show all 'New' leads, regardless of assignment.
-             leadsToFilter = filteredByStatus.filter(lead => lead.status === 'New');
-        } else {
-            // For any other status, show only leads assigned to the current collaborator.
-            leadsToFilter = filteredByStatus.filter(lead => lead.assignedCollaboratorId === collaborator.id);
-        }
+      // Admin: Filters are cumulative and logical.
+      if (statusFilter !== 'All') {
+        leadsToFilter = leadsToFilter.filter(lead => lead.status === statusFilter);
+      }
+      if (tierFilter !== 'All') {
+        leadsToFilter = leadsToFilter.filter(lead => lead.tier === tierFilter);
+      }
+      if (collaboratorFilter !== 'All') {
+        leadsToFilter = leadsToFilter.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+      }
+    } else {
+      // Collaborator: Show only leads assigned to them.
+      leadsToFilter = leadsToFilter.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+      // Then apply other filters on top of their own leads.
+      if (statusFilter !== 'All') {
+        leadsToFilter = leadsToFilter.filter(lead => lead.status === statusFilter);
+      }
+      if (tierFilter !== 'All') {
+        leadsToFilter = leadsToFilter.filter(lead => lead.tier === tierFilter);
+      }
     }
     
     // Finally, sort the resulting list by date.
