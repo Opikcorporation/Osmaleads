@@ -211,31 +211,34 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   // --- ROBUST DATA GETTERS ---
   const leadName = useMemo(() => {
     if (!lead) return 'Lead Inconnu';
+    if (lead.name) return lead.name;
     try {
         const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
+        return parsedData.nom || parsedData['FULL NAME'] || parsedData.name || 'Nom Inconnu';
     } catch {
-        return lead.name || 'Nom Inconnu';
+        return 'Nom Inconnu';
     }
   }, [lead]);
 
   const leadEmail = useMemo(() => {
     if (!lead) return null;
+    if (lead.email) return lead.email;
     try {
         const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return lead.email || parsedData.email || parsedData['EMAIL'] || null;
+        return parsedData.email || parsedData['EMAIL'] || null;
     } catch {
-        return lead.email || null;
+        return null;
     }
   }, [lead]);
 
   const leadPhone = useMemo(() => {
     if (!lead) return null;
+    if (lead.phone) return lead.phone;
     try {
         const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'] || null;
+        return parsedData.telephone || parsedData.phone || parsedData['PHONE'] || null;
     } catch {
-        return lead.phone || null;
+        return null;
     }
   }, [lead]);
 
@@ -389,3 +392,5 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+
+    
