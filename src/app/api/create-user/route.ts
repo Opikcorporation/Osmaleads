@@ -4,7 +4,6 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { UserRecord } from 'firebase-admin/auth';
-import type { Auth } from 'firebase-admin/auth'; // CORRECTED IMPORT
 import type { Firestore } from 'firebase-admin/firestore';
 
 
@@ -48,7 +47,8 @@ async function findUniqueUsername(firestore: Firestore, baseUsername: string): P
  * The Firestore profile is also created.
  */
 export async function POST(request: Request) {
-  const { auth, firestore }: { auth: Auth, firestore: Firestore } = getFirebaseAdmin();
+  // Rely on type inference from getFirebaseAdmin() to avoid type mismatches.
+  const { auth, firestore } = getFirebaseAdmin();
   
   try {
     const body = await request.json();

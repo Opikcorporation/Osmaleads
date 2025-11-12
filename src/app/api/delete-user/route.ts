@@ -3,8 +3,6 @@
 import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { Auth } from 'firebase-admin/auth';
-import type { Firestore } from 'firebase-admin/firestore';
 
 const RequestBodySchema = z.object({
   uid: z.string().min(1, "L'ID utilisateur est requis."),
@@ -16,7 +14,8 @@ const RequestBodySchema = z.object({
  * in Firestore (e.g., corrupted data) or only in Auth.
  */
 export async function POST(request: Request) {
-  const { auth, firestore }: { auth: Auth, firestore: Firestore } = getFirebaseAdmin();
+  // Rely on type inference from getFirebaseAdmin() to avoid type mismatches.
+  const { auth, firestore } = getFirebaseAdmin();
   
   try {
     const body = await request.json();
