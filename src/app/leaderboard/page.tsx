@@ -100,41 +100,41 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-muted/40 p-8">
+    <main className="min-h-screen w-full bg-muted/40 p-4 md:p-8">
       <header className="text-center mb-12">
         <div className="flex items-center justify-center gap-4">
-          <Image src="/logo.png" alt="Osmaleads Logo" width={200} height={50} />
+          <Image src="/logo.png" alt="Osmaleads Logo" width={160} height={40} className="md:w-[200px] md:h-[50px]" />
         </div>
-        <h1 className="text-5xl font-bold tracking-tighter mt-4">Classement des Performances</h1>
-        <p className="text-xl text-muted-foreground mt-2">Mise à jour en temps réel</p>
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tighter mt-4">Classement des Performances</h1>
+        <p className="text-lg md:text-xl text-muted-foreground mt-2">Mise à jour en temps réel</p>
       </header>
       {isLoading ? (
         <div className="text-center"><p>Chargement du classement...</p></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
           <Card className="bg-card/80 backdrop-blur-sm">
             <CardHeader className="text-center">
-              <Trophy className="mx-auto h-12 w-12 text-yellow-500" />
-              <CardTitle className="text-3xl font-bold mt-2">Top 20 Vendeurs</CardTitle>
-              <CardDescription className="text-lg">Basé sur le nombre de leads avec le statut "Signé".</CardDescription>
+              <Trophy className="mx-auto h-10 w-10 md:h-12 md:w-12 text-yellow-500" />
+              <CardTitle className="text-2xl md:text-3xl font-bold mt-2">Top 20 Vendeurs</CardTitle>
+              <CardDescription className="md:text-lg">Basé sur le nombre de leads avec le statut "Signé".</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {leaderboards.topSellers.map((seller, index) => (
                   <div key={seller.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50">
-                    <div className="flex items-center gap-4">
-                      <span className={`text-3xl font-bold w-10 text-center ${getRankColor(index)}`}>
-                          {index === 0 ? <Crown className="mx-auto h-8 w-8" /> : index + 1}
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xl md:text-3xl font-bold w-8 md:w-10 text-center ${getRankColor(index)}`}>
+                          {index === 0 ? <Crown className="mx-auto h-6 w-6 md:h-8 md:w-8" /> : index + 1}
                       </span>
-                      <Avatar className="h-12 w-12 border-2 border-primary">
+                      <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-primary">
                         <AvatarFallback style={{ backgroundColor: seller.avatarColor }} className="text-white font-bold">{getInitials(seller.name)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-xl font-semibold">{seller.name}</p>
-                        <p className="text-md text-muted-foreground">@{seller.username}</p>
+                        <p className="text-base md:text-xl font-semibold">{seller.name}</p>
+                        <p className="text-sm md:text-md text-muted-foreground">@{seller.username}</p>
                       </div>
                     </div>
-                    <p className="text-2xl font-bold">{seller.signedLeads} <span className="text-base font-normal text-muted-foreground">ventes</span></p>
+                    <p className="text-xl md:text-2xl font-bold">{seller.signedLeads} <span className="text-sm md:text-base font-normal text-muted-foreground">ventes</span></p>
                   </div>
                 ))}
                 {leaderboards.topSellers.length === 0 && <p className="text-center text-lg text-muted-foreground p-8">Aucune vente enregistrée pour le moment.</p>}
@@ -144,27 +144,27 @@ export default function LeaderboardPage() {
 
           <Card className="bg-card/80 backdrop-blur-sm">
             <CardHeader className="text-center">
-              <Award className="mx-auto h-12 w-12 text-green-500" />
-              <CardTitle className="text-3xl font-bold mt-2">Top 20 Qualifieurs</CardTitle>
-              <CardDescription className="text-lg">Basé sur le taux de conversion en leads "Qualifié".</CardDescription>
+              <Award className="mx-auto h-10 w-10 md:h-12 md:w-12 text-green-500" />
+              <CardTitle className="text-2xl md:text-3xl font-bold mt-2">Top 20 Qualifieurs</CardTitle>
+              <CardDescription className="md:text-lg">Basé sur le taux de conversion en leads "Qualifié".</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {leaderboards.topQualifiers.map((qualifier, index) => (
                   <div key={qualifier.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50">
-                    <div className="flex items-center gap-4">
-                      <span className={`text-3xl font-bold w-10 text-center ${getRankColor(index)}`}>
-                          {index === 0 ? <Crown className="mx-auto h-8 w-8" /> : index + 1}
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xl md:text-3xl font-bold w-8 md:w-10 text-center ${getRankColor(index)}`}>
+                          {index === 0 ? <Crown className="mx-auto h-6 w-6 md:h-8 md:w-8" /> : index + 1}
                       </span>
-                      <Avatar className="h-12 w-12 border-2 border-primary">
+                      <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-primary">
                         <AvatarFallback style={{ backgroundColor: qualifier.avatarColor }} className="text-white font-bold">{getInitials(qualifier.name)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-xl font-semibold">{qualifier.name}</p>
-                        <p className="text-md text-muted-foreground">@{qualifier.username}</p>
+                        <p className="text-base md:text-xl font-semibold">{qualifier.name}</p>
+                        <p className="text-sm md:text-md text-muted-foreground">@{qualifier.username}</p>
                       </div>
                     </div>
-                     <p className="text-2xl font-bold">{qualifier.qualificationRate.toFixed(1)}%</p>
+                     <p className="text-xl md:text-2xl font-bold">{qualifier.qualificationRate.toFixed(1)}%</p>
                   </div>
                 ))}
                 {leaderboards.topQualifiers.length === 0 && <p className="text-center text-lg text-muted-foreground p-8">Aucun lead qualifié pour le moment.</p>}

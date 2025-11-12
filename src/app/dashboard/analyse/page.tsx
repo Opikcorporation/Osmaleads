@@ -293,8 +293,8 @@ export default function AnalysePage() {
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 className="text-2xl font-semibold md:text-3xl">Analyse des Performances</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl font-semibold md:text-3xl">Analyse des Performances</h1>
+            <p className="text-sm text-muted-foreground">
                 {isAdmin ? 'Visualisez la performance globale des campagnes et des collaborateurs.' : 'Visualisez la performance de vos leads assignés.'}
             </p>
         </div>
@@ -318,38 +318,34 @@ export default function AnalysePage() {
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle>Total des Leads</CardTitle>
-            <CardDescription>Nombre total de leads sur la période.</CardDescription>
+            <CardTitle className="text-base">Total des Leads</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{stats.totalLeads}</p>
+            <p className="text-3xl font-bold">{stats.totalLeads}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Taux de Qualification</CardTitle>
-            <CardDescription>Leads qualifiés / leads traités.</CardDescription>
+            <CardTitle className="text-base">Taux de Qualification</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{stats.qualificationRate.toFixed(1)}%</p>
+            <p className="text-3xl font-bold">{stats.qualificationRate.toFixed(1)}%</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Leads Signés</CardTitle>
-            <CardDescription>Nombre de contrats signés.</CardDescription>
+            <CardTitle className="text-base">Leads Signés</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{stats.signedLeads}</p>
+            <p className="text-3xl font-bold">{stats.signedLeads}</p>
           </CardContent>
         </Card>
          <Card>
           <CardHeader>
-            <CardTitle>Taux de Signature</CardTitle>
-            <CardDescription>Leads signés / total des leads.</CardDescription>
+            <CardTitle className="text-base">Taux de Signature</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{stats.signatureRate.toFixed(1)}%</p>
+            <p className="text-3xl font-bold">{stats.signatureRate.toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
@@ -432,6 +428,15 @@ export default function AnalysePage() {
                                         tickLine={false}
                                         tickMargin={10}
                                         axisLine={false}
+                                        interval={0}
+                                        tick={({ x, y, payload }) => (
+                                          <g transform={`translate(${x},${y})`}>
+                                            <text x={0} y={0} dy={16} textAnchor="end" fill="#666" transform="rotate(-35)">
+                                              {payload.value.length > 15 ? payload.value.substring(0, 15) + '...' : payload.value}
+                                            </text>
+                                          </g>
+                                        )}
+                                        height={60}
                                     />
                                     <YAxis />
                                     <Tooltip

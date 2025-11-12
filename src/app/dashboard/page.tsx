@@ -315,12 +315,12 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">
-          Tableau de Bord des Leads
+        <h1 className="text-xl font-semibold md:text-3xl">
+          Tableau de Bord
         </h1>
         {isAdmin && (
-          <Button onClick={() => setIsImporting(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Importer des Leads
+          <Button onClick={() => setIsImporting(true)} size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" /> Importer
           </Button>
         )}
       </div>
@@ -329,10 +329,10 @@ export default function DashboardPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <CardTitle>
+              <CardTitle className="text-lg md:text-2xl">
                 {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 {isAdmin
                   ? 'Voici la liste de tous les leads dans le système.'
                   : 'Voici la liste des leads qui vous ont été assignés.'}
@@ -341,20 +341,20 @@ export default function DashboardPage() {
           </div>
            <div className="pt-4 flex flex-wrap gap-4">
             <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
-                <TabsList>
-                    <TabsTrigger value="All">Tous les statuts</TabsTrigger>
+                <TabsList className="h-auto">
+                    <TabsTrigger value="All">Tous</TabsTrigger>
                     {leadStatuses.map(status => (
-                    <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
+                    <TabsTrigger key={status} value={status} className="hidden sm:flex">{status}</TabsTrigger>
                     ))}
                 </TabsList>
             </Tabs>
             {isAdmin && (
               <>
                 <Tabs onValueChange={(value) => setFilterTier(value as any)} defaultValue="All">
-                    <TabsList>
-                        <TabsTrigger value="All">Tous les tiers</TabsTrigger>
+                    <TabsList className="h-auto">
+                        <TabsTrigger value="All">Tiers</TabsTrigger>
                         {leadTiers.map(tier => (
-                        <TabsTrigger key={tier} value={tier}>{tier}</TabsTrigger>
+                        <TabsTrigger key={tier} value={tier} className="hidden sm:flex">{tier}</TabsTrigger>
                         ))}
                     </TabsList>
                 </Tabs>
@@ -362,7 +362,10 @@ export default function DashboardPage() {
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="ml-auto">
                             <ListFilter className="mr-2 h-4 w-4" />
-                            {filterCollaborator === 'all' ? 'Tous les collaborateurs' : getCollaboratorById(filterCollaborator)?.name || 'Filtrer par collaborateur'}
+                            <span className="hidden sm:inline">
+                                {filterCollaborator === 'all' ? 'Tous les collaborateurs' : getCollaboratorById(filterCollaborator)?.name || 'Filtrer'}
+                            </span>
+                             <span className="sm:hidden">Filtre</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -434,12 +437,12 @@ export default function DashboardPage() {
                       </TableHead>
                     )}
                     <TableHead>Nom</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    {isAdmin && <TableHead>Campagne</TableHead>}
-                    {isAdmin && <TableHead>Score</TableHead>}
+                    <TableHead className="hidden md:table-cell">Téléphone</TableHead>
+                    {isAdmin && <TableHead className="hidden lg:table-cell">Campagne</TableHead>}
+                    {isAdmin && <TableHead className="hidden md:table-cell">Score</TableHead>}
                     <TableHead>Statut</TableHead>
-                    <TableHead>Assigné à</TableHead>
-                    <TableHead>Date d'ajout</TableHead>
+                    <TableHead className="hidden lg:table-cell">Assigné à</TableHead>
+                    <TableHead className="hidden lg:table-cell">Date</TableHead>
                     <TableHead className="text-right">
                       <span className="sr-only">Actions</span>
                     </TableHead>
@@ -476,21 +479,21 @@ export default function DashboardPage() {
                           </TableCell>
                         )}
                         <TableCell className="font-medium">{leadName}</TableCell>
-                        <TableCell>{leadPhone}</TableCell>
+                        <TableCell className="hidden md:table-cell">{leadPhone}</TableCell>
                          {isAdmin && (
-                          <TableCell>
+                          <TableCell className="hidden lg:table-cell">
                            {leadCampaign}
                           </TableCell>
                         )}
                         {isAdmin && (
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <ScoreBadge score={lead.score} />
                           </TableCell>
                         )}
                         <TableCell>
                           <StatusBadge status={leadStatus} />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           {assignedCollaborator ? (
                              <div className="flex items-center gap-2">
                                 <Avatar className="h-6 w-6">
@@ -504,7 +507,7 @@ export default function DashboardPage() {
                             <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                             {creationDate ? (
                                 <span className="text-sm text-muted-foreground">
                                     {format(creationDate, "dd/MM/yy HH:mm")}

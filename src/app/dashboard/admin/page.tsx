@@ -29,9 +29,9 @@ export default function AdminDashboardPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord Administrateur</h1>
+        <h1 className="text-xl font-semibold md:text-3xl">Tableau de Bord Admin</h1>
       </div>
-      <p className="text-muted-foreground">
+      <p className="text-sm text-muted-foreground md:text-base">
         Bienvenue dans votre centre de contrôle. Gérez les utilisateurs, les groupes et les intégrations.
       </p>
       
@@ -42,11 +42,11 @@ export default function AdminDashboardPage() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                        <CardTitle className="flex items-center gap-2">
-                            <section.icon className="h-6 w-6 text-primary" />
+                        <CardTitle className="flex items-center gap-2 text-base md:text-2xl">
+                            <section.icon className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                             {section.title}
                         </CardTitle>
-                        <CardDescription>{section.description}</CardDescription>
+                        <CardDescription className="text-sm">{section.description}</CardDescription>
                     </div>
                     <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
                 </div>

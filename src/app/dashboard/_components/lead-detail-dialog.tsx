@@ -230,7 +230,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
             <div className="md:col-span-2 space-y-6 overflow-y-auto pr-4">
               <Card>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                       <div>
                           <CardTitle className="text-2xl">{leadName}</CardTitle>
                           <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">

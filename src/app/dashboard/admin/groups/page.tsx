@@ -198,12 +198,12 @@ export default function AdminGroupsPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Groupes & la Distribution</h1>
-        <Button onClick={() => handleOpenDialog()}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Groupe
+        <h1 className="text-xl font-semibold md:text-3xl">Groupes & Distribution</h1>
+        <Button onClick={() => handleOpenDialog()} size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" /> <span className="hidden md:inline">Créer un Groupe</span><span className="md:hidden">Créer</span>
         </Button>
       </div>
-      <p className="text-muted-foreground">
+      <p className="text-sm text-muted-foreground md:text-base">
         Créez des équipes, assignez des collaborateurs et définissez leurs règles de distribution de leads.
       </p>
 
