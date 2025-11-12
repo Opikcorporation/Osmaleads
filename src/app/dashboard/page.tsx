@@ -96,28 +96,31 @@ export default function DashboardPage() {
 
         let leadsToDisplay: Lead[] = [...allLeads];
 
-        // 1. General filters (Applied to everyone)
-        if (statusFilter !== 'All') {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
-        }
-        if (tierFilter !== 'All') {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === tierFilter);
-        }
-
-        // 2. Role-based and assignment filters
+        // --- ADMIN LOGIC ---
         if (isAdmin) {
-            // Admin can further filter by a specific collaborator
+            // Apply filters sequentially
+            if (statusFilter !== 'All') {
+                leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
+            }
+            if (tierFilter !== 'All') {
+                leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === tierFilter);
+            }
             if (collaboratorFilter !== 'All') {
                 leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
             }
-        } else {
-            // Collaborator view logic
-            // If filtering by "New", show all "New" leads.
+        } 
+        // --- COLLABORATOR LOGIC ---
+        else {
+            // If collaborator filters by "New", show ALL new leads, assigned or not.
             if (statusFilter === 'New') {
-                 // The list is already filtered to 'New' status, so no more filtering is needed. Collaborators see all new leads.
-            } else {
-                 // For any other status (or 'All' statuses), only show leads assigned to the current collaborator.
-                 leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+                leadsToDisplay = leadsToDisplay.filter(lead => lead.status === 'New');
+            } 
+            // For any other status filter, only show leads assigned to them that match the filter.
+            else {
+                leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+                if (statusFilter !== 'All') {
+                    leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
+                }
             }
         }
         
@@ -323,3 +326,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
