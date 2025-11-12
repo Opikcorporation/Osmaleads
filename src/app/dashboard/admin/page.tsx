@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowRight, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, UserPlus, Users, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 const adminSections = [
@@ -16,6 +16,12 @@ const adminSections = [
     description: 'Créer des équipes et définir les règles de distribution.',
     href: '/dashboard/admin/groups',
     icon: Users,
+  },
+  {
+    title: 'Statut Intégration',
+    description: 'Vérifier la connexion avec Zapier et les campagnes actives.',
+    href: '/dashboard/admin/settings',
+    icon: Settings,
   }
 ];
 
@@ -26,7 +32,7 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-semibold md:text-3xl">Tableau de Bord Administrateur</h1>
       </div>
       <p className="text-muted-foreground">
-        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs et les groupes.
+        Bienvenue dans votre centre de contrôle. Gérez les utilisateurs, les groupes et les intégrations.
       </p>
       
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
