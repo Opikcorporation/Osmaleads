@@ -19,7 +19,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
@@ -36,7 +36,8 @@ export default function DashboardPage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   
   // --- Data Fetching ---
-  const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null, [firestore]);
+  // CORRECTED: Removed the orderBy from the query to avoid needing a composite index.
+  const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads')) : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
@@ -85,7 +86,7 @@ export default function DashboardPage() {
             leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
         }
         
-        // This sort was missing, and is better done here in JS
+        // This sort is now done safely in JavaScript.
         return leadsToDisplay.sort((a, b) => {
             const dateA = getCreationDate(a)?.getTime() || 0;
             const dateB = getCreationDate(b)?.getTime() || 0;
