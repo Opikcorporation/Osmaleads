@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from '@/components/user-nav';
 import { cn } from '@/lib/utils';
 import type { Collaborator } from '@/lib/types';
-import { LayoutDashboard, Settings, Users, BotMessageSquare, UserPlus, LineChart, Trophy } from 'lucide-react';
+import { LayoutDashboard, Settings, Users, Bot, UserPlus, LineChart, Trophy } from 'lucide-react';
 import { useUser } from '@/firebase';
 import Image from 'next/image';
 
@@ -49,6 +49,12 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       icon: Users,
       roles: ['admin'],
     },
+     {
+      href: '/dashboard/admin/scoring',
+      label: 'Scoring IA',
+      icon: Bot,
+      roles: ['admin'],
+    },
     {
       href: '/dashboard/admin/settings',
       label: 'Paramètres',
@@ -85,7 +91,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
       <div className="mt-auto p-4 space-y-4">
         <div className="p-4 rounded-lg bg-sidebar-accent/50 border border-dashed border-primary/50">
           <div className='flex items-center gap-2'>
-            <BotMessageSquare className="h-6 w-6 text-primary"/>
+            <Bot className="h-6 w-6 text-primary"/>
             <h3 className="font-semibold text-accent-foreground">Ernest IA</h3>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">

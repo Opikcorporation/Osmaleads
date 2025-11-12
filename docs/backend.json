@@ -62,19 +62,12 @@
           "type": "string",
           "description": "Reference to Collaborator assigned to this lead. (Relationship: Collaborator 1:N Lead)"
         },
-        "campaignId": {
+        "zapName": {
           "type": [
             "string",
             "null"
           ],
-          "description": "The ID of the Meta campaign this lead originated from."
-        },
-        "campaignName": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "The name of the Meta campaign this lead originated from."
+          "description": "The name of the Zapier Zap this lead originated from."
         }
       },
       "required": [
@@ -131,7 +124,7 @@
       ]
     },
     "Note": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$schema": "http://json-schema.org/draft-07-schema#",
       "title": "Note",
       "type": "object",
       "description": "Represents a note added to a lead.",
@@ -262,6 +255,43 @@
         "integrationName"
       ]
     },
+    "ScoringRule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScoringRule",
+      "type": "object",
+      "description": "Defines scoring rules for a specific Zap.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ScoringRule entity."
+        },
+        "zapName": {
+          "type": "string",
+          "description": "The name of the Zapier Zap these rules apply to."
+        },
+        "rules": {
+          "type": "object",
+          "description": "A map of questions to their answer-score mappings.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "configuredQuestions": {
+          "type": "array",
+          "description": "A list of question titles that have been configured.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "zapName"
+      ]
+    },
     "required": [
       "id",
       "groupId",
@@ -335,6 +365,16 @@
             "$ref": "#/backend/entities/IntegrationSetting"
           },
           "description": "Stores settings for third-party integrations. Managed by admins."
+        }
+      },
+      {
+        "path": "/scoringRules/{ruleId}",
+        "definition": {
+          "entityName": "ScoringRule",
+          "schema": {
+            "$ref": "#/backend/entities/ScoringRule"
+          },
+          "description": "Stores lead scoring rules per Zap. Managed by admins."
         }
       }
     ]

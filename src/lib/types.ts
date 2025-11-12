@@ -36,8 +36,7 @@ export type Lead = {
   assignedAt?: Timestamp;
   
   // Standardized fields extracted from the Zapier payload for easy querying and display
-  campaignId: string | null;
-  campaignName: string | null;
+  zapName: string | null;
   intention: string | null; // e.g., "Dans les 3 prochains mois"
   budget: string | null; // e.g., "1000€ - 2000€"
   objectif: string | null; // e.g., "rendement_locatif"
@@ -82,4 +81,17 @@ export type IntegrationSetting = {
   subscribedPageIds?: string[];
   accessToken: string;
   lastSync?: Timestamp;
+};
+
+
+export type ScoringRule = {
+    id: string;
+    zapName: string;
+    rules: {
+        [question: string]: {
+            [answer: string]: number; // Map of answer to score
+        };
+    };
+    // To track which questions have been configured
+    configuredQuestions: string[];
 };

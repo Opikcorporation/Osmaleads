@@ -47,5 +47,9 @@ service cloud.firestore {
     match /integrationSettings/{settingId} {
         allow read, write: if isAdmin();
     }
+
+    match /scoringRules/{ruleId} {
+        allow read, write: if isAdmin();
+    }
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowRight, UserPlus, Users, Settings } from 'lucide-react';
+import { ArrowRight, UserPlus, Users, Settings, Bot } from 'lucide-react';
 import Link from 'next/link';
 
 const adminSections = [
@@ -16,6 +16,12 @@ const adminSections = [
     description: 'Créer des équipes et définir les règles de distribution.',
     href: '/dashboard/admin/groups',
     icon: Users,
+  },
+  {
+    title: 'Scoring IA',
+    description: 'Configurer les règles de qualification pour chaque formulaire.',
+    href: '/dashboard/admin/scoring',
+    icon: Bot,
   },
   {
     title: 'Statut Intégration',

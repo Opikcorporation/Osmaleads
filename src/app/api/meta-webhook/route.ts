@@ -58,7 +58,7 @@ export async function POST(request: Request) {
           name: rawData.nom || rawData['FULL NAME'] || 'Nom Inconnu',
           email: rawData.email || rawData['EMAIL'] || null,
           phone: rawData.telephone || rawData['PHONE'] || null,
-          campaignName: rawData.nom_campagne || rawData['Form Name'] || null,
+          zapName: rawData.form_name || rawData.zap_name || rawData['Form Name'] || 'Inconnu', // Use zap name now
           intention: rawData.temps || rawData['Votre Intention Dachat'] || null,
           budget: rawData.budget || rawData['Quel Est Votre Budget'] || null,
           objectif: rawData.objectif || null, // Only exists in one form
@@ -67,10 +67,7 @@ export async function POST(request: Request) {
       };
 
       const leadDataString = JSON.stringify(rawData);
-
-      // --- QUALIFICATION (Currently Disabled) ---
-      const qualification = await qualifyLead({ leadData: leadDataString });
-
+      
       // --- DATE HANDLING ---
       let createdAt: FieldValue | Timestamp;
       if (standardizedData.createdTime) {
@@ -90,19 +87,19 @@ export async function POST(request: Request) {
           name: standardizedData.name,
           email: standardizedData.email,
           phone: standardizedData.phone,
-          campaignName: standardizedData.campaignName,
+          zapName: standardizedData.zapName,
           status: 'New',
           leadData: leadDataString,
           createdAt: createdAt as Timestamp,
           assignedCollaboratorId: null,
-          score: qualification.score,
-          tier: qualification.tier,
+          // Set default score and tier. Qualification will happen via the admin panel.
+          score: 0,
+          tier: 'Bas de gamme',
           // Store the other important fields at the top level for easy access
           intention: standardizedData.intention,
           budget: standardizedData.budget,
           objectif: standardizedData.objectif,
           typeDeBien: standardizedData.typeDeBien,
-          campaignId: rawData.campaign_id || null, // Keep original campaign_id if present
       };
 
       // Add the new lead to our Firestore 'leads' collection.
