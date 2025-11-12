@@ -124,18 +124,18 @@ export default function DashboardPage() {
 
 
   // --- Simplified role-based filtering ---
-  const filteredAndSortedLeads = useMemo(() => {
+  const filteredLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
 
     if (isAdmin) {
-      // Admins see all leads
       return allLeads;
-    } else {
-      // Collaborators see only their assigned leads
-      return allLeads.filter((lead) => lead.assignedCollaboratorId === collaborator.id);
     }
+    
+    return allLeads.filter(
+        (lead) => lead.assignedCollaboratorId === collaborator.id
+    );
   }, [allLeads, collaborator, isAdmin]);
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
@@ -228,7 +228,7 @@ export default function DashboardPage() {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(filteredAndSortedLeads?.map(l => l.id) || []);
+      setSelectedLeads(filteredLeads?.map(l => l.id) || []);
     } else {
       setSelectedLeads([]);
     }
@@ -373,7 +373,7 @@ export default function DashboardPage() {
                      {isAdmin && (
                       <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={selectedLeads.length > 0 && !!filteredAndSortedLeads && selectedLeads.length === filteredAndSortedLeads.length}
+                          checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -391,8 +391,8 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
-                    filteredAndSortedLeads.map((lead) => {
+                  {filteredLeads && filteredLeads.length > 0 ? (
+                    filteredLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       const leadName = lead.name || (lead as any).nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || (lead as any).telephone || '-';
@@ -507,5 +507,7 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
 
     
