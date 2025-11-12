@@ -16,6 +16,7 @@ const QualifyLeadInputSchema = z.object({
     .describe(
       'A JSON string representing the raw data of a lead. This could come from a form, a CSV file, or an API like Meta.'
     ),
+  rules: z.string().describe('A JSON string of the scoring rules to apply.')
 });
 export type QualifyLeadInput = z.infer<typeof QualifyLeadInputSchema>;
 
@@ -51,34 +52,25 @@ const qualificationPrompt = ai.definePrompt({
     input: { schema: QualifyLeadInputSchema },
     output: { schema: QualifyLeadOutputSchema },
     prompt: `
-        Tu es un expert en qualification de prospects pour une agence marketing. Ton objectif est d'analyser les réponses d'un prospect et de lui attribuer un score de 0 à 100 en suivant ce barème de notation précis.
+        Tu es un expert en qualification de prospects. Ton objectif est d'analyser les réponses d'un prospect et de lui attribuer un score de 0 à 100 en suivant un barème de notation.
+
+        Le barème de notation t'est fourni au format JSON. Chaque clé est une question, et chaque valeur est un objet où les clés sont les réponses possibles et les valeurs sont les points à attribuer.
+
+        Calcule le score total en additionnant les points pour chaque réponse du prospect. Le score final doit être normalisé sur 100.
+        Si aucune règle ne correspond, le score est 0.
 
         ---
-        **BARÈME DE NOTATION**
-
-        **1. Échéance du projet (Poids : 40%)**
-        - "Dès que possible" : Excellent (Score maximum pour ce critère)
-        - "Dans les 3 prochains mois" : Bon (Score élevé, mais inférieur à "Dès que possible")
-        - "Dans 6 mois ou plus" : Moyen (Score faible)
-        - "Juste pour information" : Très faible (Score proche de zéro pour ce critère)
-
-        **2. Budget Mensuel (Poids : 40%)**
-        - "plus de 5000€" : Excellent
-        - "2000€ - 5000€" : Très bon
-        - "1000€ - 2000€" : Correct
-        - "500€ - 1000€" : Faible
-        - "moins de 500€" : Très faible
-
-        **3. Objectif Principal (Poids : 20%)**
-        - "Générer plus de prospects" ou "Augmenter les ventes en ligne" : Très Pertinent (Score élevé)
-        - "Améliorer l'image de marque (Notoriété)" : Moins Pertinent (Score moyen)
-        - Autre chose : À évaluer au cas par cas.
-
+        **BARÈME DE NOTATION (JSON)**
+        {{{rules}}}
         ---
 
         **INSTRUCTIONS**
 
-        Analyse les données du prospect ci-dessous. Pèse chaque critère selon le barème, calcule un score global, attribue un tier ('Haut de gamme' > 66, 'Moyenne gamme' > 33) et fournis une justification concise en français.
+        1.  Analyse les données du prospect ci-dessous.
+        2.  Applique le barème de notation pour calculer le score.
+        3.  Normalise le score sur 100 (le score max possible est la somme de tous les points max par question).
+        4.  Attribue un tier ('Haut de gamme' > 66, 'Moyenne gamme' > 33, 'Bas de gamme' <= 33).
+        5.  Fournis une justification concise en une phrase en français.
 
         Données du prospect :
         {{{leadData}}}
@@ -93,12 +85,7 @@ const qualifyLeadFlow = ai.defineFlow(
     outputSchema: QualifyLeadOutputSchema,
   },
   async (input) => {
-    // AI qualification is currently disabled as requested.
-    // Returning default values.
-    return {
-        score: 0,
-        tier: 'Bas de gamme',
-        justification: "La qualification IA est désactivée.",
-    };
+    const { output } = await qualificationPrompt(input);
+    return output!;
   }
 );
