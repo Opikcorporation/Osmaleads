@@ -4,7 +4,17 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { UserRecord } from 'firebase-admin/auth';
-import { avatarColors, getRandomColor } from '@/lib/colors';
+
+// --- SELF-CONTAINED COLOR LOGIC ---
+const avatarColors = [
+  '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', 
+  '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899'
+];
+
+const getRandomColor = () => {
+  return avatarColors[Math.floor(Math.random() * avatarColors.length)];
+};
+// --- END OF SELF-CONTAINED LOGIC ---
 
 const RequestBodySchema = z.object({
   name: z.string().min(2, "Le nom est trop court"),
