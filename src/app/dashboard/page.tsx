@@ -30,12 +30,11 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { leadStatuses, leadTiers } from '@/lib/types';
-import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { useState, useMemo, useEffect } from 'react';
+import type { Lead, Collaborator } from '@/lib/types';
+import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X, Trash2, CheckSquare } from 'lucide-react';
+import { PlusCircle, User, X, Trash2 } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -82,7 +81,7 @@ export default function DashboardPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
-  // --- Simplified Data Fetching ---
+  // --- Data Fetching ---
   const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
@@ -123,13 +122,14 @@ export default function DashboardPage() {
     }
 
 
-  const filteredLeads = useMemo(() => {
+  const displayedLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
     if (isAdmin) {
-      return allLeads;
+      return allLeads; // Admins see all leads
     }
+    // Collaborators see only their assigned leads
     return allLeads.filter(
       (lead) => lead.assignedCollaboratorId === collaborator.id
     );
@@ -225,7 +225,7 @@ export default function DashboardPage() {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(filteredLeads?.map(l => l.id) || []);
+      setSelectedLeads(displayedLeads?.map(l => l.id) || []);
     } else {
       setSelectedLeads([]);
     }
@@ -370,7 +370,7 @@ export default function DashboardPage() {
                      {isAdmin && (
                       <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
+                          checked={displayedLeads.length > 0 && selectedLeads.length === displayedLeads.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -388,8 +388,8 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeads && filteredLeads.length > 0 ? (
-                    filteredLeads.map((lead) => {
+                  {displayedLeads && displayedLeads.length > 0 ? (
+                    displayedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       const leadName = lead.name || (lead as any).nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || (lead as any).telephone || '-';

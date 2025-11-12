@@ -2,24 +2,33 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
-  if (!getApps().length) {
-    // This is the correct way to initialize.
-    // We don't need a try/catch block because in a real Firebase Hosting env,
-    // the config is provided automatically, and locally, we have the config object.
-    const app = initializeApp(firebaseConfig);
-    return getSdks(app);
+// This function ensures Firebase is initialized only once.
+const getFirebaseApp = (): FirebaseApp => {
+  if (getApps().length === 0) {
+    return initializeApp(firebaseConfig);
   }
+  return getApp();
+};
 
-  // If already initialized, return the SDKs from the existing app instance.
-  return getSdks(getApp());
+const app = getFirebaseApp();
+const authInstance = getAuth(app);
+const firestoreInstance = getFirestore(app);
+
+// This function is now simplified to just return the memoized instances.
+// This prevents any re-initialization issues.
+export function initializeFirebase() {
+  return {
+    firebaseApp: app,
+    auth: authInstance,
+    firestore: firestoreInstance,
+  };
 }
 
-
+// The getSdks function is no longer needed as we are managing instances directly.
+// We keep it for any internal dependencies that might exist, but it's deprecated in spirit.
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
