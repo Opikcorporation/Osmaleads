@@ -138,23 +138,30 @@ export default function DashboardPage() {
 
   const filteredAndSortedLeads = useMemo(() => {
     if (!allLeads) return [];
+    
+    let leadsToDisplay = [...allLeads];
 
-    let leadsToDisplay = allLeads;
-
-    // The primary filter: role-based visibility
+    // 1. Role-based filtering (the most important one)
     if (!isAdmin) {
-      leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator?.id);
+      leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator?.id);
     }
 
-    // Secondary filters, applied on top of the role-based list
-    return leadsToDisplay.filter(lead => {
-        const statusFilter = filterStatus === 'all' || lead.status === filterStatus;
-        const tierFilter = !isAdmin || filterTier === 'all' || lead.tier === filterTier;
-        const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
+    // 2. Status filter
+    if (filterStatus !== 'all') {
+      leadsToDisplay = leadsToDisplay.filter(lead => lead.status === filterStatus);
+    }
+    
+    // 3. Tier filter (for admins)
+    if (isAdmin && filterTier !== 'all') {
+        leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === filterTier);
+    }
 
-        return statusFilter && tierFilter && collaboratorFilter;
-    });
+    // 4. Collaborator filter (for admins)
+    if (isAdmin && filterCollaborator !== 'all') {
+        leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === filterCollaborator);
+    }
 
+    return leadsToDisplay;
   }, [allLeads, isAdmin, collaborator, filterStatus, filterTier, filterCollaborator]);
 
   
