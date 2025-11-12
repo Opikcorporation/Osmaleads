@@ -106,7 +106,7 @@ export default function AdminCollaboratorsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             });
-            
+
             // First, check if the response was successful.
             if (!response.ok) {
               // If not, try to parse the error JSON, but handle cases where it might fail.
