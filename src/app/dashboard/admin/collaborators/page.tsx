@@ -107,12 +107,21 @@ export default function AdminCollaboratorsPage() {
                 body: JSON.stringify(data),
             });
 
-            const result = await response.json();
-
             if (!response.ok) {
-                // L'API a renvoyé une erreur (ex: utilisateur existe déjà)
-                throw new Error(result.error || 'Une erreur inconnue est survenue.');
+                // If response is not OK, try to parse for an error message, but handle failures.
+                let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorResult = await response.json();
+                    errorMessage = errorResult.error || 'Une erreur inconnue est survenue.';
+                } catch (e) {
+                    // This catches cases where the error response is not valid JSON.
+                    console.error("Could not parse error JSON:", e);
+                }
+                throw new Error(errorMessage);
             }
+            
+            // If response is OK, we expect JSON.
+            const result = await response.json();
 
             toast({
                 title: 'Collaborateur créé',
@@ -191,9 +200,9 @@ export default function AdminCollaboratorsPage() {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold md:text-3xl">Gérer les Utilisateurs</h1>
-        <Button onClick={() => handleOpenFormDialog()}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Créer un Collaborateur
+        <h1 className="text-xl font-semibold md:text-3xl">Gérer les Utilisateurs</h1>
+        <Button onClick={() => handleOpenFormDialog()} size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" /> <span className="hidden md:inline">Créer un Collaborateur</span><span className="md:hidden">Créer</span>
         </Button>
       </div>
 
@@ -209,8 +218,8 @@ export default function AdminCollaboratorsPage() {
               <Tabs onValueChange={(value) => setFilterRole(value as any)} defaultValue="all">
                   <TabsList>
                       <TabsTrigger value="all">Tous</TabsTrigger>
-                      <TabsTrigger value="admin">Administrateurs</TabsTrigger>
-                      <TabsTrigger value="collaborator">Collaborateurs</TabsTrigger>
+                      <TabsTrigger value="admin">Admins</TabsTrigger>
+                      <TabsTrigger value="collaborator">Collabs</TabsTrigger>
                   </TabsList>
               </Tabs>
           </div>
@@ -234,7 +243,7 @@ export default function AdminCollaboratorsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                   <span className="text-sm font-medium capitalize bg-muted px-2 py-1 rounded-md">{c.role}</span>
+                   <span className="text-xs md:text-sm font-medium capitalize bg-muted px-2 py-1 rounded-md">{c.role}</span>
                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenFormDialog(c)}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">Modifier</span>
@@ -280,6 +289,7 @@ export default function AdminCollaboratorsPage() {
         onSave={handleSaveCollaborator}
         collaborator={editingCollaborator}
       />
+      
       {newlyCreatedData && (
         <CollaboratorCreatedDialog
             isOpen={isCreatedDialogOpen}
