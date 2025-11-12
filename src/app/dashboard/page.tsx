@@ -27,14 +27,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, writeBatch, doc, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, X, Trash2 } from 'lucide-react';
+import { PlusCircle, User, X, Trash2, Filter } from 'lucide-react';
 import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { BulkAssignDialog } from './_components/bulk-assign-dialog';
@@ -74,6 +82,12 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const { collaborator } = useFirebase();
   const isAdmin = collaborator?.role === 'admin';
+
+  // --- Filter states ---
+  const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
+  const [filterTier, setFilterTier] = useState<LeadTier | 'all'>('all');
+  const [filterCollaborator, setFilterCollaborator] = useState<string | 'all'>('all');
+
 
   const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -122,18 +136,27 @@ export default function DashboardPage() {
     }
 
 
-  const displayedLeads = useMemo(() => {
-    if (!allLeads || !collaborator) {
-      return [];
+  const filteredAndSortedLeads = useMemo(() => {
+    if (!allLeads) return [];
+
+    let leadsToDisplay = allLeads;
+
+    // The primary filter: role-based visibility
+    if (!isAdmin) {
+      leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator?.id);
     }
-    if (isAdmin) {
-      return allLeads; // Admins see all leads
-    }
-    // Collaborators see only their assigned leads
-    return allLeads.filter(
-      (lead) => lead.assignedCollaboratorId === collaborator.id
-    );
-  }, [allLeads, collaborator, isAdmin]);
+
+    // Secondary filters, applied on top of the role-based list
+    return leadsToDisplay.filter(lead => {
+        const statusFilter = filterStatus === 'all' || lead.status === filterStatus;
+        const tierFilter = !isAdmin || filterTier === 'all' || lead.tier === filterTier;
+        const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
+
+        return statusFilter && tierFilter && collaboratorFilter;
+    });
+
+  }, [allLeads, isAdmin, collaborator, filterStatus, filterTier, filterCollaborator]);
+
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
     return allUsers?.find(u => u.id === id);
@@ -225,7 +248,7 @@ export default function DashboardPage() {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(displayedLeads?.map(l => l.id) || []);
+      setSelectedLeads(filteredAndSortedLeads?.map(l => l.id) || []);
     } else {
       setSelectedLeads([]);
     }
@@ -309,7 +332,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-lg md:text-2xl">
                 {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
@@ -320,6 +343,46 @@ export default function DashboardPage() {
                   : 'Voici la liste des leads qui vous ont été assignés.'}
               </CardDescription>
             </div>
+             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {isAdmin && (
+                   <div className="grid grid-cols-2 gap-2 sm:flex">
+                        <Select value={filterTier} onValueChange={(value) => setFilterTier(value as any)}>
+                            <SelectTrigger className="w-full" aria-label="Filtrer par tier">
+                                <SelectValue placeholder="Filtrer par tier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les tiers</SelectItem>
+                                <SelectItem value="Haut de gamme">Haut de gamme</SelectItem>
+                                <SelectItem value="Moyenne gamme">Moyenne gamme</SelectItem>
+                                <SelectItem value="Bas de gamme">Bas de gamme</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={filterCollaborator} onValueChange={(value) => setFilterCollaborator(value)}>
+                            <SelectTrigger className="w-full" aria-label="Filtrer par collaborateur">
+                                <SelectValue placeholder="Filtrer par collaborateur..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les collaborateurs</SelectItem>
+                                {collaborators.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                   </div>
+                )}
+                 <Tabs
+                    defaultValue="all"
+                    className="w-full sm:w-auto"
+                    onValueChange={(value) => setFilterStatus(value as any)}
+                  >
+                    <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:grid-cols-6">
+                      <TabsTrigger value="all">Tous</TabsTrigger>
+                      <TabsTrigger value="New">Nouveau</TabsTrigger>
+                      <TabsTrigger value="Qualified">Qualifié</TabsTrigger>
+                      <TabsTrigger value="No Answer">Sans Réponse</TabsTrigger>
+                      <TabsTrigger value="Not Interested">Pas Intéressé</TabsTrigger>
+                      <TabsTrigger value="Signed">Signé</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+             </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -370,7 +433,7 @@ export default function DashboardPage() {
                      {isAdmin && (
                       <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={displayedLeads.length > 0 && selectedLeads.length === displayedLeads.length}
+                          checked={filteredAndSortedLeads.length > 0 && selectedLeads.length === filteredAndSortedLeads.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -388,8 +451,8 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedLeads && displayedLeads.length > 0 ? (
-                    displayedLeads.map((lead) => {
+                  {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
+                    filteredAndSortedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
                       const leadName = lead.name || (lead as any).nom || 'Nom Inconnu';
                       const leadPhone = lead.phone || (lead as any).telephone || '-';
