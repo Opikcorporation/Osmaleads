@@ -22,13 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
-import { useCollection, useFirestore, useFirebase } from '@/firebase';
+import { useCollection, useFirestore, useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
-import { collection, query, Timestamp } from 'firebase/firestore';
+import { collection, query, Timestamp, writeBatch, doc } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
@@ -69,6 +80,106 @@ export default function DashboardPage() {
     return allUsers?.filter(user => user.role === 'collaborator') || [];
   }, [allUsers]);
 
+  // --- Bulk Actions Logic ---
+  const handleBulkAssign = async (assignedCollaboratorId: string) => {
+    if (!firestore || selectedLeads.length === 0) return;
+    setIsProcessing(true);
+
+    try {
+        const batch = writeBatch(firestore);
+        selectedLeads.forEach(leadId => {
+            const leadRef = doc(firestore, 'leads', leadId);
+            batch.update(leadRef, { 
+                assignedCollaboratorId: assignedCollaboratorId,
+                status: 'New',
+                assignedAt: Timestamp.now(),
+             });
+        });
+        await batch.commit();
+
+        toast({
+            title: 'Assignation réussie',
+            description: `${selectedLeads.length} lead(s) ont été assigné(s).`,
+        });
+
+        setSelectedLeads([]); // Clear selection
+    } catch(error) {
+        console.error("Error bulk assigning leads:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: "Une erreur est survenue lors de l'assignation.",
+        });
+    } finally {
+        setIsProcessing(false);
+        setIsAssignDialogOpen(false);
+    }
+  };
+
+  const handleBulkQualify = async () => {
+    if (selectedLeads.length === 0) return;
+    setIsProcessing(true);
+     try {
+      const response = await fetch('/api/qualify-leads-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadIds: selectedLeads }),
+      });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.details || result.error || `Erreur HTTP ${response.status}`);
+      }
+
+      toast({
+        title: 'Qualification terminée',
+        description: result.message || 'La qualification par IA est terminée.',
+      });
+      setSelectedLeads([]);
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de qualification',
+        description: error.message || 'Une erreur inconnue est survenue.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLeads.length === 0) return;
+    setIsProcessing(true);
+    try {
+        const response = await fetch('/api/delete-leads-bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadIds: selectedLeads }),
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'La suppression a échoué.');
+        }
+
+        toast({
+            variant: 'destructive',
+            title: 'Suppression réussie',
+            description: result.message,
+        });
+        setSelectedLeads([]); // Clear selection after successful deletion
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur de suppression',
+            description: error.message,
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+};
+
   const getCreationDate = (l: Lead): Date | null => {
     if (!l) return null;
     if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
@@ -104,42 +215,42 @@ export default function DashboardPage() {
   const displayedLeads = useMemo(() => {
     if (!allLeads || !collaborator) return [];
 
-    let filteredLeads: Lead[] = [];
+    let leadsToFilter: Lead[] = [...allLeads];
 
     // --- ADMIN LOGIC ---
     if (isAdmin) {
-        filteredLeads = allLeads;
         if (statusFilter !== 'All') {
-            filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
+            leadsToFilter = leadsToFilter.filter(lead => lead.status === statusFilter);
         }
         if (tierFilter !== 'All') {
-            filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
+            leadsToFilter = leadsToFilter.filter(lead => lead.tier === tierFilter);
         }
         if (collaboratorFilter !== 'All') {
-            filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+            leadsToFilter = leadsToFilter.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
         }
     } 
     // --- COLLABORATOR LOGIC ---
     else {
-        let leadsToProcess = allLeads;
+        let filteredByStatus = leadsToFilter;
         if (statusFilter !== 'All') {
-            leadsToProcess = leadsToProcess.filter(lead => lead.status === statusFilter);
+            filteredByStatus = leadsToFilter.filter(lead => lead.status === statusFilter);
         }
         if (tierFilter !== 'All') {
-            leadsToProcess = leadsToProcess.filter(lead => lead.tier === tierFilter);
+            // Apply tier filter to the already status-filtered list
+            filteredByStatus = filteredByStatus.filter(lead => lead.tier === tierFilter);
         }
 
         if (statusFilter === 'New') {
-            // Collaborators see all 'New' leads, regardless of assignment
-            filteredLeads = leadsToProcess.filter(lead => lead.status === 'New');
+            // For 'New' status, show all 'New' leads, regardless of assignment.
+             leadsToFilter = filteredByStatus.filter(lead => lead.status === 'New');
         } else {
-            // For all other statuses, collaborator only sees their own leads
-            filteredLeads = leadsToProcess.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+            // For any other status, show only leads assigned to the current collaborator.
+            leadsToFilter = filteredByStatus.filter(lead => lead.assignedCollaboratorId === collaborator.id);
         }
     }
     
     // Finally, sort the resulting list by date.
-    return filteredLeads.sort((a, b) => {
+    return leadsToFilter.sort((a, b) => {
         const dateA = getCreationDate(a)?.getTime() || 0;
         const dateB = getCreationDate(b)?.getTime() || 0;
         return dateB - dateA; // Most recent first
@@ -169,7 +280,11 @@ export default function DashboardPage() {
   };
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
-    setSelectedLeads(checked ? displayedLeads.map(l => l.id) : []);
+    if (checked) {
+        setSelectedLeads(displayedLeads.map(l => l.id));
+    } else {
+        setSelectedLeads([]);
+    }
   };
   
   const handleSelectRow = (leadId: string, checked: boolean) => {
@@ -189,18 +304,34 @@ export default function DashboardPage() {
         {isAdmin && selectedLeads.length > 0 && (
             <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">{selectedLeads.length} sélectionné(s)</span>
-                 <Button variant="outline" size="sm" onClick={() => setIsAssignDialogOpen(true)}>
+                 <Button variant="outline" size="sm" onClick={() => setIsAssignDialogOpen(true)} disabled={isProcessing}>
                     <UserPlus className="mr-2 h-4 w-4" />
                     Assigner
                  </Button>
-                 <Button variant="outline" size="sm" onClick={() => {}}>
+                 <Button variant="outline" size="sm" onClick={handleBulkQualify} disabled={isProcessing}>
                     <Bot className="mr-2 h-4 w-4" />
                     Qualifier par IA
                  </Button>
-                 <Button variant="destructive" size="sm" onClick={() => {}}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Supprimer
-                 </Button>
+                 <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" disabled={isProcessing}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Supprimer
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Cette action est irréversible et supprimera définitivement {selectedLeads.length} lead(s).
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBulkDelete}>Confirmer la suppression</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
             </div>
         )}
       </div>
@@ -234,23 +365,21 @@ export default function DashboardPage() {
                       </SelectContent>
                     </Select>
                 </div>
-                 {/* Tier Filter (Admin only) */}
-                {isAdmin && (
-                  <div className="space-y-1">
-                    <Label htmlFor="tier-filter" className="text-xs">Tier</Label>
-                    <Select value={tierFilter} onValueChange={setTierFilter}>
-                      <SelectTrigger id="tier-filter" className="w-full">
-                        <SelectValue placeholder="Filtrer par tier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="All">Tous les tiers</SelectItem>
-                        {leadTiers.map(tier => (
-                          <SelectItem key={tier} value={tier}>{tier}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                 {/* Tier Filter */}
+                <div className="space-y-1">
+                  <Label htmlFor="tier-filter" className="text-xs">Tier</Label>
+                  <Select value={tierFilter} onValueChange={setTierFilter}>
+                    <SelectTrigger id="tier-filter" className="w-full">
+                      <SelectValue placeholder="Filtrer par tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">Tous les tiers</SelectItem>
+                      {leadTiers.map(tier => (
+                        <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                  {/* Collaborator Filter (Admin only) */}
                 {isAdmin && (
                   <div className="space-y-1">
@@ -281,7 +410,7 @@ export default function DashboardPage() {
                   <TableRow>
                      <TableHead className="w-[40px]">
                         <Checkbox 
-                            checked={selectedLeads.length > 0 && selectedLeads.length === displayedLeads.length}
+                            checked={displayedLeads.length > 0 && selectedLeads.length === displayedLeads.length}
                             onCheckedChange={handleSelectAll}
                         />
                     </TableHead>
@@ -369,7 +498,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 9 : 6} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 9 : 7} className="text-center h-24">
                         { leadsError ? "Une erreur est survenue." : "Aucun lead ne correspond à vos filtres." }
                       </TableCell>
                     </TableRow>
@@ -393,7 +522,7 @@ export default function DashboardPage() {
         <BulkAssignDialog
           isOpen={isAssignDialogOpen}
           onClose={() => setIsAssignDialogOpen(false)}
-          onAssign={(collaboratorId) => {}}
+          onAssign={handleBulkAssign}
           collaborators={collaboratorsForFilter}
           isProcessing={isProcessing}
         />
