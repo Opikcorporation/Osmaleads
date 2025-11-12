@@ -118,6 +118,7 @@ export default function AdminCollaboratorsPage() {
                   // This catches "Unexpected end of JSON input" if the error response isn't JSON.
                   console.error("Could not parse error response JSON:", e);
               }
+              
               throw new Error(errorMessage);
             }
             
