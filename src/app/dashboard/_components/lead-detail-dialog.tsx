@@ -148,7 +148,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     const allData = { ...parsedData, ...lead };
 
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne'];
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName', 'campaignName'];
 
     const dataToDisplay = Object.entries(allData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
@@ -208,38 +208,34 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
+  const getLeadProperty = (lead: Lead | null | undefined, primaryKey: keyof Lead, fallbackKeys: string[]): string | null => {
+      if (!lead) return null;
+      // 1. Try the primary, standardized key first.
+      if (lead[primaryKey]) return lead[primaryKey] as string;
+
+      // 2. If that fails, parse leadData and check fallback keys.
+      try {
+          const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
+          for (const key of fallbackKeys) {
+              if(parsedData[key]) return parsedData[key];
+          }
+      } catch {
+          return null; // JSON parsing failed
+      }
+      return null;
+  }
+
   // --- ROBUST DATA GETTERS ---
   const leadName = useMemo(() => {
-    if (!lead) return 'Lead Inconnu';
-    if (lead.name) return lead.name;
-    try {
-        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return parsedData.nom || parsedData['FULL NAME'] || parsedData.name || 'Nom Inconnu';
-    } catch {
-        return 'Nom Inconnu';
-    }
+    return getLeadProperty(lead, 'name', ['name', 'nom', 'FULL NAME']) || 'Nom Inconnu';
   }, [lead]);
 
   const leadEmail = useMemo(() => {
-    if (!lead) return null;
-    if (lead.email) return lead.email;
-    try {
-        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return parsedData.email || parsedData['EMAIL'] || null;
-    } catch {
-        return null;
-    }
+    return getLeadProperty(lead, 'email', ['email', 'EMAIL']);
   }, [lead]);
 
   const leadPhone = useMemo(() => {
-    if (!lead) return null;
-    if (lead.phone) return lead.phone;
-    try {
-        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
-        return parsedData.telephone || parsedData.phone || parsedData['PHONE'] || null;
-    } catch {
-        return null;
-    }
+    return getLeadProperty(lead, 'phone', ['phone', 'PHONE', 'telephone']);
   }, [lead]);
 
   const leadStatus = lead?.status || 'New';
@@ -393,4 +389,3 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   );
 }
 
-    
