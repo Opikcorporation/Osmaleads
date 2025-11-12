@@ -22,39 +22,10 @@ import type { Lead, Collaborator } from '@/lib/types';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
-import { LeadImportDialog } from './_components/lead-import-dialog';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { qualifyLead } from '@/ai/flows/qualify-lead-flow';
-import { writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-
-export const parseCSV = (
-  csvString: string
-): { headers: string[]; rows: Record<string, string>[] } => {
-  const lines = csvString
-    .split(/\r\n|\n/)
-    .filter((line) => line.trim() !== '');
-  if (lines.length === 0) {
-    return { headers: [], rows: [] };
-  }
-
-  const headers = lines[0].split(',').map((h) => h.trim());
-  const rows = lines.slice(1).map((line) => {
-    const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-    return headers.reduce((obj, header, index) => {
-      const value = values[index]?.trim().replace(/"/g, '') || '';
-      obj[header] = value;
-      return obj;
-    }, {} as Record<string, string>);
-  });
-
-  return { headers, rows };
-};
-
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -62,7 +33,6 @@ export default function DashboardPage() {
   const { collaborator } = useFirebase();
   const isAdmin = collaborator?.role === 'admin';
 
-  const [isImporting, setIsImporting] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   
   // --- Data Fetching ---
@@ -109,8 +79,9 @@ export default function DashboardPage() {
             return [];
         }
         if (isAdmin) {
-            return allLeads;
+            return allLeads; // Return all leads for admin users
         }
+        // For non-admin users, filter to show only their assigned leads.
         return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
     }, [allLeads, collaborator, isAdmin]);
 
@@ -135,74 +106,7 @@ export default function DashboardPage() {
   const handleCloseLead = () => {
     setSelectedLeadId(null);
   };
-
-  const handleSaveImport = async (data: {
-    fileContent: string;
-    mapping: { [key: string]: string };
-  }) => {
-     if (!firestore) return;
-     setIsImporting(false);
-     
-     toast({
-      title: 'Qualification en cours...',
-      description: 'Analyse du fichier et qualification de chaque lead. Cela peut prendre un moment.',
-    });
-
-    try {
-        const { rows } = parseCSV(data.fileContent);
-        const batch = writeBatch(firestore);
-
-        const qualificationPromises = rows.map(row => {
-          const leadDataString = JSON.stringify(row);
-          return qualifyLead({ leadData: leadDataString }).then(qualification => ({
-            row,
-            qualification,
-            leadDataString
-          }));
-        });
-        
-        const qualifiedRows = await Promise.all(qualificationPromises);
-
-        for (const { row, qualification, leadDataString } of qualifiedRows) {
-          const nameMapping = Object.keys(data.mapping).find(h => data.mapping[h] === 'name');
-
-          const newLead: Omit<Lead, 'id'> = {
-              name: nameMapping ? row[nameMapping] : 'Nom Inconnu',
-              email: Object.keys(data.mapping).find(h => data.mapping[h] === 'email') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'email')!] : null,
-              phone: Object.keys(data.mapping).find(h => data.mapping[h] === 'phone') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'phone')!] : null,
-              company: Object.keys(data.mapping).find(h => data.mapping[h] === 'company') ? row[Object.keys(data.mapping).find(h => data.mapping[h] === 'company')!] : null,
-              username: null,
-              status: 'New',
-              tier: qualification.tier,
-              score: qualification.score,
-              leadData: leadDataString, 
-              assignedCollaboratorId: null,
-              createdAt: serverTimestamp() as Timestamp,
-              campaignId: null,
-              campaignName: null,
-          };
-          
-          const newLeadRef = doc(collection(firestore, 'leads'));
-          batch.set(newLeadRef, newLead);
-        }
-
-        await batch.commit();
-
-        toast({
-            title: 'Importation réussie !',
-            description: `${rows.length} leads ont été qualifiés et ajoutés avec succès.`,
-        });
-
-    } catch (error) {
-        console.error("Failed to import leads:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Erreur d\'importation',
-            description: 'Un problème est survenu lors de la qualification ou de l\'enregistrement des leads.',
-        });
-    }
-  };
-
+  
   const isLoading = allLeadsLoading || usersLoading;
 
   return (
@@ -211,11 +115,6 @@ export default function DashboardPage() {
         <h1 className="text-xl font-semibold md:text-3xl">
           Tableau de Bord
         </h1>
-        {isAdmin && (
-          <Button onClick={() => setIsImporting(true)} size="sm">
-            <PlusCircle className="mr-2 h-4 w-4" /> Importer
-          </Button>
-        )}
       </div>
 
       <Card>
@@ -327,14 +226,6 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-
-      {isAdmin && (
-        <LeadImportDialog
-        isOpen={isImporting}
-        onClose={() => setIsImporting(false)}
-        onSave={handleSaveImport}
-        />
-      )}
 
       {selectedLeadId && (
         <LeadDetailDialog
