@@ -136,16 +136,24 @@ export default function DashboardPage() {
 
   // --- Client-Side Filtering and Sorting ---
   const filteredAndSortedLeads = useMemo(() => {
-    if (!allLeads) return [];
+    if (!allLeads || !collaborator) return [];
 
-    // Data is already sorted by date from the query, so no need to re-sort.
-    return allLeads.filter(lead => {
-      const leadStatus = lead.status || 'New';
-      const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
-      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus;
+    let leadsToFilter = allLeads;
+
+    // First, determine the base set of leads based on user role
+    if (!isAdmin) {
+      leadsToFilter = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+    }
+
+    // Now, apply the selected filters on that base set
+    return leadsToFilter.filter(lead => {
+      const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
+      
+      // Admin-only filters
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
       const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
-      return userFilter && statusFilter && tierFilter && collaboratorFilter;
+
+      return statusFilter && tierFilter && collaboratorFilter;
     });
   }, [allLeads, collaborator, isAdmin, filterStatus, filterTier, filterCollaborator]);
   
@@ -583,3 +591,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
