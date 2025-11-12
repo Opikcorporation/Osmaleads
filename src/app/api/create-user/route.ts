@@ -4,7 +4,7 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { UserRecord } from 'firebase-admin/auth';
-import type { Auth } from 'firebase-admin/auth';
+import type { Auth } from 'firebase-admin/auth'; // CORRECTED IMPORT
 import type { Firestore } from 'firebase-admin/firestore';
 
 
