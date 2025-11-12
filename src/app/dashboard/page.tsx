@@ -15,10 +15,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
+import { leadStatuses, leadTiers } from '@/lib/types';
 import { collection, query, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -34,9 +42,13 @@ export default function DashboardPage() {
   const isAdmin = collaborator?.role === 'admin';
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+
+  // State for filters
+  const [statusFilter, setStatusFilter] = useState<LeadStatus | 'All'>('All');
+  const [tierFilter, setTierFilter] = useState<LeadTier | 'All'>('All');
+  const [collaboratorFilter, setCollaboratorFilter] = useState<string | 'All'>('All');
   
   // --- Data Fetching ---
-  // CORRECTED: Removed the orderBy from the query to avoid needing a composite index.
   const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads')) : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
@@ -44,6 +56,7 @@ export default function DashboardPage() {
   const { data: allUsers, isLoading: usersLoading } = useCollection<Collaborator>(allUsersQuery);
   
     const getCreationDate = (l: Lead): Date | null => {
+      if (!l) return null;
       if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
       
       let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
@@ -80,20 +93,36 @@ export default function DashboardPage() {
             return [];
         }
 
-        let leadsToDisplay = allLeads;
+        let leadsToDisplay = [...allLeads];
 
+        // 1. Base filter by role
         if (!isAdmin) {
-            leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+        }
+
+        // 2. Apply status filter
+        if (statusFilter !== 'All') {
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
+        }
+
+        // 3. Apply tier filter
+        if (tierFilter !== 'All') {
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === tierFilter);
+        }
+
+        // 4. Apply collaborator filter (for admins)
+        if (isAdmin && collaboratorFilter !== 'All') {
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
         }
         
-        // This sort is now done safely in JavaScript.
+        // 5. Sort the final list
         return leadsToDisplay.sort((a, b) => {
             const dateA = getCreationDate(a)?.getTime() || 0;
             const dateB = getCreationDate(b)?.getTime() || 0;
             return dateB - dateA;
         });
 
-    }, [allLeads, collaborator, isAdmin]);
+    }, [allLeads, collaborator, isAdmin, statusFilter, tierFilter, collaboratorFilter]);
 
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
@@ -129,15 +158,56 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-            <div>
-              <CardTitle className="text-lg md:text-2xl">
-                {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {isAdmin
-                  ? 'Voici la liste de tous les leads dans le système.'
-                  : 'Voici la liste des leads qui vous ont été assignés.'}
-              </CardDescription>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg md:text-2xl">
+                  {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  {isAdmin
+                    ? 'Voici la liste de tous les leads dans le système.'
+                    : 'Voici la liste des leads qui vous ont été assignés.'}
+                </CardDescription>
+              </div>
+               <div className="grid grid-cols-2 md:flex md:items-center gap-2">
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+                    <SelectTrigger className="w-full md:w-[160px]">
+                        <SelectValue placeholder="Statut" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="All">Tous les statuts</SelectItem>
+                        {leadStatuses.map(status => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {isAdmin && (
+                    <>
+                    <Select value={tierFilter} onValueChange={(value) => setTierFilter(value as any)}>
+                       <SelectTrigger className="w-full md:w-[160px]">
+                            <SelectValue placeholder="Tier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">Tous les tiers</SelectItem>
+                            {leadTiers.map(tier => (
+                                <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={collaboratorFilter} onValueChange={(value) => setCollaboratorFilter(value as any)}>
+                       <SelectTrigger className="w-full md:w-[180px] col-span-2">
+                            <SelectValue placeholder="Collaborateur" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">Tous les collaborateurs</SelectItem>
+                             {allUsers?.filter(u => u.role === 'collaborator').map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    </>
+                )}
+               </div>
             </div>
         </CardHeader>
         <CardContent>
