@@ -148,7 +148,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     const allData = { ...parsedData, ...lead };
 
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName', 'campaignName'];
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName'];
 
     const dataToDisplay = Object.entries(allData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
@@ -210,24 +210,34 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   
   const getLeadProperty = (lead: Lead | null | undefined, primaryKey: keyof Lead, fallbackKeys: string[]): string | null => {
       if (!lead) return null;
-      // 1. Try the primary, standardized key first.
-      if (lead[primaryKey]) return lead[primaryKey] as string;
 
-      // 2. If that fails, parse leadData and check fallback keys.
+      // 1. Try the top-level standard property.
+      const primaryValue = lead[primaryKey];
+      if (primaryValue) {
+        return primaryValue as string;
+      }
+
+      // 2. If it's missing or empty, parse leadData and search fallbacks.
       try {
-          const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
+          if (!lead.leadData) return null;
+          const parsedData = JSON.parse(lead.leadData);
           for (const key of fallbackKeys) {
-              if(parsedData[key]) return parsedData[key];
+              if(parsedData[key]) {
+                  return parsedData[key];
+              }
           }
       } catch {
-          return null; // JSON parsing failed
+          // JSON parsing might fail, that's okay.
+          return null;
       }
+      
+      // 3. If nothing is found, return null.
       return null;
   }
 
   // --- ROBUST DATA GETTERS ---
   const leadName = useMemo(() => {
-    return getLeadProperty(lead, 'name', ['name', 'nom', 'FULL NAME']) || 'Nom Inconnu';
+    return getLeadProperty(lead, 'name', ['nom', 'FULL NAME']) || 'Nom Inconnu';
   }, [lead]);
 
   const leadEmail = useMemo(() => {
@@ -235,7 +245,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   }, [lead]);
 
   const leadPhone = useMemo(() => {
-    return getLeadProperty(lead, 'phone', ['phone', 'PHONE', 'telephone']);
+    return getLeadProperty(lead, 'phone', ['telephone', 'PHONE']);
   }, [lead]);
 
   const leadStatus = lead?.status || 'New';
