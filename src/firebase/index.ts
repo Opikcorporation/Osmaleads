@@ -6,24 +6,15 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 // This function ensures Firebase is initialized only once.
-const getFirebaseApp = (): FirebaseApp => {
-  if (getApps().length === 0) {
-    return initializeApp(firebaseConfig);
-  }
-  return getApp();
-};
-
-const app = getFirebaseApp();
-const authInstance = getAuth(app);
-const firestoreInstance = getFirestore(app);
-
-// This function is now simplified to just return the memoized instances.
-// This prevents any re-initialization issues.
 export function initializeFirebase() {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  const auth = getAuth(app);
+  const firestore = getFirestore(app);
+  
   return {
     firebaseApp: app,
-    auth: authInstance,
-    firestore: firestoreInstance,
+    auth: auth,
+    firestore: firestore,
   };
 }
 

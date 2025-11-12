@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -105,17 +104,15 @@ export default function DashboardPage() {
     }
 
 
-  const displayedLeads = useMemo(() => {
-    if (!allLeads || !collaborator) {
-        return [];
-    }
-
-    if (isAdmin) {
-        return allLeads;
-    }
-    
-    return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
-  }, [allLeads, collaborator, isAdmin]);
+    const displayedLeads = useMemo(() => {
+        if (!allLeads || !collaborator) {
+            return [];
+        }
+        if (isAdmin) {
+            return allLeads;
+        }
+        return allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+    }, [allLeads, collaborator, isAdmin]);
 
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
