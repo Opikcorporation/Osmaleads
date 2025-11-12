@@ -136,27 +136,30 @@ export default function DashboardPage() {
 
   // --- Client-Side Filtering and Sorting ---
   const filteredAndSortedLeads = useMemo(() => {
-    if (!allLeads || !collaborator) return [];
-
-    let leadsToFilter: Lead[];
-
-    // 1. Determine base set of leads based on user role
-    if (isAdmin) {
-      leadsToFilter = allLeads;
-    } else {
-      leadsToFilter = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+    if (!allLeads || !collaborator) {
+      return [];
     }
 
-    // 2. Apply selected filters on that base set
-    return leadsToFilter.filter(lead => {
-      const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
-      
-      // Admin-only filters are only applied if the user is an admin
-      const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
-      const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
+    // 1. Get the base list of leads depending on the user's role.
+    const baseLeads = isAdmin
+      ? allLeads
+      : allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
 
-      return statusFilter && tierFilter && collaboratorFilter;
+    // 2. Apply filters on the base list.
+    const filteredLeads = baseLeads.filter(lead => {
+      const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
+      const tierFilter = filterTier === 'All' || lead.tier === filterTier;
+      const collaboratorFilter = filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
+
+      // For admins, all filters apply. For collaborators, only the status filter applies to their own leads.
+      if (isAdmin) {
+        return statusFilter && tierFilter && collaboratorFilter;
+      } else {
+        return statusFilter;
+      }
     });
+
+    return filteredLeads;
   }, [allLeads, collaborator, isAdmin, filterStatus, filterTier, filterCollaborator]);
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
