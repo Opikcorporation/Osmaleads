@@ -245,7 +245,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 sm:mx-4">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="sr-only">Fiche de {leadName}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
@@ -299,7 +299,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Statut:</span>
                             <Select defaultValue={leadStatus} onValueChange={handleStatusChange}>
-                                <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2">
+                                <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2 bg-transparent focus:ring-0 focus:ring-offset-0">
                                   <SelectValue>
                                     <StatusBadge status={leadStatus as LeadStatus} />
                                   </SelectValue>
