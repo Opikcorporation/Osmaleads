@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Dialog,
@@ -181,53 +182,82 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     );
 };
   
-    const getCreationDate = (l: Lead | null | undefined): Date | null => {
-      if (!l) return null;
-      if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
-      
-      let dateString: string | undefined | null = null;
-      
-      if (l.leadData) {
+  const getCreationDate = (l: Lead | null | undefined): Date | null => {
+    if (!l) return null;
+    if (l.createdAt instanceof Timestamp) {
+      return l.createdAt.toDate();
+    }
+    
+    let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
+    
+    if (!dateString && l.leadData) {
         try {
-          const parsedData = JSON.parse(l.leadData);
-          dateString = parsedData['created_time'] || parsedData['Created Time'];
+            const parsedData = JSON.parse(l.leadData);
+            dateString = parsedData.created_time || parsedData['Created Time'];
         } catch (e) { /* ignore */ }
-      }
-
-      if (dateString) {
+    }
+    
+    if (dateString) {
         const date = new Date(dateString);
         if (!isNaN(date.getTime())) return date;
-      }
-      
-      return null;
-    };
+    }
+    
+    return null;
+  };
 
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
   // --- ROBUST DATA GETTERS ---
-  const leadName = lead?.name || lead?.nom || (lead && lead.leadData ? JSON.parse(lead.leadData)['FULL NAME'] : null) || 'Lead Inconnu';
-  const leadEmail = lead?.email || (lead && lead.leadData ? JSON.parse(lead.leadData)['EMAIL'] : null);
-  const leadPhone = lead?.phone || lead?.telephone || (lead && lead.leadData ? JSON.parse(lead.leadData)['PHONE'] : null);
+  const leadName = useMemo(() => {
+    if (!lead) return 'Lead Inconnu';
+    try {
+        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
+        return lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
+    } catch {
+        return lead.name || 'Nom Inconnu';
+    }
+  }, [lead]);
+
+  const leadEmail = useMemo(() => {
+    if (!lead) return null;
+    try {
+        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
+        return lead.email || parsedData.email || parsedData['EMAIL'] || null;
+    } catch {
+        return lead.email || null;
+    }
+  }, [lead]);
+
+  const leadPhone = useMemo(() => {
+    if (!lead) return null;
+    try {
+        const parsedData = lead.leadData ? JSON.parse(lead.leadData) : {};
+        return lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'] || null;
+    } catch {
+        return lead.phone || null;
+    }
+  }, [lead]);
+
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] grid grid-cols-1 md:grid-cols-3 gap-6">
-        <DialogHeader className="md:col-span-3">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle className="sr-only">Fiche de {leadName}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="md:col-span-3 text-center p-8">Chargement de la fiche lead...</div>
+          <div className="text-center p-8">Chargement de la fiche lead...</div>
         ) : !lead ? (
-          <div className="md:col-span-3 text-center p-8 text-destructive">Lead introuvable.</div>
+          <div className="text-center p-8 text-destructive">Lead introuvable.</div>
         ) : (
-          <>
-            <div className="md:col-span-2 space-y-6 overflow-y-auto pr-4">
+          <div className="overflow-y-auto">
+            <div className="p-6 pt-0 space-y-6">
               <Card>
                 <CardHeader>
                   <div className="flex flex-col md:flex-row items-start justify-between gap-4">
@@ -308,9 +338,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                   {renderLeadData()}
                 </CardContent>
               </Card>
-            </div>
 
-            <div className="space-y-6 overflow-y-auto flex flex-col">
               <Card className="flex-grow flex flex-col">
                 <CardHeader>
                   <CardTitle>Notes & Historique</CardTitle>
@@ -321,7 +349,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                     <Button className="w-full" type="submit" disabled={!newNote.trim()}>Ajouter une note</Button>
                   </form>
                   <Separator />
-                  <div className="space-y-6 flex-1 overflow-y-auto pr-2">
+                  <div className="space-y-6 flex-1">
                     {notesLoading ? <p className="text-sm text-center text-muted-foreground py-4">Chargement des notes...</p> : notes?.length === 0 ? (
                       <p className="text-sm text-center text-muted-foreground py-4">Aucune note pour le moment.</p>
                     ) : (
@@ -355,11 +383,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 </CardContent>
               </Card>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
   );
 }
-
-    
