@@ -4,6 +4,7 @@ import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { UserRecord } from 'firebase-admin/auth';
+// Correction : Importer le type Firestore depuis firebase-admin/firestore
 import type { Firestore } from 'firebase-admin/firestore';
 
 
@@ -18,7 +19,7 @@ const getRandomColor = () => {
 };
 // --- END OF SELF-CONTAINED LOGIC ---
 
-// The schema is now more flexible, making avatarColor optional.
+// Le schéma est maintenant plus flexible, rendant avatarColor optional.
 const RequestBodySchema = z.object({
   name: z.string().min(2, "Le nom est trop court"),
   role: z.enum(['admin', 'collaborator']),
@@ -27,6 +28,7 @@ const RequestBodySchema = z.object({
 
 /**
  * Finds a unique username by appending a number if the base username is taken.
+ * Correction : Utilisation du type Firestore depuis 'firebase-admin/firestore'.
  */
 async function findUniqueUsername(firestore: Firestore, baseUsername: string): Promise<string> {
     let username = baseUsername;
@@ -47,7 +49,7 @@ async function findUniqueUsername(firestore: Firestore, baseUsername: string): P
  * The Firestore profile is also created.
  */
 export async function POST(request: Request) {
-  // Rely on type inference from getFirebaseAdmin() to avoid type mismatches.
+  // Correction : Se fier à l'inférence de type de getFirebaseAdmin() pour éviter les conflits.
   const { auth, firestore } = getFirebaseAdmin();
   
   try {

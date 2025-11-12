@@ -5,6 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { Lead, Group, DistributionSetting } from '@/lib/types';
+// Correction : Importer le type Firestore depuis firebase-admin/firestore
 import type { Firestore } from 'firebase-admin/firestore';
 
 const RequestBodySchema = z.object({
@@ -13,6 +14,7 @@ const RequestBodySchema = z.object({
 
 /**
  * Calculates how many leads have been assigned to each collaborator today.
+ * Correction : Utilisation du type Firestore depuis 'firebase-admin/firestore'.
  */
 async function getTodaysAssignments(firestore: Firestore): Promise<{ [collaboratorId: string]: number }> {
     const today = new Date();
