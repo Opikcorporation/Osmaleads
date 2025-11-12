@@ -10,8 +10,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Check if the user making the request has an 'admin' role in their own profile document.
-      // This now safely checks if auth exists before trying to access its properties.
+      // Safely check if auth exists before trying to access its properties.
+      // This prevents the entire rules service from crashing on unauthenticated requests.
       return isAuth() && get(/databases/$(database)/documents/collaborators/$(request.auth.uid)).data.role == 'admin';
     }
     
