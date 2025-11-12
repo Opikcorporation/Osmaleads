@@ -138,18 +138,20 @@ export default function DashboardPage() {
   const filteredAndSortedLeads = useMemo(() => {
     if (!allLeads || !collaborator) return [];
 
-    let leadsToFilter = allLeads;
+    let leadsToFilter: Lead[];
 
-    // First, determine the base set of leads based on user role
-    if (!isAdmin) {
+    // 1. Determine base set of leads based on user role
+    if (isAdmin) {
+      leadsToFilter = allLeads;
+    } else {
       leadsToFilter = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
     }
 
-    // Now, apply the selected filters on that base set
+    // 2. Apply selected filters on that base set
     return leadsToFilter.filter(lead => {
       const statusFilter = filterStatus === 'All' || lead.status === filterStatus;
       
-      // Admin-only filters
+      // Admin-only filters are only applied if the user is an admin
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
       const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
 
