@@ -16,10 +16,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
-import type { Lead, Collaborator } from '@/lib/types';
+import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, Timestamp } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +35,8 @@ import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
+import { leadStatuses, leadTiers } from '@/lib/types';
+
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -34,6 +44,11 @@ export default function DashboardPage() {
   const isAdmin = collaborator?.role === 'admin';
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  
+  // States for filters
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [tierFilter, setTierFilter] = useState<string>('All');
+  const [collaboratorFilter, setCollaboratorFilter] = useState<string>('All');
 
   // --- Data Fetching ---
   const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads')) : null, [firestore]);
@@ -73,28 +88,47 @@ export default function DashboardPage() {
       }
       return campaign || null;
   }
-
+  
   const displayedLeads = useMemo(() => {
     if (!allLeads || !collaborator) {
       return [];
     }
 
-    let leadsToDisplay: Lead[];
+    // 1. Start with the full list and apply general filters first.
+    let filteredLeads = allLeads.filter(lead => {
+        const statusMatch = statusFilter === 'All' || lead.status === statusFilter;
+        const tierMatch = tierFilter === 'All' || lead.tier === tierFilter;
+        const collaboratorMatch = collaboratorFilter === 'All' || lead.assignedCollaboratorId === collaboratorFilter;
+        
+        // For an admin, all filters are applied directly.
+        if (isAdmin) {
+            return statusMatch && tierMatch && collaboratorMatch;
+        }
+        
+        // For a collaborator, we start with status and tier.
+        return statusMatch && tierMatch;
+    });
 
-    if (isAdmin) {
-      leadsToDisplay = allLeads;
-    } else {
-      leadsToDisplay = allLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+    // 2. Apply visibility rules based on role.
+    if (!isAdmin) {
+        filteredLeads = filteredLeads.filter(lead => {
+            // Special rule: if "New" status is selected, show all "New" leads regardless of assignment.
+            if (statusFilter === 'New') {
+                return lead.status === 'New';
+            }
+            // Otherwise, only show leads assigned to the current collaborator.
+            return lead.assignedCollaboratorId === collaborator.id;
+        });
     }
     
-    // Sort the final list by date
-    return leadsToDisplay.sort((a, b) => {
+    // 3. Sort the final list by date.
+    return filteredLeads.sort((a, b) => {
         const dateA = getCreationDate(a)?.getTime() || 0;
         const dateB = getCreationDate(b)?.getTime() || 0;
         return dateB - dateA; // Most recent first
     });
 
-  }, [allLeads, collaborator, isAdmin]);
+  }, [allLeads, collaborator, isAdmin, statusFilter, tierFilter, collaboratorFilter]);
 
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
@@ -133,13 +167,64 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
                 <CardTitle className="text-lg md:text-2xl">
-                  {isAdmin ? 'Tous les Leads' : 'Mes Leads Assignés'}
+                  {isAdmin ? 'Tous les Leads' : 'Mes Leads'}
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  {isAdmin
-                    ? 'Voici la liste de tous les leads dans le système.'
-                    : 'Voici la liste des leads qui vous ont été assignés.'}
+                  Consultez et gérez les prospects. Utilisez les filtres pour affiner votre recherche.
                 </CardDescription>
+              </div>
+              <div className="grid grid-cols-2 md:flex md:flex-row gap-4 w-full md:w-auto">
+                 {/* Status Filter */}
+                <div className="space-y-1">
+                    <Label htmlFor="status-filter" className="text-xs">Statut</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger id="status-filter" className="w-full">
+                        <SelectValue placeholder="Filtrer par statut" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">Tous les statuts</SelectItem>
+                        {leadStatuses.map(status => (
+                          <SelectItem key={status} value={status}>
+                              {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                </div>
+                 {/* Tier Filter (Admin only) */}
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <Label htmlFor="tier-filter" className="text-xs">Tier</Label>
+                    <Select value={tierFilter} onValueChange={setTierFilter}>
+                      <SelectTrigger id="tier-filter" className="w-full">
+                        <SelectValue placeholder="Filtrer par tier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">Tous les tiers</SelectItem>
+                        {leadTiers.map(tier => (
+                          <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                 {/* Collaborator Filter (Admin only) */}
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <Label htmlFor="user-filter" className="text-xs">Collaborateur</Label>
+                    <Select value={collaboratorFilter} onValueChange={setCollaboratorFilter}>
+                      <SelectTrigger id="user-filter" className="w-full">
+                        <SelectValue placeholder="Filtrer par utilisateur" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">Tous les collaborateurs</SelectItem>
+                        {allUsers?.map(user => (
+                          <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
         </CardHeader>
@@ -229,7 +314,7 @@ export default function DashboardPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
-                        { leadsError ? "Une erreur est survenue lors du chargement des leads." : "Aucun lead à afficher." }
+                        { leadsError ? "Une erreur est survenue." : "Aucun lead ne correspond à vos filtres." }
                       </TableCell>
                     </TableRow>
                   )}
