@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -23,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/status-badge';
 import { ScoreBadge } from '@/components/score-badge';
@@ -36,11 +36,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { leadStatuses, leadTiers } from '@/lib/types';
-
+import { Bot, Trash2, UserPlus } from 'lucide-react';
+import { BulkAssignDialog } from './_components/bulk-assign-dialog';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { collaborator } = useFirebase();
+  const { toast } = useToast();
   const isAdmin = collaborator?.role === 'admin';
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -49,6 +51,12 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [tierFilter, setTierFilter] = useState<string>('All');
   const [collaboratorFilter, setCollaboratorFilter] = useState<string>('All');
+
+  // State for bulk actions
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
 
   // --- Data Fetching ---
   const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads')) : null, [firestore]);
@@ -83,54 +91,51 @@ export default function DashboardPage() {
   };
     
   const getCampaignName = (l: Lead): string | null => {
-      let campaign = l.campaignName || (l as any).nom_campagne || (l as any)['Form Name'];
+      let campaign = l.zapName || l.campaignName || (l as any).nom_campagne || (l as any)['Form Name'];
       if (!campaign && l.leadData) {
           try {
               const parsedData = JSON.parse(l.leadData);
-              campaign = parsedData.nom_campagne || parsedData['Form Name'];
+              campaign = parsedData.zapName || parsedData.nom_campagne || parsedData['Form Name'];
           } catch(e) { /* ignore */ }
       }
       return campaign || null;
   }
   
   const displayedLeads = useMemo(() => {
-    if (!allLeads || !collaborator) {
-      return [];
-    }
+    if (!allLeads || !collaborator) return [];
 
-    let filteredLeads = [...allLeads];
+    let filteredLeads: Lead[] = [];
 
     // --- ADMIN LOGIC ---
     if (isAdmin) {
-      if (statusFilter !== 'All') {
-        filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
-      }
-      if (tierFilter !== 'All') {
-        filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
-      }
-      if (collaboratorFilter !== 'All') {
-        filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
-      }
+        filteredLeads = allLeads;
+        if (statusFilter !== 'All') {
+            filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
+        }
+        if (tierFilter !== 'All') {
+            filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
+        }
+        if (collaboratorFilter !== 'All') {
+            filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+        }
     } 
     // --- COLLABORATOR LOGIC ---
     else {
-      // First, apply the status and tier filters to the whole list
-      if (statusFilter !== 'All') {
-        filteredLeads = filteredLeads.filter(lead => lead.status === statusFilter);
-      }
-      if (tierFilter !== 'All') { // Note: Tier filter is not visible to collaborator, but we keep the logic for consistency
-         filteredLeads = filteredLeads.filter(lead => lead.tier === tierFilter);
-      }
+        let leadsToProcess = allLeads;
+        if (statusFilter !== 'All') {
+            leadsToProcess = leadsToProcess.filter(lead => lead.status === statusFilter);
+        }
+        if (tierFilter !== 'All') {
+            leadsToProcess = leadsToProcess.filter(lead => lead.tier === tierFilter);
+        }
 
-      // Now, apply collaborator-specific visibility rules
-      if (statusFilter === 'New') {
-        // If filtering for "New", show all "New" leads, assigned or not.
-        // The list is already filtered to only "New" leads from the step above.
-        // No further filtering needed.
-      } else {
-        // For any other status (or 'All'), only show leads assigned to the current collaborator.
-        filteredLeads = filteredLeads.filter(lead => lead.assignedCollaboratorId === collaborator.id);
-      }
+        if (statusFilter === 'New') {
+            // Collaborators see all 'New' leads, regardless of assignment
+            filteredLeads = leadsToProcess.filter(lead => lead.status === 'New');
+        } else {
+            // For all other statuses, collaborator only sees their own leads
+            filteredLeads = leadsToProcess.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+        }
     }
     
     // Finally, sort the resulting list by date.
@@ -141,7 +146,6 @@ export default function DashboardPage() {
     });
 
   }, [allLeads, collaborator, isAdmin, statusFilter, tierFilter, collaboratorFilter]);
-
   
   const getCollaboratorById = (id: string): Collaborator | undefined => {
     return allUsers?.find(u => u.id === id);
@@ -163,7 +167,17 @@ export default function DashboardPage() {
   const handleCloseLead = () => {
     setSelectedLeadId(null);
   };
+
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    setSelectedLeads(checked ? displayedLeads.map(l => l.id) : []);
+  };
   
+  const handleSelectRow = (leadId: string, checked: boolean) => {
+    setSelectedLeads(prev => 
+      checked ? [...prev, leadId] : prev.filter(id => id !== leadId)
+    );
+  };
+
   const isLoading = allLeadsLoading || usersLoading;
 
   return (
@@ -172,6 +186,23 @@ export default function DashboardPage() {
         <h1 className="text-xl font-semibold md:text-3xl">
           Tableau de Bord
         </h1>
+        {isAdmin && selectedLeads.length > 0 && (
+            <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{selectedLeads.length} sélectionné(s)</span>
+                 <Button variant="outline" size="sm" onClick={() => setIsAssignDialogOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Assigner
+                 </Button>
+                 <Button variant="outline" size="sm" onClick={() => {}}>
+                    <Bot className="mr-2 h-4 w-4" />
+                    Qualifier par IA
+                 </Button>
+                 <Button variant="destructive" size="sm" onClick={() => {}}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                 </Button>
+            </div>
+        )}
       </div>
 
       <Card>
@@ -248,6 +279,12 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                     <TableHead className="w-[40px]">
+                        <Checkbox 
+                            checked={selectedLeads.length > 0 && selectedLeads.length === displayedLeads.length}
+                            onCheckedChange={handleSelectAll}
+                        />
+                    </TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead className="hidden md:table-cell">Téléphone</TableHead>
                     {isAdmin && <TableHead className="hidden lg:table-cell">Campagne</TableHead>}
@@ -270,29 +307,36 @@ export default function DashboardPage() {
                       const leadStatus = lead.status || 'New';
                       
                       const creationDate = getCreationDate(lead);
+                      const isSelected = selectedLeads.includes(lead.id);
                       
                       return (
                       <TableRow
                         key={lead.id}
-                        className="cursor-pointer"
-                        onClick={() => handleOpenLead(lead.id)}
+                        data-state={isSelected ? "selected" : undefined}
                       >
-                        <TableCell className="font-medium">{leadName}</TableCell>
-                        <TableCell className="hidden md:table-cell">{leadPhone}</TableCell>
+                        <TableCell>
+                            <Checkbox 
+                                checked={isSelected}
+                                onCheckedChange={(checked) => handleSelectRow(lead.id, !!checked)}
+                                onClick={(e) => e.stopPropagation()} // Prevent row click when clicking checkbox
+                            />
+                        </TableCell>
+                        <TableCell className="font-medium cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{leadName}</TableCell>
+                        <TableCell className="hidden md:table-cell cursor-pointer" onClick={() => handleOpenLead(lead.id)}>{leadPhone}</TableCell>
                          {isAdmin && (
-                          <TableCell className="hidden lg:table-cell">
+                          <TableCell className="hidden lg:table-cell cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                            {leadCampaign}
                           </TableCell>
                         )}
                         {isAdmin && (
-                          <TableCell className="hidden md:table-cell">
+                          <TableCell className="hidden md:table-cell cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                             <ScoreBadge score={lead.score} />
                           </TableCell>
                         )}
-                        <TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                           <StatusBadge status={leadStatus} />
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden lg:table-cell cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                           {assignedCollaborator ? (
                              <div className="flex items-center gap-2">
                                 <Avatar className="h-6 w-6">
@@ -306,7 +350,7 @@ export default function DashboardPage() {
                             <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden lg:table-cell cursor-pointer" onClick={() => handleOpenLead(lead.id)}>
                             {creationDate ? (
                                 <span className="text-sm text-muted-foreground">
                                     {format(creationDate, "dd/MM/yy HH:mm")}
@@ -316,7 +360,7 @@ export default function DashboardPage() {
                             )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenLead(lead.id)}>
                             Détails
                           </Button>
                         </TableCell>
@@ -325,7 +369,7 @@ export default function DashboardPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 8 : 5} className="text-center h-24">
+                      <TableCell colSpan={isAdmin ? 9 : 6} className="text-center h-24">
                         { leadsError ? "Une erreur est survenue." : "Aucun lead ne correspond à vos filtres." }
                       </TableCell>
                     </TableRow>
@@ -342,6 +386,16 @@ export default function DashboardPage() {
           leadId={selectedLeadId}
           isOpen={!!selectedLeadId}
           onClose={handleCloseLead}
+        />
+      )}
+      
+       {isAdmin && (
+        <BulkAssignDialog
+          isOpen={isAssignDialogOpen}
+          onClose={() => setIsAssignDialogOpen(false)}
+          onAssign={(collaboratorId) => {}}
+          collaborators={collaboratorsForFilter}
+          isProcessing={isProcessing}
         />
       )}
     </>
