@@ -16,10 +16,11 @@ const getRandomColor = () => {
 };
 // --- END OF SELF-CONTAINED LOGIC ---
 
+// The schema is now more flexible, making avatarColor optional.
 const RequestBodySchema = z.object({
   name: z.string().min(2, "Le nom est trop court"),
   role: z.enum(['admin', 'collaborator']),
-  avatarColor: z.string(), // Keep it simple, we'll validate/fallback on the server
+  avatarColor: z.string().optional(), // avatarColor is now optional
 });
 
 /**
@@ -51,10 +52,12 @@ export async function POST(request: Request) {
     const validation = RequestBodySchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({ error: 'Invalid request body', details: validation.error.formErrors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request body', details: validation.error.flatten() }, { status: 400 });
     }
     
+    // Server now handles the fallback logic for avatarColor robustly.
     const { name, role, avatarColor } = validation.data;
+    const finalAvatarColor = avatarColor && avatarColors.includes(avatarColor) ? avatarColor : getRandomColor();
 
     // 1. --- Generate Username ---
     const baseUsername = name.toLowerCase().replace(/\s+/g, '_');
@@ -74,19 +77,13 @@ export async function POST(request: Request) {
         displayName: name,
       });
     } catch (error: any) {
-        // This case should be rare now because the username check makes emails unique,
-        // but it's good to keep as a safeguard.
         if (error.code === 'auth/email-already-exists') {
             return NextResponse.json({ error: "Ce nom d'utilisateur a généré un email qui existe déjà." }, { status: 409 });
         }
-        // For other auth errors (e.g., weak password policy if changed)
         return NextResponse.json({ error: error.message || "Une erreur est survenue lors de la création du compte d'authentification." }, { status: 500 });
     }
 
     // 4. --- Create Firestore Profile ---
-    // Server-side validation/fallback for the color
-    const finalAvatarColor = avatarColors.includes(avatarColor) ? avatarColor : getRandomColor();
-
     const userProfile = {
       id: userRecord.uid,
       name: name,
@@ -103,10 +100,12 @@ export async function POST(request: Request) {
       message: 'Utilisateur créé avec succès.',
       uid: userRecord.uid,
       profile: userProfile,
-      generatedPassword: password, // For potential display/copy on the frontend if needed
+      generatedPassword: password,
     }, { status: 201 });
 
   } catch (error: any) {
+    // This global catch will handle any unexpected errors (like JSON parsing)
+    // and ensure a proper JSON response is always sent.
     console.error('Error in /api/create-user:', error);
     return NextResponse.json({ error: 'Failed to execute user creation', details: error.message }, { status: 500 });
   }

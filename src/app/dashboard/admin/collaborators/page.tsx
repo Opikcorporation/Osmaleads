@@ -107,7 +107,6 @@ export default function AdminCollaboratorsPage() {
                 body: JSON.stringify(data),
             });
             
-            // We now expect the body to be JSON in both success and error cases from the API.
             const result = await response.json();
 
             if (!response.ok) {
