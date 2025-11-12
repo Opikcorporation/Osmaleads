@@ -22,10 +22,9 @@ service cloud.firestore {
     // --- Collaborators Rules ---
     match /collaborators/{userId} {
       allow read: if isAuth();
-      // Allow creation if done by an authenticated user (for their own profile, if needed later)
-      // OR if done by a user who is already an admin.
+      // Allow creation if done by a user who is already an admin.
       // The /api/create-user endpoint relies on the Admin SDK which bypasses these rules,
-      // but this rule provides a clear security model for any potential client-side admin actions.
+      // so this rule mainly provides a clear security model for any potential client-side admin actions.
       allow create: if isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
