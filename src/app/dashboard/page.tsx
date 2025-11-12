@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -93,33 +94,41 @@ export default function DashboardPage() {
             return [];
         }
 
-        let leadsToDisplay = [...allLeads];
+        // Start with the full list of leads
+        let leadsToDisplay: Lead[] = allLeads;
 
-        // 1. Base filter by role
-        if (!isAdmin) {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
-        }
-
-        // 2. Apply status filter
+        // 1. Apply general filters first (Status and Tier)
         if (statusFilter !== 'All') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.status === statusFilter);
         }
 
-        // 3. Apply tier filter
-        if (tierFilter !== 'All') {
+        if (isAdmin && tierFilter !== 'All') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.tier === tierFilter);
         }
 
-        // 4. Apply collaborator filter (for admins)
-        if (isAdmin && collaboratorFilter !== 'All') {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+        // 2. Apply role-based and assignment filters
+        if (isAdmin) {
+            // Admin can further filter by a specific collaborator
+            if (collaboratorFilter !== 'All') {
+                leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaboratorFilter);
+            }
+        } else {
+            // Collaborator view:
+            // If filtering by "New", show all "New" leads (assigned or not).
+            // Otherwise, show only their own assigned leads that match the status filter.
+            if (statusFilter === 'New') {
+                 // The list is already filtered to 'New' status, so no more filtering is needed for this case.
+                 // Collaborators can see all new leads.
+            } else {
+                 leadsToDisplay = leadsToDisplay.filter(lead => lead.assignedCollaboratorId === collaborator.id);
+            }
         }
         
-        // 5. Sort the final list
+        // 3. Sort the final list by date
         return leadsToDisplay.sort((a, b) => {
             const dateA = getCreationDate(a)?.getTime() || 0;
             const dateB = getCreationDate(b)?.getTime() || 0;
-            return dateB - dateA;
+            return dateB - dateA; // Most recent first
         });
 
     }, [allLeads, collaborator, isAdmin, statusFilter, tierFilter, collaboratorFilter]);
@@ -317,3 +326,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
