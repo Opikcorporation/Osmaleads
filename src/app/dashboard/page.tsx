@@ -95,7 +95,7 @@ export default function DashboardPage() {
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
   // --- Simplified Data Fetching ---
-  const allLeadsQuery = useMemo(() => firestore ? collection(firestore, 'leads') : null, [firestore]);
+  const allLeadsQuery = useMemo(() => firestore ? query(collection(firestore, 'leads'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allLeads, isLoading: allLeadsLoading, error: leadsError } = useCollection<Lead>(allLeadsQuery);
 
   const allUsersQuery = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
@@ -139,14 +139,11 @@ export default function DashboardPage() {
   const filteredAndSortedLeads = useMemo(() => {
     if (!allLeads) return [];
 
-    const sorted = [...allLeads].sort((a, b) => {
-        return (getCreationDate(b)?.getTime() || 0) - (getCreationDate(a)?.getTime() || 0);
-    });
-
-    return sorted.filter(lead => {
-      const leadStatus = lead.status;
+    // Data is already sorted by date from the query, so no need to re-sort.
+    return allLeads.filter(lead => {
+      const leadStatus = lead.status || 'New';
       const userFilter = !isAdmin ? lead.assignedCollaboratorId === collaborator?.id : true;
-      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus || (filterStatus === 'New' && !leadStatus);
+      const statusFilter = filterStatus === 'All' || leadStatus === filterStatus;
       const tierFilter = !isAdmin || filterTier === 'All' || lead.tier === filterTier;
       const collaboratorFilter = !isAdmin || filterCollaborator === 'all' || lead.assignedCollaboratorId === filterCollaborator;
       return userFilter && statusFilter && tierFilter && collaboratorFilter;
@@ -340,24 +337,46 @@ export default function DashboardPage() {
             </div>
           </div>
            <div className="pt-4 flex flex-wrap gap-4">
-            <Tabs onValueChange={(value) => setFilterStatus(value as any)} defaultValue="All">
-                <TabsList className="h-auto">
-                    <TabsTrigger value="All">Tous</TabsTrigger>
-                    {leadStatuses.map(status => (
-                    <TabsTrigger key={status} value={status} className="hidden sm:flex">{status}</TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                           <ListFilter className="mr-2 h-4 w-4" />
+                           Statut : {filterStatus === 'All' ? 'Tous' : filterStatus}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuLabel>Filtrer par statut</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
+                            <DropdownMenuRadioItem value="All">Tous</DropdownMenuRadioItem>
+                            {leadStatuses.map(status => (
+                                <DropdownMenuRadioItem key={status} value={status}>{status}</DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
             {isAdmin && (
               <>
-                <Tabs onValueChange={(value) => setFilterTier(value as any)} defaultValue="All">
-                    <TabsList className="h-auto">
-                        <TabsTrigger value="All">Tiers</TabsTrigger>
-                        {leadTiers.map(tier => (
-                        <TabsTrigger key={tier} value={tier} className="hidden sm:flex">{tier}</TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                           <ListFilter className="mr-2 h-4 w-4" />
+                           Tier : {filterTier === 'All' ? 'Tous' : filterTier}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuLabel>Filtrer par tier</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup value={filterTier} onValueChange={(value) => setFilterTier(value as any)}>
+                             <DropdownMenuRadioItem value="All">Tous</DropdownMenuRadioItem>
+                            {leadTiers.map(tier => (
+                            <DropdownMenuRadioItem key={tier} value={tier}>{tier}</DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="ml-auto">
@@ -452,10 +471,10 @@ export default function DashboardPage() {
                   {filteredAndSortedLeads && filteredAndSortedLeads.length > 0 ? (
                     filteredAndSortedLeads.map((lead) => {
                       const assignedCollaborator = lead.assignedCollaboratorId ? getCollaboratorById(lead.assignedCollaboratorId) : null;
-                      const leadName = lead.name || lead.nom || 'Nom Inconnu';
-                      const leadPhone = lead.phone || lead.telephone || '-';
+                      const leadName = lead.name || (lead as any).nom || 'Nom Inconnu';
+                      const leadPhone = lead.phone || (lead as any).telephone || '-';
                       const leadCampaign = getCampaignName(lead) || '-';
-                      const leadStatus = lead.status;
+                      const leadStatus = lead.status || 'New';
                       
                       const creationDate = getCreationDate(lead);
                       
