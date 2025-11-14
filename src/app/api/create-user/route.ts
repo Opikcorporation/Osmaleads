@@ -94,6 +94,8 @@ export async function POST(request: Request) {
         await firestore.collection('collaborators').doc(userRecord.uid).set(userProfile);
     } catch (firestoreError: any) {
         console.error('Error creating Firestore profile:', firestoreError);
+        // If Firestore write fails, we should ideally delete the auth user to keep things consistent
+        await auth.deleteUser(userRecord.uid);
         return NextResponse.json({ 
             error: 'La création du profil dans la base de données a échoué.', 
             details: 'Cela est probablement dû à une règle de sécurité Firestore restrictive.'
