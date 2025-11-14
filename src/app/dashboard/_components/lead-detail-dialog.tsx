@@ -86,16 +86,16 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const { collaborator: authUser } = useFirebase();
   const { toast } = useToast();
 
-  const leadRef = useMemo(() => doc(firestore, 'leads', leadId), [firestore, leadId]);
+  const leadRef = useMemo(() => firestore ? doc(firestore, 'leads', leadId) : null, [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
-  const assignedUserRef = useMemo(() => lead?.assignedCollaboratorId ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
+  const assignedUserRef = useMemo(() => (firestore && lead?.assignedCollaboratorId) ? doc(firestore, 'collaborators', lead.assignedCollaboratorId) : null, [firestore, lead]);
   const { data: assignedUser } = useDoc<Collaborator>(assignedUserRef);
 
-  const notesRef = useMemo(() => query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')), [firestore, leadId]);
+  const notesRef = useMemo(() => firestore ? query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc')) : null, [firestore, leadId]);
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
   
-  const allUsersRef = useMemo(() => collection(firestore, 'collaborators'), [firestore]);
+  const allUsersRef = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
 
   const [newNote, setNewNote] = useState('');
@@ -110,7 +110,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   }
   
   const handleStatusChange = (status: LeadStatus) => {
-    if (lead) {
+    if (leadRef) {
       updateDocumentNonBlocking(leadRef, { status });
       toast({
         title: "Statut mis à jour",
@@ -121,7 +121,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNote.trim() || !authUser || !lead) return;
+    if (!newNote.trim() || !authUser || !lead || !firestore) return;
 
     const noteToAdd = {
       leadId: lead.id,
@@ -144,6 +144,21 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     return allUsers?.find(u => u.id === collaboratorId);
   }
   
+  const leadInfo = useMemo(() => {
+    if (!lead) return { name: 'Chargement...', email: null, phone: null };
+
+    let parsedData: any = {};
+    try {
+        if (lead.leadData) parsedData = JSON.parse(lead.leadData);
+    } catch {}
+
+    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData.Name || 'Prospect Inconnu';
+    const email = lead.email || parsedData.email || parsedData['EMAIL'] || null;
+    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'] || null;
+    
+    return { name, email, phone };
+  }, [lead]);
+
   const renderLeadData = () => {
     if (!lead || !lead.leadData) {
         return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
@@ -157,7 +172,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     }
     
     const dataToDisplay = Object.entries(parsedData)
-        .filter(([, value]) => value !== null && value !== undefined && value !== '')
         .map(([key, value]) => {
             const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             return {
@@ -181,22 +195,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     );
   };
   
-  const leadInfo = useMemo(() => {
-    if (!lead) return { name: 'Chargement...', email: null, phone: null };
-
-    let parsedData = {};
-    try {
-        if (lead.leadData) parsedData = JSON.parse(lead.leadData);
-    } catch {}
-
-    const name = lead.name || (parsedData as any).nom || (parsedData as any)['FULL NAME'] || 'Prospect Inconnu';
-    const email = lead.email || (parsedData as any).email || (parsedData as any)['EMAIL'] || null;
-    const phone = lead.phone || (parsedData as any).telephone || (parsedData as any)['PHONE'] || null;
-    
-    return { name, email, phone };
-  }, [lead]);
-
-
   const isLoading = leadLoading || allUsersLoading;
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
@@ -327,10 +325,12 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
                               <p className="font-semibold text-sm">{author?.name || "Utilisateur inconnu"}</p>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <CalendarIcon className="h-3 w-3" />
-                                {note.timestamp && format(note.timestamp.toDate(), 'MMM d, yyyy, h:mm a')}
-                              </p>
+                              {note.timestamp && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <CalendarIcon className="h-3 w-3" />
+                                  {format(note.timestamp.toDate(), 'd MMM yyyy, HH:mm', { locale: fr })}
+                                </p>
+                              )}
                             </div>
                             <p className="text-sm text-muted-foreground">{note.content}</p>
                           </div>
