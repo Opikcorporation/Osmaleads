@@ -99,6 +99,25 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
 
   const [newNote, setNewNote] = useState('');
+  
+    // Robust extraction for name and phone
+  const leadInfo = useMemo(() => {
+    if (!lead) return { name: 'Chargement...', email: null, phone: null };
+
+    let parsedData: any = {};
+    try {
+      if (lead.leadData) parsedData = JSON.parse(lead.leadData);
+    } catch {
+      // ignore parsing errors
+    }
+    
+    // Prioritize top-level fields, then fall back to all known variations in leadData
+    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData['full_name'] || parsedData.name || 'Prospect Inconnu';
+    const email = lead.email || parsedData.email || parsedData['EMAIL'] || null;
+    const phone = lead.phone || parsedData.telephone || parsedData.tel || parsedData['PHONE'] || parsedData.phone || null;
+    
+    return { name, email, phone };
+  }, [lead]);
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -143,56 +162,40 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const getNoteAuthor = (collaboratorId: string) => {
     return allUsers?.find(u => u.id === collaboratorId);
   }
-  
-  const leadInfo = useMemo(() => {
-    if (!lead) return { name: 'Chargement...', email: null, phone: null };
-
-    let parsedData: any = {};
-    try {
-        if (lead.leadData) parsedData = JSON.parse(lead.leadData);
-    } catch {}
-
-    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData.Name || 'Prospect Inconnu';
-    const email = lead.email || parsedData.email || parsedData['EMAIL'] || null;
-    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'] || null;
-    
-    return { name, email, phone };
-  }, [lead]);
 
   const renderLeadData = () => {
     if (!lead || !lead.leadData) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
     
     let parsedData: any;
     try {
-        parsedData = JSON.parse(lead.leadData);
+      parsedData = JSON.parse(lead.leadData);
     } catch {
-        return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
+      return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
     }
     
-    // Display all keys from the raw data.
-    const dataToDisplay = Object.entries(parsedData)
-        .map(([key, value]) => {
-            const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            return {
-                label: displayKey,
-                value: String(value),
-            };
-        });
+    const dataToDisplay = Object.entries(parsedData).map(([key, value]) => {
+      const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      return {
+        label: displayKey,
+        value: String(value),
+      };
+    });
 
     if (dataToDisplay.length === 0) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire à afficher.</p>;
+      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire à afficher.</p>;
     }
 
     return (
-        <ul className="space-y-3 text-sm text-foreground">
-            {dataToDisplay.map(({ label, value }) => (
-                <li key={label}>
-                    <strong className="capitalize">{label}:</strong> {value}
-                </li>
-            ))}
-        </ul>
+      <ul className="space-y-3 text-sm text-foreground">
+        {dataToDisplay.map(({ label, value }) => (
+          <li key={label} className="grid grid-cols-3 gap-2">
+            <strong className="capitalize col-span-1 truncate">{label}:</strong> 
+            <span className="col-span-2">{value}</span>
+          </li>
+        ))}
+      </ul>
     );
   };
   
