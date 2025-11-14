@@ -202,10 +202,36 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
+
+  // **ROBUST DATA EXTRACTION LOGIC**
+  const { leadName, leadEmail, leadPhone } = useMemo(() => {
+    if (!lead) return { leadName: 'Prospect Inconnu', leadEmail: null, leadPhone: null };
+
+    let parsedData = {};
+    try {
+        if (lead.leadData) {
+            parsedData = JSON.parse(lead.leadData);
+        }
+    } catch (e) {
+        console.error("Could not parse leadData JSON:", e);
+    }
+    
+    const name = lead.name 
+                 || (parsedData as any).nom 
+                 || (parsedData as any)['FULL NAME'] 
+                 || 'Prospect Inconnu';
+                 
+    const email = lead.email 
+                  || (parsedData as any).email 
+                  || (parsedData as any)['EMAIL'];
+                  
+    const phone = lead.phone 
+                  || (parsedData as any).telephone 
+                  || (parsedData as any)['PHONE'];
+
+    return { leadName: name, leadEmail: email, leadPhone: phone };
+  }, [lead]);
   
-  const leadName = lead?.name || 'Prospect Inconnu';
-  const leadEmail = lead?.email;
-  const leadPhone = lead?.phone;
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
