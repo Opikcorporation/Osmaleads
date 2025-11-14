@@ -35,7 +35,7 @@ async function findUniqueUsername(firestore: Firestore, baseUsername: string): P
         if (existingUserQuery.empty) {
             return username; // The username is unique
         }
-        // CRITICAL FIX: Do not re-declare `username`. Assign a new value instead.
+        // Correctly assign a new value to the existing variable, don't re-declare it.
         username = `${baseUsername}${counter}`;
         counter++;
     }
@@ -93,10 +93,7 @@ export async function POST(request: Request) {
     try {
         await firestore.collection('collaborators').doc(userRecord.uid).set(userProfile);
     } catch (firestoreError: any) {
-        // This is a critical catch block. If Firestore fails, we need to inform the client.
         console.error('Error creating Firestore profile:', firestoreError);
-        // It's also a good idea to maybe delete the auth user we just created to avoid orphans,
-        // but for now, we'll just return a clear error.
         return NextResponse.json({ 
             error: 'La création du profil dans la base de données a échoué.', 
             details: 'Cela est probablement dû à une règle de sécurité Firestore restrictive.'

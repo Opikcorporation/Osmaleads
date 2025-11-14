@@ -107,22 +107,17 @@ export default function AdminCollaboratorsPage() {
                 body: JSON.stringify(data),
             });
 
-            // First, check if the response was successful.
             if (!response.ok) {
-              // If not, try to parse the error JSON, but handle cases where it might fail.
               let errorMessage = `Erreur HTTP ${response.status}: La création a échoué.`;
               try {
                   const errorResult = await response.json();
                   errorMessage = errorResult.error || errorResult.details || errorMessage;
               } catch (e) {
-                  // This catches "Unexpected end of JSON input" if the error response isn't JSON.
                   console.error("Could not parse error response JSON:", e);
               }
-              
               throw new Error(errorMessage);
             }
             
-            // If response is OK, we expect JSON.
             const result = await response.json();
 
             toast({
