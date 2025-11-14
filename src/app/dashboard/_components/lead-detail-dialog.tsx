@@ -48,6 +48,30 @@ const WhatsAppIcon = () => (
     </svg>
 );
 
+// --- HELPER FUNCTIONS ---
+const getCreationDate = (l: Lead | null | undefined): Date | null => {
+  if (!l) return null;
+  if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
+  
+  let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
+  if (!dateString && l.leadData) {
+      try {
+          const parsedData = JSON.parse(l.leadData);
+          dateString = parsedData.created_time || parsedData['Created Time'];
+      } catch (e) { /* ignore */ }
+  }
+  if (dateString) {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) return date;
+  }
+  return null;
+};
+
+const getInitials = (name: string) => {
+    if (!name) return '';
+    return name.split(' ').map((n) => n[0]).slice(0, 2).join('');
+};
+
 const isPhoneNumber = (value: string | null | undefined): boolean => {
     if (!value || typeof value !== 'string') return false;
     const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
@@ -58,34 +82,15 @@ const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
 };
 
-const getCreationDate = (l: Lead | null | undefined): Date | null => {
-  if (!l) return null;
-  if (l.createdAt instanceof Timestamp) {
-    return l.createdAt.toDate();
-  }
-  
-  let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
-  
-  if (!dateString && l.leadData) {
-      try {
-          const parsedData = JSON.parse(l.leadData);
-          dateString = parsedData.created_time || parsedData['Created Time'];
-      } catch (e) { /* ignore */ }
-  }
-  
-  if (dateString) {
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) return date;
-  }
-  
-  return null;
-};
-
+// Main Component
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
   const { collaborator: authUser } = useFirebase();
   const { toast } = useToast();
+  
+  const [newNote, setNewNote] = useState('');
 
+  // --- DATA FETCHING (SIMPLIFIED & ROBUST) ---
   const leadRef = useMemo(() => firestore ? doc(firestore, 'leads', leadId) : null, [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
@@ -96,38 +101,30 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
   
   const allUsersRef = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
-  const { data: allUsers, isLoading: allUsersLoading } = useCollection<Collaborator>(allUsersRef);
+  const { data: allUsers } = useCollection<Collaborator>(allUsersRef);
 
-  const [newNote, setNewNote] = useState('');
-  
-  // LOGIQUE D'EXTRACTION CORRIGEE ET FIABILISEE
-  const leadDisplayInfo = useMemo(() => {
+  // --- DERIVED DATA ---
+  const { name, email, phone, parsedData } = useMemo(() => {
     if (!lead) return { name: 'Chargement...', email: null, phone: null, parsedData: {} };
 
-    let parsedData: any = {};
+    let parsed: any = {};
     try {
-      if (lead.leadData) parsedData = JSON.parse(lead.leadData);
-    } catch {
-      // ignore parsing errors
-    }
+      if (lead.leadData) parsed = JSON.parse(lead.leadData);
+    } catch { /* ignore parsing errors */ }
+
+    // Logic from dashboard/page.tsx for consistency
+    const leadName = lead.name || parsed.nom || parsed['FULL NAME'] || parsed.full_name || parsed.name || 'Prospect Inconnu';
+    const leadEmail = lead.email || parsed.email || parsed['EMAIL'] || null;
+    const leadPhone = lead.phone || parsed.telephone || parsed.tel || parsed['PHONE'] || parsed.phone || null;
     
-    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData.full_name || parsedData.name || 'Prospect Inconnu';
-    const email = lead.email || parsedData.email || parsedData['EMAIL'] || null;
-    const phone = lead.phone || parsedData.telephone || parsedData.tel || parsedData['PHONE'] || parsedData.phone || null;
-    
-    return { name, email, phone, parsedData };
+    return { name: leadName, email: leadEmail, phone: leadPhone, parsedData: parsed };
   }, [lead]);
 
-
-  const getInitials = (name: string) => {
-    if (!name) return '';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('');
-  }
+  const getNoteAuthor = (collaboratorId: string) => {
+    return allUsers?.find(u => u.id === collaboratorId);
+  };
   
+  // --- HANDLERS ---
   const handleStatusChange = (status: LeadStatus) => {
     if (leadRef) {
       updateDocumentNonBlocking(leadRef, { status });
@@ -159,40 +156,30 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     });
   };
   
-  const getNoteAuthor = (collaboratorId: string) => {
-    return allUsers?.find(u => u.id === collaboratorId);
-  }
-
-  // AFFICHAGE COMPLET DES DONNEES BRUTES
+  // --- RENDER FUNCTIONS ---
   const renderLeadData = () => {
-    const { parsedData } = leadDisplayInfo;
-
     if (!parsedData || Object.keys(parsedData).length === 0) {
       return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
     
-    const dataToDisplay = Object.entries(parsedData).map(([key, value]) => {
-      // Transformation simple de la clé pour l'affichage
-      const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      return {
-        label: displayKey,
-        value: String(value),
-      };
-    });
+    const dataToDisplay = Object.entries(parsedData).map(([key, value]) => ({
+      label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: String(value),
+    }));
 
     return (
       <ul className="space-y-3 text-sm text-foreground">
         {dataToDisplay.map(({ label, value }) => (
           <li key={label} className="grid grid-cols-3 gap-2">
             <strong className="capitalize col-span-1 truncate">{label}:</strong> 
-            <span className="col-span-2">{value}</span>
+            <span className="col-span-2 break-words">{value}</span>
           </li>
         ))}
       </ul>
     );
   };
   
-  const isLoading = leadLoading || allUsersLoading;
+  const isLoading = leadLoading;
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
@@ -200,7 +187,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[calc(100%-2rem)] mx-auto rounded-lg">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="sr-only">Fiche de {leadDisplayInfo.name}</DialogTitle>
+          <DialogTitle className="sr-only">Fiche de {name}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
@@ -215,16 +202,16 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 <CardHeader>
                   <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                       <div>
-                          <CardTitle className="text-2xl">{leadDisplayInfo.name}</CardTitle>
+                          <CardTitle className="text-2xl">{name}</CardTitle>
                           <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
-                            {leadDisplayInfo.email && <span>{leadDisplayInfo.email}</span>}
-                            {leadDisplayInfo.phone && isPhoneNumber(leadDisplayInfo.phone) ? (
-                                 <a href={`https://wa.me/${formatPhoneNumberForLink(leadDisplayInfo.phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                            {email && <span>{email}</span>}
+                            {phone && isPhoneNumber(phone) ? (
+                                 <a href={`https://wa.me/${formatPhoneNumberForLink(phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
                                     <WhatsAppIcon />
-                                    <span>{leadDisplayInfo.phone}</span>
+                                    <span>{phone}</span>
                                 </a>
-                            ) : leadDisplayInfo.phone ? (
-                                <span>{leadDisplayInfo.phone}</span>
+                            ) : phone ? (
+                                <span>{phone}</span>
                             ) : null}
                           </div>
                            {creationDate && (
@@ -344,3 +331,5 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+
+    
