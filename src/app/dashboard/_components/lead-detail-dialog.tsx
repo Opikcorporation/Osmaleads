@@ -1,5 +1,4 @@
 
-
 'use client';
 import {
   Dialog,
@@ -130,38 +129,23 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const getNoteAuthor = (collaboratorId: string) => {
     return allUsers?.find(u => u.id === collaboratorId);
   }
-
-  // RECONSTRUCTION DE LA LOGIQUE D'EXTRACTION
-  const { leadName, leadEmail, leadPhone, allData } = useMemo(() => {
-    if (!lead) {
-      return { leadName: 'Chargement...', leadEmail: null, leadPhone: null, allData: {} };
-    }
-
-    let parsedData: any = {};
-    try {
-      if (lead.leadData) {
-        parsedData = JSON.parse(lead.leadData);
-      }
-    } catch {
-      // It's okay if it fails, parsedData will be an empty object.
-    }
-
-    // Combine main lead object with parsed leadData for a full picture
-    const combinedData = { ...parsedData, ...lead };
-
-    // Comprehensive search for name, email, and phone
-    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
-    const email = lead.email || parsedData.email || parsedData['EMAIL'];
-    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'];
-
-    return { leadName: name, leadEmail: email, leadPhone: phone, allData: combinedData };
-  }, [lead]);
   
   const renderLeadData = () => {
+    if (!lead || !lead.leadData) {
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+    }
+    
+    let parsedData: any = {};
+    try {
+        parsedData = JSON.parse(lead.leadData);
+    } catch {
+        return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
+    }
+    
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
     const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName'];
 
-    const dataToDisplay = Object.entries(allData)
+    const dataToDisplay = Object.entries(parsedData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
         .map(([key, value]) => {
             let displayValue: string = String(value);
@@ -219,6 +203,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
+  const leadName = lead?.name || 'Prospect Inconnu';
+  const leadEmail = lead?.email;
+  const leadPhone = lead?.phone;
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
