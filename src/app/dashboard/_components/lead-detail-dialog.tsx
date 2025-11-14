@@ -210,7 +210,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isAdmin = authUser?.role === 'admin';
   
   const { leadName, leadEmail, leadPhone } = useMemo(() => {
-    if (!lead) return { leadName: 'Nom Inconnu', leadEmail: null, leadPhone: null };
+    if (!lead) return { leadName: 'Chargement...', leadEmail: null, leadPhone: null };
 
     let parsedData: any = {};
     try {
@@ -221,9 +221,10 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       // It's okay if it fails, parsedData will be an empty object.
     }
 
+    // Comprehensive search for name and phone
     const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
     const email = lead.email || parsedData.email || parsedData['EMAIL'];
-    const phone = lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'];
+    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'];
 
     return { leadName: name, leadEmail: email, leadPhone: phone };
   }, [lead]);
@@ -260,9 +261,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                                     <WhatsAppIcon />
                                     <span>{leadPhone}</span>
                                 </a>
-                            ) : (
+                            ) : leadPhone ? (
                                 <span>{leadPhone}</span>
-                            )}
+                            ) : null}
                           </div>
                            {creationDate && (
                             <div className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
