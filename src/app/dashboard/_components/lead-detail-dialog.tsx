@@ -48,24 +48,6 @@ const WhatsAppIcon = () => (
     </svg>
 );
 
-// --- HELPER FUNCTIONS ---
-const getCreationDate = (l: Lead | null | undefined): Date | null => {
-  if (!l) return null;
-  if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
-  
-  let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
-  if (!dateString && l.leadData) {
-      try {
-          const parsedData = JSON.parse(l.leadData);
-          dateString = parsedData.created_time || parsedData['Created Time'];
-      } catch (e) { /* ignore */ }
-  }
-  if (dateString) {
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) return date;
-  }
-  return null;
-};
 
 const getInitials = (name: string) => {
     if (!name) return '';
@@ -90,7 +72,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   
   const [newNote, setNewNote] = useState('');
 
-  // --- DATA FETCHING (SIMPLIFIED & ROBUST) ---
+  // --- DATA FETCHING ---
   const leadRef = useMemo(() => firestore ? doc(firestore, 'leads', leadId) : null, [firestore, leadId]);
   const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
 
@@ -102,23 +84,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   
   const allUsersRef = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
   const { data: allUsers } = useCollection<Collaborator>(allUsersRef);
-
-  // --- DERIVED DATA ---
-  const { name, email, phone, parsedData } = useMemo(() => {
-    if (!lead) return { name: 'Chargement...', email: null, phone: null, parsedData: {} };
-
-    let parsed: any = {};
-    try {
-      if (lead.leadData) parsed = JSON.parse(lead.leadData);
-    } catch { /* ignore parsing errors */ }
-
-    // Logic from dashboard/page.tsx for consistency
-    const leadName = lead.name || parsed.nom || parsed['FULL NAME'] || parsed.full_name || parsed.name || 'Prospect Inconnu';
-    const leadEmail = lead.email || parsed.email || parsed['EMAIL'] || null;
-    const leadPhone = lead.phone || parsed.telephone || parsed.tel || parsed['PHONE'] || parsed.phone || null;
-    
-    return { name: leadName, email: leadEmail, phone: leadPhone, parsedData: parsed };
-  }, [lead]);
 
   const getNoteAuthor = (collaboratorId: string) => {
     return allUsers?.find(u => u.id === collaboratorId);
@@ -156,8 +121,50 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     });
   };
   
-  // --- RENDER FUNCTIONS ---
+  // --- DERIVED DATA & RENDER FUNCTIONS ---
+  
+  // This memoized object contains all the derived data we need for rendering.
+  const displayData = useMemo(() => {
+    if (!lead) {
+      return {
+        name: 'Chargement...',
+        email: null,
+        phone: null,
+        creationDate: null,
+        parsedData: {},
+        leadStatus: 'New' as LeadStatus,
+      };
+    }
+
+    let parsed: any = {};
+    try {
+      if (lead.leadData) parsed = JSON.parse(lead.leadData);
+    } catch { /* ignore parsing errors */ }
+
+    // Consistent data extraction
+    const name = lead.name || parsed.nom || parsed['FULL NAME'] || parsed.full_name || 'Prospect Inconnu';
+    const email = lead.email || parsed.email || parsed['EMAIL'] || null;
+    const phone = lead.phone || parsed.telephone || parsed.tel || parsed['PHONE'] || null;
+    
+    let creationDate: Date | null = null;
+    if (lead.createdAt instanceof Timestamp) {
+      creationDate = lead.createdAt.toDate();
+    } else {
+        const dateString = parsed.created_time || parsed['Created Time'];
+        if (dateString) {
+            const date = new Date(dateString);
+            if (!isNaN(date.getTime())) creationDate = date;
+        }
+    }
+    
+    const leadStatus = lead.status || 'New';
+
+    return { name, email, phone, creationDate, parsedData: parsed, leadStatus };
+  }, [lead]);
+
+
   const renderLeadData = () => {
+    const { parsedData } = displayData;
     if (!parsedData || Object.keys(parsedData).length === 0) {
       return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
@@ -180,14 +187,12 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   };
   
   const isLoading = leadLoading;
-  const leadStatus = lead?.status || 'New';
-  const creationDate = getCreationDate(lead);
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[calc(100%-2rem)] mx-auto rounded-lg">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="sr-only">Fiche de {name}</DialogTitle>
+          <DialogTitle className="sr-only">Fiche de {displayData.name}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
@@ -202,22 +207,22 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 <CardHeader>
                   <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                       <div>
-                          <CardTitle className="text-2xl">{name}</CardTitle>
+                          <CardTitle className="text-2xl">{displayData.name}</CardTitle>
                           <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
-                            {email && <span>{email}</span>}
-                            {phone && isPhoneNumber(phone) ? (
-                                 <a href={`https://wa.me/${formatPhoneNumberForLink(phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                            {displayData.email && <span>{displayData.email}</span>}
+                            {displayData.phone && isPhoneNumber(displayData.phone) ? (
+                                 <a href={`https://wa.me/${formatPhoneNumberForLink(displayData.phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
                                     <WhatsAppIcon />
-                                    <span>{phone}</span>
+                                    <span>{displayData.phone}</span>
                                 </a>
-                            ) : phone ? (
-                                <span>{phone}</span>
+                            ) : displayData.phone ? (
+                                <span>{displayData.phone}</span>
                             ) : null}
                           </div>
-                           {creationDate && (
+                           {displayData.creationDate && (
                             <div className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
                                 <CalendarIcon className="h-3.5 w-3.5" />
-                                <span>Créé le {format(creationDate, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</span>
+                                <span>Créé le {format(displayData.creationDate, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</span>
                             </div>
                           )}
                       </div>
@@ -238,16 +243,16 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Statut:</span>
-                            <Select defaultValue={leadStatus} onValueChange={handleStatusChange}>
+                            <Select defaultValue={displayData.leadStatus} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2 bg-transparent focus:ring-0 focus:ring-offset-0">
                                   <SelectValue>
-                                    <StatusBadge status={leadStatus as LeadStatus} />
+                                    <StatusBadge status={displayData.leadStatus} />
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                 {leadStatuses.map((status) => (
                                     <SelectItem key={status} value={status}>
-                                    <StatusBadge status={status as LeadStatus} />
+                                    <StatusBadge status={status} />
                                     </SelectItem>
                                 ))}
                                 </SelectContent>
@@ -331,5 +336,3 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
-
-    
