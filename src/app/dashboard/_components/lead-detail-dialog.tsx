@@ -131,23 +131,33 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     return allUsers?.find(u => u.id === collaboratorId);
   }
 
-  const renderLeadData = () => {
+  // RECONSTRUCTION DE LA LOGIQUE D'EXTRACTION
+  const { leadName, leadEmail, leadPhone, allData } = useMemo(() => {
     if (!lead) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+      return { leadName: 'Chargement...', leadEmail: null, leadPhone: null, allData: {} };
     }
 
-    let parsedData = {};
+    let parsedData: any = {};
     try {
-        if (lead.leadData) {
-            parsedData = JSON.parse(lead.leadData);
-        }
-    } catch (e) {
-        console.error("Could not parse leadData JSON:", e);
+      if (lead.leadData) {
+        parsedData = JSON.parse(lead.leadData);
+      }
+    } catch {
+      // It's okay if it fails, parsedData will be an empty object.
     }
-    
-    // Combine main lead object with parsed leadData for a full picture
-    const allData = { ...parsedData, ...lead };
 
+    // Combine main lead object with parsed leadData for a full picture
+    const combinedData = { ...parsedData, ...lead };
+
+    // Comprehensive search for name, email, and phone
+    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
+    const email = lead.email || parsedData.email || parsedData['EMAIL'];
+    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'];
+
+    return { leadName: name, leadEmail: email, leadPhone: phone, allData: combinedData };
+  }, [lead]);
+  
+  const renderLeadData = () => {
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
     const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName'];
 
@@ -209,30 +219,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
-  const { leadName, leadEmail, leadPhone } = useMemo(() => {
-    if (!lead) return { leadName: 'Chargement...', leadEmail: null, leadPhone: null };
-
-    let parsedData: any = {};
-    try {
-      if (lead.leadData) {
-        parsedData = JSON.parse(lead.leadData);
-      }
-    } catch {
-      // It's okay if it fails, parsedData will be an empty object.
-    }
-
-    // Comprehensive search for name and phone
-    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
-    const email = lead.email || parsedData.email || parsedData['EMAIL'];
-    const phone = lead.phone || parsedData.telephone || parsedData['PHONE'];
-
-    return { leadName: name, leadEmail: email, leadPhone: phone };
-  }, [lead]);
-
-
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
-
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
