@@ -134,30 +134,21 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
     
-    let parsedData: any = {};
+    let parsedData: any;
     try {
         parsedData = JSON.parse(lead.leadData);
     } catch {
         return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
     }
     
-    // Define a minimal set of keys to exclude (already shown in header or managed internally)
-    const excludeKeys = ['nom', 'FULL NAME', 'email', 'EMAIL', 'telephone', 'PHONE'];
-
+    // NO MORE EXCLUDE KEYS. We show everything.
     const dataToDisplay = Object.entries(parsedData)
-        .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
+        .filter(([, value]) => value !== null && value !== undefined && value !== '')
         .map(([key, value]) => {
-            let displayValue: string = String(value);
-
-            // Clean up the key for display
-            const displayKey = key
-                .replace(/_/g, ' ')
-                .replace(/Raw/g, '')
-                .trim();
-            
+            const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             return {
-                label: capitalizeFirstLetter(displayKey),
-                value: displayValue,
+                label: displayKey,
+                value: String(value),
             };
         });
 
@@ -367,3 +358,4 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     </Dialog>
   );
 }
+    
