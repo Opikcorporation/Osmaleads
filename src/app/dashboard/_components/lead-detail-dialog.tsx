@@ -1,5 +1,3 @@
-
-
 'use client';
 import {
   Dialog,
@@ -144,7 +142,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     }
     
     // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company', 'created_time', 'Created Time', 'Form Name', 'nom_campagne', 'zapName'];
+    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company'];
 
     const dataToDisplay = Object.entries(parsedData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
@@ -201,14 +199,26 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     return null;
   };
 
+  const { leadName, leadEmail, leadPhone } = useMemo(() => {
+    if (!lead) return { leadName: 'Prospect Inconnu', leadEmail: null, leadPhone: null };
+
+    let parsedData = {};
+    if (lead.leadData) {
+        try {
+            parsedData = JSON.parse(lead.leadData);
+        } catch {}
+    }
+
+    const name = lead.name || (parsedData as any).nom || (parsedData as any)['FULL NAME'] || 'Prospect Inconnu';
+    const email = lead.email || (parsedData as any).email || (parsedData as any)['EMAIL'] || null;
+    const phone = lead.phone || (parsedData as any).telephone || (parsedData as any)['PHONE'] || null;
+
+    return { leadName: name, leadEmail: email, leadPhone: phone };
+  }, [lead]);
+
+
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
-
-  // **SIMPLIFIED & ROBUST DATA EXTRACTION**
-  // This logic is now consistent with the dashboard page.
-  const leadName = lead?.name || (lead as any)?.nom || 'Prospect Inconnu';
-  const leadEmail = lead?.email;
-  const leadPhone = lead?.phone || (lead as any)?.telephone;
   
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
