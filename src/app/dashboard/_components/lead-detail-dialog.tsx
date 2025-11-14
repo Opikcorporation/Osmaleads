@@ -1,4 +1,5 @@
 
+
 'use client';
 import {
   Dialog,
@@ -229,8 +230,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       // Get Email: Check top-level, then raw data.
       leadEmail = lead.email || parsedData.email || parsedData['EMAIL'];
 
-      // Get Phone: Check top-level, then raw data.
-      leadPhone = lead.phone || parsedData.telephone || parsedData['PHONE'];
+      // Get Phone: Check top-level, then raw data from multiple possible keys.
+      leadPhone = lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'];
   }
   // --- End of data extraction ---
 
