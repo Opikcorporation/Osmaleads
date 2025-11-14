@@ -100,7 +100,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   const [newNote, setNewNote] = useState('');
   
-    // Robust extraction for name and phone
   const leadInfo = useMemo(() => {
     if (!lead) return { name: 'Chargement...', email: null, phone: null };
 
@@ -175,6 +174,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
     }
     
+    // Display ALL data from the leadData object.
     const dataToDisplay = Object.entries(parsedData).map(([key, value]) => {
       const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       return {
