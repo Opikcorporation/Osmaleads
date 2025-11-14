@@ -141,8 +141,8 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
     }
     
-    // Define keys to exclude from the detail list (already shown in the header or managed internally)
-    const excludeKeys = ['id', 'name', 'nom', 'FULL NAME', 'email', 'EMAIL', 'phone', 'PHONE', 'telephone', 'leadData', 'score', 'tier', 'status', 'assignedCollaboratorId', 'assignedAt', 'createdAt', 'username', 'company'];
+    // Define a minimal set of keys to exclude (already shown in header or managed internally)
+    const excludeKeys = ['nom', 'FULL NAME', 'email', 'EMAIL', 'telephone', 'PHONE'];
 
     const dataToDisplay = Object.entries(parsedData)
         .filter(([key, value]) => !excludeKeys.includes(key) && value) // Exclude specified keys and empty values
@@ -162,7 +162,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         });
 
     if (dataToDisplay.length === 0) {
-        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+        return <p className="text-sm text-muted-foreground">Aucune information supplémentaire à afficher.</p>;
     }
 
     return (
@@ -200,7 +200,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   };
 
   const { leadName, leadEmail, leadPhone } = useMemo(() => {
-    if (!lead) return { leadName: 'Prospect Inconnu', leadEmail: null, leadPhone: null };
+    if (!lead) return { leadName: 'Chargement...', leadEmail: null, leadPhone: null };
 
     let parsedData = {};
     if (lead.leadData) {
@@ -218,8 +218,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
 
   const isLoading = leadLoading || allUsersLoading;
-  const isAdmin = authUser?.role === 'admin';
-  
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
 
@@ -293,13 +291,13 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                                 </SelectContent>
                             </Select>
                         </div>
-                        {isAdmin && lead.tier && (
+                        {authUser?.role === 'admin' && lead.tier && (
                             <div className="flex items-center gap-2">
                                <Gem className="h-4 w-4 text-primary" />
                                <Badge variant="secondary">{lead.tier}</Badge>
                            </div>
                         )}
-                        {isAdmin && lead.score !== null && typeof lead.score !== 'undefined' && (
+                        {authUser?.role === 'admin' && lead.score !== null && typeof lead.score !== 'undefined' && (
                              <div className="flex items-center gap-2">
                                 <TrendingUp className="h-4 w-4 text-primary" />
                                 <Badge variant="outline">Score: {lead.score}</Badge>
