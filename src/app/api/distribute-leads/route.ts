@@ -14,7 +14,6 @@ const RequestBodySchema = z.object({
 
 /**
  * Calculates how many leads have been assigned to each collaborator today.
- * Correction : Utilisation du type Firestore depuis 'firebase-admin/firestore'.
  */
 async function getTodaysAssignments(firestore: Firestore): Promise<{ [collaboratorId: string]: number }> {
     const today = new Date();
