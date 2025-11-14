@@ -3,12 +3,11 @@
 import { useCollection, useFirestore, useFirebase } from '@/firebase';
 import type { Lead, Collaborator } from '@/lib/types';
 import { collection } from 'firebase/firestore';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Trophy, Award, Crown } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
 const getInitials = (name: string) => {
     if (!name) return '';
@@ -21,28 +20,9 @@ const getInitials = (name: string) => {
 
 export default function LeaderboardPage() {
   const firestore = useFirestore();
-  const { user, collaborator, isLoading: isAuthLoading } = useFirebase();
-  const router = useRouter();
 
-  useEffect(() => {
-    // Redirect to login if auth is done and there's no user.
-    if (!isAuthLoading && !user) {
-      router.push('/login');
-    }
-  }, [isAuthLoading, user, router]);
-
-  // --- QUERIES CONDITIONNELLES ---
-  // Only create queries when authentication is resolved and successful.
-  const leadsQuery = useMemo(() => {
-    if (isAuthLoading || !user) return null; // Ne pas exécuter si l'auth est en cours ou si l'utilisateur n'est pas connecté
-    return collection(firestore, 'leads');
-  }, [firestore, isAuthLoading, user]);
-
-  const usersQuery = useMemo(() => {
-    if (isAuthLoading || !user) return null; // Idem pour les collaborateurs
-    return collection(firestore, 'collaborators');
-  }, [firestore, isAuthLoading, user]);
-
+  const leadsQuery = useMemo(() => collection(firestore, 'leads'), [firestore]);
+  const usersQuery = useMemo(() => collection(firestore, 'collaborators'), [firestore]);
 
   const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsQuery);
   const { data: collaborators, isLoading: usersLoading } = useCollection<Collaborator>(usersQuery);
@@ -80,17 +60,7 @@ export default function LeaderboardPage() {
     return { topSellers, topQualifiers };
   }, [leads, collaborators]);
 
-  // Combined loading state
-  const isLoading = isAuthLoading || leadsLoading || usersLoading;
-
-  // Initial loading state or if user is being redirected.
-  if (isAuthLoading || !collaborator) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <p className="text-2xl font-semibold animate-pulse">Chargement de la session...</p>
-      </div>
-    );
-  }
+  const isLoading = leadsLoading || usersLoading;
 
   const getRankColor = (rank: number) => {
     if (rank === 0) return 'text-yellow-400';
@@ -100,19 +70,16 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-muted/40 p-4 md:p-8">
+    <>
       <header className="text-center mb-12">
-        <div className="flex items-center justify-center gap-4">
-          <Image src="/logo.png" alt="Osmaleads Logo" width={160} height={40} className="md:w-[200px] md:h-[50px]" />
-        </div>
         <h1 className="text-3xl md:text-5xl font-bold tracking-tighter mt-4">Classement des Performances</h1>
         <p className="text-lg md:text-xl text-muted-foreground mt-2">Mise à jour en temps réel</p>
       </header>
       {isLoading ? (
         <div className="text-center"><p>Chargement du classement...</p></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-          <Card className="bg-card/80 backdrop-blur-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card>
             <CardHeader className="text-center">
               <Trophy className="mx-auto h-10 w-10 md:h-12 md:w-12 text-yellow-500" />
               <CardTitle className="text-2xl md:text-3xl font-bold mt-2">Top 20 Vendeurs</CardTitle>
@@ -142,7 +109,7 @@ export default function LeaderboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/80 backdrop-blur-sm">
+          <Card>
             <CardHeader className="text-center">
               <Award className="mx-auto h-10 w-10 md:h-12 md:w-12 text-green-500" />
               <CardTitle className="text-2xl md:text-3xl font-bold mt-2">Top 20 Qualifieurs</CardTitle>
@@ -173,6 +140,6 @@ export default function LeaderboardPage() {
           </Card>
         </div>
       )}
-    </main>
+    </>
   );
 }

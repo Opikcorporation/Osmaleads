@@ -8,7 +8,8 @@ import {
   LayoutDashboard,
   LineChart,
   Shield,
-  User as UserIcon
+  User as UserIcon,
+  Trophy
 } from 'lucide-react';
 import { UserNav } from '@/components/user-nav';
 
@@ -34,25 +35,33 @@ export default function AppBottomNav({ user }: AppBottomNavProps) {
       roles: ['admin', 'collaborator'],
     },
     {
+      href: '/dashboard/leaderboard',
+      label: 'Classement',
+      icon: Trophy,
+      roles: ['admin', 'collaborator'],
+    },
+    {
       href: '/dashboard/admin',
       label: 'Admin',
       icon: Shield,
       roles: ['admin'],
     },
   ];
+  
+  const filteredNavItems = navItems.filter((item) => user?.role && item.roles.includes(user.role));
 
   return (
     <footer className="fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t md:hidden">
-      <div className="grid h-full max-w-lg grid-cols-4 mx-auto font-medium">
-        {navItems
-          .filter((item) => user?.role && item.roles.includes(user.role))
+      <div className={cn("grid h-full max-w-lg mx-auto font-medium", `grid-cols-${filteredNavItems.length + 1}`)}>
+        {filteredNavItems
           .map((item) => (
             <Link
               key={item.label}
               href={item.href}
               className={cn(
                 'inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group',
-                 pathname.startsWith(item.href) && item.href !== '/dashboard/admin' ? 'text-primary' : 'text-muted-foreground',
+                 pathname.startsWith(item.href) && item.href !== '/dashboard' ? 'text-primary' : 'text-muted-foreground',
+                 pathname === '/dashboard' && item.href === '/dashboard' ? 'text-primary' : '',
                  pathname.startsWith('/dashboard/admin') && item.href.startsWith('/dashboard/admin') ? 'text-primary' : ''
               )}
             >
