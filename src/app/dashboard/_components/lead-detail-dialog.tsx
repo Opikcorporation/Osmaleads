@@ -209,31 +209,25 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const isLoading = leadLoading || allUsersLoading;
   const isAdmin = authUser?.role === 'admin';
   
-  // --- DIRECT and ROBUST data extraction ---
-  let leadName = 'Nom Inconnu';
-  let leadEmail = null;
-  let leadPhone = null;
+  const { leadName, leadEmail, leadPhone } = useMemo(() => {
+    if (!lead) return { leadName: 'Nom Inconnu', leadEmail: null, leadPhone: null };
 
-  if (lead) {
-      let parsedData: any = {};
-      try {
-          if (lead.leadData) {
-              parsedData = JSON.parse(lead.leadData);
-          }
-      } catch {
-          // It's okay if it fails, parsedData will be an empty object.
+    let parsedData: any = {};
+    try {
+      if (lead.leadData) {
+        parsedData = JSON.parse(lead.leadData);
       }
-      
-      // Get Name: Check top-level, then raw data.
-      leadName = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
-      
-      // Get Email: Check top-level, then raw data.
-      leadEmail = lead.email || parsedData.email || parsedData['EMAIL'];
+    } catch {
+      // It's okay if it fails, parsedData will be an empty object.
+    }
 
-      // Get Phone: Check top-level, then raw data from multiple possible keys.
-      leadPhone = lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'];
-  }
-  // --- End of data extraction ---
+    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || 'Nom Inconnu';
+    const email = lead.email || parsedData.email || parsedData['EMAIL'];
+    const phone = lead.phone || parsedData.telephone || parsedData.phone || parsedData['PHONE'];
+
+    return { leadName: name, leadEmail: email, leadPhone: phone };
+  }, [lead]);
+
 
   const leadStatus = lead?.status || 'New';
   const creationDate = getCreationDate(lead);
