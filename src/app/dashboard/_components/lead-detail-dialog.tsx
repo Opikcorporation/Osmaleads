@@ -171,6 +171,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
     }
     
+    // Display all keys from the raw data.
     const dataToDisplay = Object.entries(parsedData)
         .map(([key, value]) => {
             const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
