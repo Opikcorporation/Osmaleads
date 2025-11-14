@@ -100,8 +100,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
 
   const [newNote, setNewNote] = useState('');
   
-  const leadInfo = useMemo(() => {
-    if (!lead) return { name: 'Chargement...', email: null, phone: null };
+  // LOGIQUE D'EXTRACTION CORRIGEE ET FIABILISEE
+  const leadDisplayInfo = useMemo(() => {
+    if (!lead) return { name: 'Chargement...', email: null, phone: null, parsedData: {} };
 
     let parsedData: any = {};
     try {
@@ -110,13 +111,13 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       // ignore parsing errors
     }
     
-    // Prioritize top-level fields, then fall back to all known variations in leadData
-    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData['full_name'] || parsedData.name || 'Prospect Inconnu';
+    const name = lead.name || parsedData.nom || parsedData['FULL NAME'] || parsedData.full_name || parsedData.name || 'Prospect Inconnu';
     const email = lead.email || parsedData.email || parsedData['EMAIL'] || null;
     const phone = lead.phone || parsedData.telephone || parsedData.tel || parsedData['PHONE'] || parsedData.phone || null;
     
-    return { name, email, phone };
+    return { name, email, phone, parsedData };
   }, [lead]);
+
 
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -162,30 +163,22 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     return allUsers?.find(u => u.id === collaboratorId);
   }
 
+  // AFFICHAGE COMPLET DES DONNEES BRUTES
   const renderLeadData = () => {
-    if (!lead || !lead.leadData) {
+    const { parsedData } = leadDisplayInfo;
+
+    if (!parsedData || Object.keys(parsedData).length === 0) {
       return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
     }
     
-    let parsedData: any;
-    try {
-      parsedData = JSON.parse(lead.leadData);
-    } catch {
-      return <p className="text-sm text-destructive">Erreur: impossible d'analyser les données du prospect.</p>;
-    }
-    
-    // Display ALL data from the leadData object.
     const dataToDisplay = Object.entries(parsedData).map(([key, value]) => {
+      // Transformation simple de la clé pour l'affichage
       const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       return {
         label: displayKey,
         value: String(value),
       };
     });
-
-    if (dataToDisplay.length === 0) {
-      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire à afficher.</p>;
-    }
 
     return (
       <ul className="space-y-3 text-sm text-foreground">
@@ -207,7 +200,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[calc(100%-2rem)] mx-auto rounded-lg">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="sr-only">Fiche de {leadInfo.name}</DialogTitle>
+          <DialogTitle className="sr-only">Fiche de {leadDisplayInfo.name}</DialogTitle>
           <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
         </DialogHeader>
 
@@ -222,16 +215,16 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                 <CardHeader>
                   <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                       <div>
-                          <CardTitle className="text-2xl">{leadInfo.name}</CardTitle>
+                          <CardTitle className="text-2xl">{leadDisplayInfo.name}</CardTitle>
                           <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
-                            {leadInfo.email && <span>{leadInfo.email}</span>}
-                            {leadInfo.phone && isPhoneNumber(leadInfo.phone) ? (
-                                 <a href={`https://wa.me/${formatPhoneNumberForLink(leadInfo.phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
+                            {leadDisplayInfo.email && <span>{leadDisplayInfo.email}</span>}
+                            {leadDisplayInfo.phone && isPhoneNumber(leadDisplayInfo.phone) ? (
+                                 <a href={`https://wa.me/${formatPhoneNumberForLink(leadDisplayInfo.phone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
                                     <WhatsAppIcon />
-                                    <span>{leadInfo.phone}</span>
+                                    <span>{leadDisplayInfo.phone}</span>
                                 </a>
-                            ) : leadInfo.phone ? (
-                                <span>{leadInfo.phone}</span>
+                            ) : leadDisplayInfo.phone ? (
+                                <span>{leadDisplayInfo.phone}</span>
                             ) : null}
                           </div>
                            {creationDate && (
