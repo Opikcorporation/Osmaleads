@@ -6,35 +6,11 @@ import {
   DialogTitle,
   DialogDescription
 } from '@/components/ui/dialog';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { leadStatuses, type LeadStatus, type Lead, type Collaborator, type FirestoreNote } from '@/lib/types';
-import { CalendarIcon, Info, TrendingUp, Gem } from 'lucide-react';
-import { format } from 'date-fns';
-import { useDoc, useCollection, useFirestore, useFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import { useState, useMemo } from 'react';
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { useToast } from '@/hooks/use-toast';
-import { StatusBadge } from '@/components/status-badge';
-import { Badge } from '@/components/ui/badge';
-import { fr } from 'date-fns/locale';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Lead } from '@/lib/types';
+import { useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useMemo } from 'react';
 
 interface LeadDetailDialogProps {
   leadId: string | null;
@@ -42,327 +18,66 @@ interface LeadDetailDialogProps {
   onClose: () => void;
 }
 
-const WhatsAppIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-    </svg>
-);
+// Helper function to get phone number from various possible fields
+const getPhoneNumber = (lead: Lead | null): string => {
+  if (!lead) return 'Aucun numéro trouvé.';
 
-const getInitials = (name: string) => {
-    if (!name) return '';
-    return name.split(' ').map((n) => n[0]).slice(0, 2).join('');
-};
+  // 1. Check the primary field
+  if (lead.phone) return lead.phone;
 
-const isPhoneNumber = (value: string | null | undefined): boolean => {
-    if (!value || typeof value !== 'string') return false;
-    const phoneRegex = /^\+?[0-9\s\-\(\)]{6,}$/;
-    return phoneRegex.test(value);
-};
-
-const formatPhoneNumberForLink = (value: string): string => {
-    return value.replace(/\D/g, '');
-};
-
-const formatKey = (key: string) => {
-    return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-}
-
-// Helper function to reliably get the creation date from a lead object
-const getCreationDate = (l: Lead): Date | null => {
-  if (l.createdAt && l.createdAt instanceof Timestamp) {
-    return l.createdAt.toDate();
+  // 2. If not found, parse leadData and check common variations
+  try {
+    const data = JSON.parse(lead.leadData);
+    const phoneNumber = data.telephone || data.phone || data.PHONE;
+    if (phoneNumber) return String(phoneNumber);
+  } catch (e) {
+    // leadData might not be valid JSON, which is okay.
   }
-  
-  let dateString: string | undefined | null = null;
-  
-  if ((l as any).created_time) {
-    dateString = (l as any).created_time;
-  } else if ((l as any)['Created Time']) {
-    dateString = (l as any)['Created Time'];
-  } else if (l.leadData) {
-    try {
-      const parsedData = JSON.parse(l.leadData);
-      dateString = parsedData.created_time || parsedData['Created Time'];
-    } catch (e) {
-      // It's okay if parsing fails, we'll try other fields.
-    }
-  }
-  
-  if (dateString && typeof dateString === 'string') {
-    const date = new Date(dateString);
-    if (!isNaN(date.getTime())) {
-      return date;
-    }
-  }
-  
-  return null;
+
+  // 3. If still not found, return a default message
+  return 'Numéro non renseigné.';
 };
 
-// Main Component
+
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
-  const { collaborator: authUser } = useFirebase();
-  const { toast } = useToast();
-  
-  const [newNote, setNewNote] = useState('');
 
-  // --- DATA FETCHING ---
   const leadRef = useMemo(() => {
     return firestore && leadId ? doc(firestore, 'leads', leadId) : null;
   }, [firestore, leadId]);
   
-  const { data: lead, isLoading: leadLoading, error: leadError } = useDoc<Lead>(leadRef);
-
-  const assignedUserRef = useMemo(() => {
-    if (firestore && lead?.assignedCollaboratorId) {
-      return doc(firestore, 'collaborators', lead.assignedCollaboratorId);
-    }
-    return null;
-  }, [firestore, lead]);
-  const { data: assignedUser } = useDoc<Collaborator>(assignedUserRef);
-
-  const notesRef = useMemo(() => {
-    if (firestore && leadId) {
-      return query(collection(firestore, 'leads', leadId, 'notes'), orderBy('timestamp', 'desc'));
-    }
-    return null;
-  }, [firestore, leadId]);
-  const { data: notes, isLoading: notesLoading } = useCollection<FirestoreNote>(notesRef);
-  
-  const allUsersRef = useMemo(() => firestore ? collection(firestore, 'collaborators') : null, [firestore]);
-  const { data: allUsers } = useCollection<Collaborator>(allUsersRef);
-
-  const getNoteAuthor = (collaboratorId: string) => {
-    return allUsers?.find(u => u.id === collaboratorId);
-  };
-  
-  // --- HANDLERS ---
-  const handleStatusChange = (status: LeadStatus) => {
-    if (leadRef) {
-      updateDocumentNonBlocking(leadRef, { status });
-      toast({
-        title: "Statut mis à jour",
-        description: `Le statut du lead est maintenant ${status}.`,
-      });
-    }
-  };
-
-  const handleAddNote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNote.trim() || !authUser || !lead || !firestore) return;
-
-    const noteToAdd = {
-      leadId: lead.id,
-      collaboratorId: authUser.id,
-      content: newNote,
-      timestamp: Timestamp.now(),
-    };
-
-    const notesColRef = collection(firestore, 'leads', lead.id, 'notes');
-    addDocumentNonBlocking(notesColRef, noteToAdd);
-
-    setNewNote('');
-    toast({
-      title: "Note ajoutée",
-      description: "Votre note a été enregistrée.",
-    });
-  };
-  
-    // --- DERIVED DATA & RENDER FUNCTIONS ---
-    const renderLeadData = () => {
-        if (!lead?.leadData) {
-            return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
-        }
-
-        let parsedData: Record<string, any>;
-        try {
-            parsedData = JSON.parse(lead.leadData);
-        } catch (e) {
-            return <p className="text-sm text-destructive">Erreur: Impossible d'analyser les données du lead.</p>;
-        }
-        
-        const dataToDisplay = Object.entries(parsedData);
-
-        if (dataToDisplay.length === 0) {
-            return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
-        }
-
-        return (
-            <ul className="space-y-3 text-sm text-foreground">
-                {dataToDisplay.map(([key, value]) => {
-                    if (value === null || value === '') return null; // Don't show empty fields
-                    const formattedKey = formatKey(key);
-                    const displayValue = String(value);
-
-                    return (
-                        <li key={key} className="grid grid-cols-3 gap-2">
-                            <strong className="capitalize col-span-1 truncate">{formattedKey}</strong>
-                            <span className="col-span-2 break-words">{displayValue}</span>
-                        </li>
-                    );
-                })}
-            </ul>
-        );
-    };
-  
-  const isLoading = leadLoading;
-  const leadName = lead?.name || 'Chargement...';
-  const leadPhone = lead?.phone || null;
-  const leadEmail = lead?.email || null;
-  const creationDate = lead ? getCreationDate(lead) : null;
+  const { data: lead, isLoading, error } = useDoc<Lead>(leadRef);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[calc(100%-2rem)] mx-auto rounded-lg">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="sr-only">Fiche de {leadName}</DialogTitle>
-          <DialogDescription className="sr-only">Détails complets et historique des interactions pour ce lead.</DialogDescription>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Fiche détaillée du prospect</DialogTitle>
+          <DialogDescription>
+            Affichage du numéro de téléphone.
+          </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <p>Chargement de la fiche lead...</p>
-          </div>
-        ) : leadError ? (
-          <div className="flex items-center justify-center p-8 text-destructive">
-            <p>Erreur: Impossible de charger le lead. ({leadError.message})</p>
-          </div>
-        ) : !lead ? (
-          <div className="flex items-center justify-center p-8 text-destructive">
-            <p>Lead introuvable.</p>
-          </div>
-        ) : (
-          <div className="overflow-y-auto">
-            <div className="p-6 pt-0 space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-col md:flex-row items-start justify-between gap-4">
-                      <div>
-                          <CardTitle className="text-2xl">{leadName}</CardTitle>
-                          <div className="text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:gap-4 mt-1">
-                            {leadEmail && <span>{leadEmail}</span>}
-                            {leadPhone && isPhoneNumber(leadPhone) ? (
-                                 <a href={`https://wa.me/${formatPhoneNumberForLink(leadPhone)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary font-medium">
-                                    <WhatsAppIcon />
-                                    <span>{leadPhone}</span>
-                                </a>
-                            ) : leadPhone ? (
-                                <span>{leadPhone}</span>
-                            ) : null}
-                          </div>
-                           {creationDate && (
-                            <div className="text-xs text-muted-foreground flex items-center gap-2 mt-2">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span>Créé le {format(creationDate, "d MMMM yyyy 'à' HH:mm", { locale: fr })}</span>
-                            </div>
-                          )}
-                      </div>
-                      {assignedUser && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
-                          <span>Assigné à</span>
-                          <Avatar className="h-8 w-8">
-                             <AvatarFallback style={{ backgroundColor: assignedUser.avatarColor }} className="text-white font-bold">
-                                {getInitials(assignedUser.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{assignedUser.name}</span>
-                        </div>
-                      )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Statut:</span>
-                            <Select defaultValue={lead.status || 'New'} onValueChange={handleStatusChange}>
-                                <SelectTrigger className="w-auto border-none shadow-none text-sm font-medium -ml-2 bg-transparent focus:ring-0 focus:ring-offset-0">
-                                  <SelectValue>
-                                    <StatusBadge status={lead.status || 'New'} />
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                {leadStatuses.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                    <StatusBadge status={status} />
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {authUser?.role === 'admin' && lead.tier && (
-                            <div className="flex items-center gap-2">
-                               <Gem className="h-4 w-4 text-primary" />
-                               <Badge variant="secondary">{lead.tier}</Badge>
-                           </div>
-                        )}
-                        {authUser?.role === 'admin' && lead.score !== null && typeof lead.score !== 'undefined' && (
-                             <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-primary" />
-                                <Badge variant="outline">Score: {lead.score}</Badge>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Info className="text-primary" /> Informations Complètes</CardTitle>
-                  <CardDescription>Données originales provenant de l'importation.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {renderLeadData()}
-                </CardContent>
-              </Card>
-
-              <Card className="flex-grow flex flex-col">
-                <CardHeader>
-                  <CardTitle>Notes & Historique</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-grow flex flex-col">
-                  <form onSubmit={handleAddNote} className="space-y-2">
-                    <Textarea placeholder="Ajouter une note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
-                    <Button className="w-full" type="submit" disabled={!newNote.trim()}>Ajouter une note</Button>
-                  </form>
-                  <Separator />
-                  <div className="space-y-6 flex-1">
-                    {notesLoading ? <p className="text-sm text-center text-muted-foreground py-4">Chargement des notes...</p> : notes?.length === 0 ? (
-                      <p className="text-sm text-center text-muted-foreground py-4">Aucune note pour le moment.</p>
-                    ) : (
-                      notes?.map((note) => {
-                        const author = getNoteAuthor(note.collaboratorId);
-                        return (
-                        <div key={note.id} className="flex gap-3">
-                          {author ? (
-                              <Avatar className="h-8 w-8">
-                                  <AvatarFallback style={{ backgroundColor: author.avatarColor }} className="text-white font-bold">
-                                    {getInitials(author.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                          ) : (
-                              <Avatar className="h-8 w-8 bg-muted" />
-                          )}
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-sm">{author?.name || "Utilisateur inconnu"}</p>
-                              {note.timestamp && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <CalendarIcon className="h-3 w-3" />
-                                  {format(note.timestamp.toDate(), 'd MMM yyyy, HH:mm', { locale: fr })}
-                                </p>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground">{note.content}</p>
-                          </div>
-                        </div>
-                      )})
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
+        <div className="py-6">
+          {isLoading ? (
+            <p>Chargement des informations...</p>
+          ) : error ? (
+            <p className="text-destructive">Erreur de chargement: {error.message}</p>
+          ) : !lead ? (
+             <p className="text-destructive">Prospect introuvable.</p>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Numéro de Téléphone</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  {getPhoneNumber(lead)}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
