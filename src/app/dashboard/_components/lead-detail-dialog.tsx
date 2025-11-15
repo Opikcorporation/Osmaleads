@@ -63,6 +63,10 @@ const formatPhoneNumberForLink = (value: string): string => {
     return value.replace(/\D/g, '');
 };
 
+const formatKey = (key: string) => {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
 // Main Component
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
@@ -71,15 +75,12 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   
   const [newNote, setNewNote] = useState('');
 
-  // --- DATA FETCHING ---
+  // --- DATA FETCHING (SIMPLIFIED & ROBUST) ---
   const leadRef = useMemo(() => {
-    if (firestore && leadId) {
-      return doc(firestore, 'leads', leadId);
-    }
-    return null;
+    return firestore && leadId ? doc(firestore, 'leads', leadId) : null;
   }, [firestore, leadId]);
   
-  const { data: lead, isLoading: leadLoading } = useDoc<Lead>(leadRef);
+  const { data: lead, isLoading: leadLoading, error: leadError } = useDoc<Lead>(leadRef);
 
   const assignedUserRef = useMemo(() => {
     if (firestore && lead?.assignedCollaboratorId) {
@@ -136,7 +137,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     });
   };
   
-  // --- DERIVED DATA & RENDER FUNCTIONS ---
+    // --- DERIVED DATA & RENDER FUNCTIONS ---
     const getCreationDate = (l: Lead | null): Date | null => {
         if (!l) return null;
         if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
@@ -144,51 +145,56 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
 
         if (!dateString && l.leadData) {
-        try {
-            const parsedData = JSON.parse(l.leadData);
-            dateString = parsedData.created_time || parsedData['Created Time'];
-        } catch (e) { /* ignore */ }
+            try {
+                const parsedData = JSON.parse(l.leadData);
+                dateString = parsedData.created_time || parsedData['Created Time'];
+            } catch (e) { /* ignore */ }
         }
 
         if (dateString) {
-        const date = new Date(dateString);
-        if (!isNaN(date.getTime())) return date;
+            const date = new Date(dateString);
+            if (!isNaN(date.getTime())) return date;
         }
         
         return null;
     };
+
+    const renderLeadData = () => {
+        if (!lead?.leadData) {
+            return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+        }
+
+        let parsedData: Record<string, any>;
+        try {
+            parsedData = JSON.parse(lead.leadData);
+        } catch (e) {
+            return <p className="text-sm text-destructive">Erreur: Impossible d'analyser les données du lead.</p>;
+        }
+        
+        const dataToDisplay = Object.entries(parsedData);
+
+        if (dataToDisplay.length === 0) {
+            return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
+        }
+
+        return (
+            <ul className="space-y-3 text-sm text-foreground">
+                {dataToDisplay.map(([key, value]) => {
+                    const formattedKey = formatKey(key);
+                    const displayValue = value === null || value === '' ? '-' : String(value);
+
+                    return (
+                        <li key={key} className="grid grid-cols-3 gap-2">
+                            <strong className="capitalize col-span-1 truncate">{formattedKey}</strong>
+                            <span className="col-span-2 break-words">{displayValue}</span>
+                        </li>
+                    );
+                })}
+            </ul>
+        );
+    };
   
-  const renderLeadData = () => {
-    if (!lead || !lead.leadData) {
-      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
-    }
-    
-    let parsedData: Record<string, any> = {};
-    try {
-      parsedData = JSON.parse(lead.leadData);
-    } catch (e) {
-      return <p className="text-sm text-destructive">Erreur: Impossible d'analyser les données du lead.</p>;
-    }
-
-    const dataToDisplay = Object.entries(parsedData);
-
-    if (dataToDisplay.length === 0) {
-      return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
-    }
-
-    return (
-      <ul className="space-y-3 text-sm text-foreground">
-        {dataToDisplay.map(([key, value]) => (
-          <li key={key} className="grid grid-cols-3 gap-2">
-            <strong className="capitalize col-span-1 truncate">{key.replace(/_/g, ' ')}</strong> 
-            <span className="col-span-2 break-words">{String(value)}</span>
-          </li>
-        ))}
-      </ul>
-    );
-  };
-  
-  const isLoading = leadLoading || !leadId;
+  const isLoading = leadLoading || !isOpen; // Ensure loading state until fully ready
   const leadName = lead?.name || 'Chargement...';
   const leadPhone = lead?.phone || null;
   const leadEmail = lead?.email || null;
@@ -203,9 +209,17 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         </DialogHeader>
 
         {isLoading ? (
-          <div className="text-center p-8">Chargement de la fiche lead...</div>
+          <div className="flex items-center justify-center p-8">
+            <p>Chargement de la fiche lead...</p>
+          </div>
+        ) : leadError ? (
+          <div className="flex items-center justify-center p-8 text-destructive">
+            <p>Erreur: Impossible de charger le lead. ({leadError.message})</p>
+          </div>
         ) : !lead ? (
-          <div className="text-center p-8 text-destructive">Lead introuvable.</div>
+          <div className="flex items-center justify-center p-8 text-destructive">
+            <p>Lead introuvable.</p>
+          </div>
         ) : (
           <div className="overflow-y-auto">
             <div className="p-6 pt-0 space-y-6">
