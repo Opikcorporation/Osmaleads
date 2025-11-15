@@ -29,7 +29,7 @@ import { CalendarIcon, Info, TrendingUp, Gem } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDoc, useCollection, useFirestore, useFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/status-badge';
@@ -67,6 +67,37 @@ const formatKey = (key: string) => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
+// Helper function to reliably get the creation date from a lead object
+const getCreationDate = (l: Lead): Date | null => {
+  if (l.createdAt && l.createdAt instanceof Timestamp) {
+    return l.createdAt.toDate();
+  }
+  
+  let dateString: string | undefined | null = null;
+  
+  if ((l as any).created_time) {
+    dateString = (l as any).created_time;
+  } else if ((l as any)['Created Time']) {
+    dateString = (l as any)['Created Time'];
+  } else if (l.leadData) {
+    try {
+      const parsedData = JSON.parse(l.leadData);
+      dateString = parsedData.created_time || parsedData['Created Time'];
+    } catch (e) {
+      // It's okay if parsing fails, we'll try other fields.
+    }
+  }
+  
+  if (dateString && typeof dateString === 'string') {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  
+  return null;
+};
+
 // Main Component
 export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogProps) {
   const firestore = useFirestore();
@@ -75,7 +106,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   
   const [newNote, setNewNote] = useState('');
 
-  // --- DATA FETCHING (SIMPLIFIED & ROBUST) ---
+  // --- DATA FETCHING ---
   const leadRef = useMemo(() => {
     return firestore && leadId ? doc(firestore, 'leads', leadId) : null;
   }, [firestore, leadId]);
@@ -138,27 +169,6 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   };
   
     // --- DERIVED DATA & RENDER FUNCTIONS ---
-    const getCreationDate = (l: Lead | null): Date | null => {
-        if (!l) return null;
-        if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
-        
-        let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
-
-        if (!dateString && l.leadData) {
-            try {
-                const parsedData = JSON.parse(l.leadData);
-                dateString = parsedData.created_time || parsedData['Created Time'];
-            } catch (e) { /* ignore */ }
-        }
-
-        if (dateString) {
-            const date = new Date(dateString);
-            if (!isNaN(date.getTime())) return date;
-        }
-        
-        return null;
-    };
-
     const renderLeadData = () => {
         if (!lead?.leadData) {
             return <p className="text-sm text-muted-foreground">Aucune information supplémentaire disponible.</p>;
@@ -180,8 +190,9 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         return (
             <ul className="space-y-3 text-sm text-foreground">
                 {dataToDisplay.map(([key, value]) => {
+                    if (value === null || value === '') return null; // Don't show empty fields
                     const formattedKey = formatKey(key);
-                    const displayValue = value === null || value === '' ? '-' : String(value);
+                    const displayValue = String(value);
 
                     return (
                         <li key={key} className="grid grid-cols-3 gap-2">
@@ -194,11 +205,11 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
         );
     };
   
-  const isLoading = leadLoading || !isOpen; // Ensure loading state until fully ready
+  const isLoading = leadLoading;
   const leadName = lead?.name || 'Chargement...';
   const leadPhone = lead?.phone || null;
   const leadEmail = lead?.email || null;
-  const creationDate = getCreationDate(lead);
+  const creationDate = lead ? getCreationDate(lead) : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

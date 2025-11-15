@@ -40,7 +40,7 @@ import { ScoreBadge } from '@/components/score-badge';
 import { useCollection, useFirestore, useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import type { Lead, Collaborator, LeadStatus, LeadTier } from '@/lib/types';
 import { collection, query, Timestamp, writeBatch, doc } from 'firebase/firestore';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { LeadDetailDialog } from './_components/lead-detail-dialog';
 import { useToast } from '@/hooks/use-toast';
