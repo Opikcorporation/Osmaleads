@@ -48,7 +48,6 @@ const WhatsAppIcon = () => (
     </svg>
 );
 
-
 const getInitials = (name: string) => {
     if (!name) return '';
     return name.split(' ').map((n) => n[0]).slice(0, 2).join('');
@@ -138,26 +137,26 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   };
   
   // --- DERIVED DATA & RENDER FUNCTIONS ---
-  const getCreationDate = (l: Lead): Date | null => {
-    if (!l) return null;
-    if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
-    
-    let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
+    const getCreationDate = (l: Lead | null): Date | null => {
+        if (!l) return null;
+        if (l.createdAt instanceof Timestamp) return l.createdAt.toDate();
+        
+        let dateString: string | undefined | null = (l as any).created_time || (l as any)['Created Time'];
 
-    if (!dateString && l.leadData) {
-      try {
-        const parsedData = JSON.parse(l.leadData);
-        dateString = parsedData.created_time || parsedData['Created Time'];
-      } catch (e) { /* ignore */ }
-    }
+        if (!dateString && l.leadData) {
+        try {
+            const parsedData = JSON.parse(l.leadData);
+            dateString = parsedData.created_time || parsedData['Created Time'];
+        } catch (e) { /* ignore */ }
+        }
 
-    if (dateString) {
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) return date;
-    }
-    
-    return null;
-  };
+        if (dateString) {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) return date;
+        }
+        
+        return null;
+    };
   
   const renderLeadData = () => {
     if (!lead || !lead.leadData) {
@@ -193,7 +192,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
   const leadName = lead?.name || 'Chargement...';
   const leadPhone = lead?.phone || null;
   const leadEmail = lead?.email || null;
-  const creationDate = lead ? getCreationDate(lead) : null;
+  const creationDate = getCreationDate(lead);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
